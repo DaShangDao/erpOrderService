@@ -1,0 +1,69 @@
+pdd:
+  client:
+    id: 203c5a7ba8bd4b8488d5e26f93052642         # 从拼多多开放平台获取
+    secret: 892ffaa86e12b7a3d8d2942b669d9aa520ad8179 # 从拼多多开放平台获取
+  sync:
+    cron: 0 0/30 * * * ? # 每30分钟同步一次
+yunda:
+  appkey: 004064
+  appsecret: eed7ae222b8541deae79cdfc318b7aa8
+
+server:
+  port: 8075
+
+spring:
+  datasource:
+    dynamic:
+      primary: master # 设置默认的数据源或者数据源组,默认值即为master
+      strict: false # 严格匹配数据源,默认false. true未匹配到指定数据源时抛异常,false使用默认数据源
+      datasource:
+        master:
+          url: jdbc:mysql://nj-cynosdbmysql-grp-1v6vxn5f.sql.tencentcdb.com:26247/order?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+          username: root
+          password: Long6166@@
+          driver-class-name: com.mysql.cj.jdbc.Driver
+        taskDb:
+          url: jdbc:mysql://nj-cynosdbmysql-grp-1v6vxn5f.sql.tencentcdb.com:26247/task?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+          username: root
+          password: Long6166@@
+          driver-class-name: com.mysql.cj.jdbc.Driver
+        slave:
+          url: jdbc:mysql://146.56.227.42:3306/zhishu?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+          username: zhishu
+          password: XsRR4K3ATizyc5BK
+          driver-class-name: com.mysql.cj.jdbc.Driver
+  redis:
+    host: 36.212.20.113
+    port: 7963
+    database: 14
+    password: j8nZ4jra2E
+    timeout: 2000
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.order.main.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+forest:
+  max-connections: 1000        # 连接池最大连接数
+  connect-timeout: 3000        # 连接超时时间，单位为毫秒
+  read-timeout: 3000           # 数据读取超时时间，单位为毫秒
+
+dll:
+#  excelDll: "/www/wwwroot/config/excel.so"
+#  xyDll: "/www/wwwroot/config/batchCreat.so"
+#  dllLog: "/www/wwwroot/erpOrderService/log/"
+#  xyDllIni: "/www/wwwroot/config/xyDllConfig/config.ini"
+  excelDll: "D:/zhishu/dll/excel.dll"
+  xyDll: "D:/zhishu/dll/batchCreat.dll"
+  dllLog: "D:/zhishu/dll/"
+  xyDllIni: "D:/zhishu/test/config.ini"
+
+
+# 定时任务配置
+scheduler:
+  open:
+    # 孔夫子订单定时器
+    kfzOrder: false
+  daily:
+    kfzOrder: "0 0/1 * * * ?"

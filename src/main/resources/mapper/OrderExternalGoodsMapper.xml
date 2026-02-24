@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.OrderExternalGoodsMapper">
+
+    <resultMap type="com.order.main.entity.OrderExternalGoods" id="OrderExternalGoodsResult">
+        <result property="id" column="id"/>
+        <result property="type" column="type"/>
+        <result property="orderId" column="order_id"/>
+        <result property="goodsId" column="goods_id"/>
+        <result property="payPrice" column="pay_price"/>
+        <result property="serviceCharge" column="service_charge"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="isDistribution" column="is_distribution"/>
+    </resultMap>
+
+    <sql id="selectColumns">
+        select id,type, order_id, goods_id, pay_price, service_charge,create_by, created_at, is_distribution,dept_use_id
+        from order_external_goods
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" parameterType="Long" resultMap="OrderExternalGoodsResult">
+        <include refid="selectColumns"/>
+        where id = #{id}
+    </select>
+
+    <!-- 根据订单id查询 -->
+    <select id="selectByOrderId" parameterType="Long" resultMap="OrderExternalGoodsResult">
+        <include refid="selectColumns"/>
+        where order_id = #{orderId}
+    </select>
+
+    <!-- 根据仓库用户id查询列表 -->
+    <select id="selelctListBydeptUseId" resultType="com.order.main.dto.OrderExternalGoodsDto">
+        SELECT
+            o.id,type, o.order_id, o.goods_id, o.pay_price, o.service_charge,o.create_by, o.created_at, o.is_distribution,o.dept_use_id,o.whether_outbound,
+            e.id as erp_order_id, e.order_sn, e.shop_id, e.shop_erp_id,e.shop_erp_name, e.shop_type, e.cat_id_1, e.cat_id_2, e.cat_id_3, e.cat_id_4,
+            e.item_list, e.order_total, e.goods_amount, e.order_change_amount, e.pay_amount, e.created_at as erp_order_create_at,
+            e.confirm_status, e.confirm_at, e.pay_no, e.pay_at, e.pay_type, e.platform_discount, e.buyer_memo,
+            e.order_status, e.shipping_id, e.shipping_at, e.city, e.city_id, e.province, e.province_id, e.country,
+            e.country_id, e.town, e.town_id, e.tracking_number, e.remark, e.remark_tag, e.remark_tag_name,
+            e.receive_at, e.after_sales_status, e.updated_at, e.is_show, e.shop_md5_prefix,e.is_issue,e.erp_after_sales_status,
+            e.erp_ass_create_at,e.erp_ass_reason,e.erp_ass_remark,e.erp_ass_address
+        FROM `order_external_goods` o
+        left join erp_goods_order e on e.id = o.order_id
+        where
+            (
+                o.dept_use_id = #{deptUseId}
+                    <if test="createBy != null">
+                        or  e.created_by = #{createBy}
+                    </if>
+                )
+
+        <if test="orderSn != null">
+            AND e.order_sn = #{orderSn}
+        </if>
+        <if test="erpAfterSalesStatus == 0">
+            AND (e.erp_after_sales_status = 0 or e.erp_after_sales_status is null)
+        </if>
+        <if test="erpAfterSalesStatus != 0">
+            AND e.erp_after_sales_status != 0
+        </if>
+        <if test="goodsId != null">
+            AND o.goods_id = #{goodsId}
+        </if>
+        <if test="shopType != null">
+            and e.shop_type = #{shopType}
+        </if>
+        <if test="startTime != null">
+            and o.created_at >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            and o.created_at &lt;= #{endTime}
+        </if>
+        <if test="whetherOutbound != null">
+            and o.whether_outbound = #{whetherOutbound}
+        </if>
+        <if test="orderStatus !=null">
+            and e.order_status = #{orderStatus}
+        </if>
+        order by o.created_at desc
+        limit #{pageNum}, #{pageSize}
+    </select>
+
+    <!-- 根据仓库用户id查询总数 -->
+    <select id="selelctTotalBydeptUseId" resultType="int">
+        SELECT
+           count(*)
+        FROM `order_external_goods` o
+        left join erp_goods_order e on e.id = o.order_id
+        where o.dept_use_id = #{deptUseId}
+        <if test="orderSn != null">
+            AND e.order_sn = #{orderSn}
+        </if>
+        <if test="erpAfterSalesStatus == 0">
+            AND (e.erp_after_sales_status = 0 or e.erp_after_sales_status is null)
+        </if>
+        <if test="erpAfterSalesStatus != 0">
+            AND e.erp_after_sales_status != 0
+        </if>
+        <if test="goodsId != null">
+            AND o.goods_id = #{goodsId}
+        </if>
+        <if test="shopType != null">
+            and e.shop_type = #{shopType}
+        </if>
+        <if test="startTime != null">
+            and o.created_at >= #{startTime}
+        </if>
+        <if test="endTime != null">
+            and o.created_at &lt;= #{endTime}
+        </if>
+        <if test="whetherOutbound != null">
+            and o.whether_outbound = #{whetherOutbound}
+        </if>
+    </select>
+
+    <select id="selectByOrderIdAndIsDistribution" resultMap="OrderExternalGoodsResult">
+        <include refid="selectColumns"/>
+        where order_id = #{orderId} and is_distribution = #{isDistribution}
+    </select>
+
+    <!-- 查询列表 -->
+    <select id="selectList" parameterType="com.order.main.entity.OrderExternalGoods" resultMap="OrderExternalGoodsResult">
+        <include refid="selectColumns"/>
+        <where>
+            <if test="id != null">and id = #{id}</if>
+            <if test="type != null">and type = #{type},</if>
+            <if test="orderId != null">and order_id = #{orderId}</if>
+            <if test="goodsId != null">and goods_id = #{goodsId}</if>
+            <if test="payPrice != null">and pay_price = #{payPrice}</if>
+            <if test="serviceCharge != null">and service_charge = #{serviceCharge}</if>
+            <if test="createBy != null">and create_by = #{createBy}</if>
+            <if test="createdAt != null">and created_at = #{createdAt}</if>
+            <if test="isDistribution != null and isDistribution != ''">and is_distribution = #{isDistribution}</if>
+        </where>
+        order by created_at desc
+    </select>
+
+    <!-- 新增 -->
+    <insert id="insert" parameterType="com.order.main.entity.OrderExternalGoods" useGeneratedKeys="true" keyProperty="id">
+        insert into order_external_goods (
+        <trim suffixOverrides=",">
+            <if test="type != null">type,</if>
+            <if test="orderId != null">order_id,</if>
+            <if test="goodsId != null">goods_id,</if>
+            <if test="payPrice != null">pay_price,</if>
+            <if test="serviceCharge != null">service_charge,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="isDistribution != null and isDistribution != ''">is_distribution,</if>
+            <if test="deptUseId != null">dept_use_id,</if>
+            <if test="whetherOutbound != null">whether_outbound,</if>
+        </trim>
+        ) values (
+        <trim suffixOverrides=",">
+            <if test="type != null">#{type},</if>
+            <if test="orderId != null">#{orderId},</if>
+            <if test="goodsId != null">#{goodsId},</if>
+            <if test="payPrice != null">#{payPrice},</if>
+            <if test="serviceCharge != null">#{serviceCharge},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="isDistribution != null and isDistribution != ''">#{isDistribution},</if>
+            <if test="deptUseId != null">#{deptUseId},</if>
+            <if test="whetherOutbound != null">#{whetherOutbound},</if>
+        </trim>
+        )
+    </insert>
+
+    <!-- 修改 -->
+    <update id="update" parameterType="com.order.main.entity.OrderExternalGoods">
+        update order_external_goods
+        <set>
+            <if test="type != null">type = #{type},</if>
+            <if test="orderId != null">order_id = #{orderId},</if>
+            <if test="goodsId != null">goods_id = #{goodsId},</if>
+            <if test="payPrice != null">pay_price = #{payPrice},</if>
+            <if test="serviceCharge != null">service_charge = #{serviceCharge},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="isDistribution != null and isDistribution != ''">is_distribution = #{isDistribution},</if>
+            <if test="deptUseId != null ">dept_use_id = #{deptUseId}</if>
+            <if test="whetherOutbound != null">whether_outbound = #{whetherOutbound},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <!-- 根据ID删除 -->
+    <delete id="deleteById" parameterType="Long">
+        delete from order_external_goods where id = #{id}
+    </delete>
+
+    <delete id="deletByOrderId" parameterType="Long">
+        delete from order_external_goods where order_id = #{orderId}
+    </delete>
+
+    <!-- 批量删除 -->
+    <delete id="deleteByIds" parameterType="Long">
+        delete from order_external_goods where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

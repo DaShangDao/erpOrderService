@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.ShopGoodsPublishedMapper">
+
+    <select id="selectListByShopsId" resultType="string">
+        select s2.id as goodsName
+        from t_shop_goods_published s1
+        left join zhishu_shop_goods s2 on  s1.shop_goods_id = s2.id
+        where s1.shop_id = #{shopId} and s1.del_flag = 0
+    </select>
+
+
+    <select id="selectByPlatformId" resultType="com.order.main.entity.ShopGoodsPublished">
+        select p.id,p.platform_id,s.mall_id,s.shop_key,shop_type,s.token,g.isbn,g.art_no,g.price,g.inventory from t_shop_goods_published p
+        left join t_shop s on p.shop_id = s.id
+        left join zhishu_shop_goods g on p.shop_goods_id = g.id
+        where p.platform_id = #{platformId}
+    </select>
+
+
+    <select id="selectByShopGoodsId" resultType="com.order.main.entity.ShopGoodsPublished">
+        select p.id,p.shop_id,p.platform_id,s.id,s.mall_id,s.shop_key,shop_type,s.token,g.isbn,g.art_no,g.price,g.inventory,s.shop_name from t_shop_goods_published p
+        left join t_shop s on p.shop_id = s.id
+        left join zhishu_shop_goods g on p.shop_goods_id = g.id
+        where p.shop_goods_id = #{shopGoodsId}
+    </select>
+
+
+    <select id="selectByShopIdAndGoodsId" resultType="com.order.main.entity.ShopGoodsPublished">
+        select * from t_shop_goods_published
+        where shop_id = #{shopId} and shop_goods_id = #{goodsId}
+    </select>
+
+    <select id="selectByShopIdAndPlatformId" resultType="com.order.main.entity.ShopGoodsPublished">
+        select p.*,g.isbn,g.art_no,g.price,g.inventory from t_shop_goods_published p
+        left join zhishu_shop_goods g on p.shop_goods_id = g.id
+        where p.shop_id = #{shopId} and p.platform_id = #{platformId}
+        limit 1
+    </select>
+
+</mapper>

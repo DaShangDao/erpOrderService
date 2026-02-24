@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.RunningTaskMapper">
+
+
+    <!-- 插入任务记录 -->
+    <insert id="insert" parameterType="com.order.main.entity.RunningTask" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_running_task (
+        <if test="taskId != null">task_id,</if>
+        <if test="shopId != null">shop_id,</if>
+        <if test="goodsId != null">goods_id,</if>
+        <if test="randomNum != null">random_num,</if>
+        <if test="taskName != null">task_name,</if>
+        <if test="priority != null">priority,</if>
+        <if test="data != null">data,</if>
+        <if test="status != null">status,</if>
+        <if test="callBackData != null">call_back_data,</if>
+        <if test="taskType != null">task_type,</if>
+        <if test="successData != null">success_data,</if>
+        create_time
+        ) VALUES (
+        <if test="taskId != null">#{taskId},</if>
+        <if test="shopId != null">#{shopId},</if>
+        <if test="goodsId != null">#{goodsId},</if>
+        <if test="randomNum != null">#{randomNum},</if>
+        <if test="taskName != null">#{taskName},</if>
+        <if test="priority != null">#{priority},</if>
+        <if test="data != null">#{data},</if>
+        <if test="status != null">#{status},</if>
+        <if test="callBackData != null">#{callBackData},</if>
+        <if test="taskType != null">#{taskType},</if>
+        <if test="successData != null">#{successData},</if>
+        now()
+        )
+        ON DUPLICATE KEY UPDATE status = VALUES(status);
+    </insert>
+
+    <insert id="batchInsert" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_running_task (
+        <if test="list[0].taskId != null">task_id,</if>
+        <if test="list[0].shopId != null">shop_id,</if>
+        <if test="list[0].goodsId != null">goods_id,</if>
+        <if test="list[0].randomNum != null">random_num,</if>
+        <if test="list[0].taskName != null">task_name,</if>
+        <if test="list[0].priority != null">priority,</if>
+        <if test="list[0].data != null">data,</if>
+        <if test="list[0].status != null">status,</if>
+        <if test="list[0].callBackData != null">call_back_data,</if>
+        <if test="list[0].taskType != null">task_type,</if>
+        <if test="list[0].successData != null">success_data,</if>
+        create_time
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            <if test="item.taskId != null">#{item.taskId},</if>
+            <if test="item.shopId != null">#{item.shopId},</if>
+            <if test="item.goodsId != null">#{item.goodsId},</if>
+            <if test="item.randomNum != null">#{item.randomNum},</if>
+            <if test="item.taskName != null">#{item.taskName},</if>
+            <if test="item.priority != null">#{item.priority},</if>
+            <if test="item.data != null">#{item.data},</if>
+            <if test="item.status != null">#{item.status},</if>
+            <if test="item.callBackData != null">#{item.callBackData},</if>
+            <if test="item.taskType != null">#{item.taskType},</if>
+            <if test="item.successData != null">#{item.successData},</if>
+            now()
+            )
+        </foreach>
+    </insert>
+</mapper>

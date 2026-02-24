@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.ErpGoodsOrderAccountsMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.ErpGoodsOrderAccounts">
+        <id property="id" column="id"/>
+        <result property="erpOrderId" column="erp_order_id"/>
+        <result property="getId" column="get_id"/>
+        <result property="setId" column="set_id"/>
+        <result property="getStatus" column="get_status"/>
+        <result property="setStatus" column="set_status"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, erp_order_id, get_id, set_id, get_status, set_status
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM erp_goods_order_accounts
+        WHERE id = #{id}
+    </select>
+
+    <!-- 根据订单ID查询 -->
+    <select id="selectByOrderId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM erp_goods_order_accounts
+        WHERE erp_order_id = #{erpOrderId} and get_status = 0 and set_status = 0
+    </select>
+
+    <!-- 分页查询列表 -->
+    <select id="selectPageList" parameterType="com.order.main.entity.ErpGoodsOrderAccounts" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM erp_goods_order_accounts
+        <where>
+            <if test="erpOrderId != null">
+                AND erp_order_id = #{erpOrderId}
+            </if>
+            <if test="getId != null">
+                AND get_id = #{getId}
+            </if>
+            <if test="setId != null">
+                AND set_id = #{setId}
+            </if>
+            <if test="getStatus != null">
+                AND get_status = #{getStatus}
+            </if>
+            <if test="setStatus != null">
+                AND set_status = #{setStatus}
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{pageNum}, #{pageSize}
+    </select>
+
+    <!-- 查询总记录数 -->
+    <select id="count" parameterType="com.order.main.entity.ErpGoodsOrderAccounts" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM erp_goods_order_accounts
+        <where>
+            <if test="erpOrderId != null">
+                AND erp_order_id = #{erpOrderId}
+            </if>
+            <if test="getId != null">
+                AND get_id = #{getId}
+            </if>
+            <if test="setId != null">
+                AND set_id = #{setId}
+            </if>
+            <if test="getStatus != null">
+                AND get_status = #{getStatus}
+            </if>
+            <if test="setStatus != null">
+                AND set_status = #{setStatus}
+            </if>
+        </where>
+    </select>
+
+    <!-- 条件查询列表 -->
+    <select id="selectList" parameterType="com.order.main.entity.ErpGoodsOrderAccounts" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM erp_goods_order_accounts
+        <where>
+            <if test="erpOrderId != null">
+                AND erp_order_id = #{erpOrderId}
+            </if>
+            <if test="getId != null">
+                AND get_id = #{getId}
+            </if>
+            <if test="setId != null">
+                AND set_id = #{setId}
+            </if>
+            <if test="getStatus != null">
+                AND get_status = #{getStatus}
+            </if>
+            <if test="setStatus != null">
+                AND set_status = #{setStatus}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <!-- 新增 -->
+    <insert id="insert" parameterType="com.order.main.entity.ErpGoodsOrderAccounts" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO erp_goods_order_accounts (
+            erp_order_id,
+            get_id,
+            set_id,
+            get_status,
+            set_status
+        ) VALUES (
+                     #{erpOrderId},
+                     #{getId},
+                     #{setId},
+                     #{getStatus},
+                     #{setStatus}
+                 )
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.order.main.entity.ErpGoodsOrderAccounts">
+        UPDATE erp_goods_order_accounts
+        <set>
+            <if test="erpOrderId != null">
+                erp_order_id = #{erpOrderId},
+            </if>
+            <if test="getId != null">
+                get_id = #{getId},
+            </if>
+            <if test="setId != null">
+                set_id = #{setId},
+            </if>
+            <if test="getStatus != null">
+                get_status = #{getStatus},
+            </if>
+            <if test="setStatus != null">
+                set_status = #{setStatus},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除 -->
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM erp_goods_order_accounts
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 批量删除 -->
+    <delete id="deleteBatch" parameterType="java.util.List">
+        DELETE FROM erp_goods_order_accounts
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.StockChangeLogMapper">
+
+
+    <select id="selectByAboutId" resultType="com.order.main.entity.StockChangeLog">
+        SELECT
+            id,
+            before_inv,
+            after_inv,
+            create_by,
+            create_time,
+            type
+        FROM
+            t_stock_change_log
+        WHERE
+            shop_goods_id = #{shopGoodsId} AND about_id = #{aboutId}
+    </select>
+
+    <insert id="insert" parameterType="com.order.main.entity.StockChangeLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_stock_change_log (
+            shop_goods_id,
+            type,
+            about_id,
+            before_inv,
+            after_inv,
+            create_by,
+            update_by,
+            create_time,
+            update_time
+        ) VALUES (
+                     #{shopGoodsId},
+                     #{type},
+                     #{aboutId},
+                     #{beforeInv},
+                     #{afterInv},
+                     #{createBy},
+                     #{updateBy},
+                     #{createTime},
+                     #{updateTime}
+                 )
+    </insert>
+
+</mapper>

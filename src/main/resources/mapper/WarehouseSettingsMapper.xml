@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.WarehouseSettingsMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.WarehouseSettings">
+        <id property="id" column="id"/>
+        <result property="settingName" column="setting_name"/>
+        <result property="stockSynchronizeType" column="stock_synchronize_type"/>
+        <result property="autoIssue" column="auto_issue"/>
+        <result property="status" column="status"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="stockRollback" column="stock_rollback"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createAt" column="create_at"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateAt" column="update_at"/>
+        <result property="shopIds" column="shop_ids"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, setting_name, stock_synchronize_type, auto_issue,loss_protection, profit_floor,status,
+        del_flag, stock_rollback, create_by, create_at, update_by, update_at,shop_ids
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM warehouse_settings
+        WHERE id = #{id}
+    </select>
+
+    <!-- 分页查询列表 -->
+    <select id="selectPageList" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM warehouse_settings
+        WHERE del_flag = #{delFlag}
+        <if test="settingName != null and settingName != ''">
+            AND setting_name LIKE CONCAT('%', #{settingName}, '%')
+        </if>
+        <if test="stockSynchronizeType != null">
+            AND stock_synchronize_type = #{stockSynchronizeType}
+        </if>
+        <if test="autoIssue != null">
+            AND auto_issue = #{autoIssue}
+        </if>
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        <if test="createBy != null">
+            AND create_by = #{createBy}
+        </if>
+        ORDER BY create_at DESC
+        LIMIT #{pageNum}, #{pageSize}
+    </select>
+
+    <!-- 查询总记录数 -->
+    <select id="count" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM warehouse_settings
+        WHERE del_flag = #{delFlag}
+        <if test="settingName != null and settingName != ''">
+            AND setting_name LIKE CONCAT('%', #{settingName}, '%')
+        </if>
+        <if test="stockSynchronizeType != null">
+            AND stock_synchronize_type = #{stockSynchronizeType}
+        </if>
+        <if test="autoIssue != null">
+            AND auto_issue = #{autoIssue}
+        </if>
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <!-- 条件查询列表 -->
+    <select id="selectList" parameterType="com.order.main.entity.WarehouseSettings" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM warehouse_settings
+        <where>
+            <if test="delFlag != null">
+                AND del_flag = #{delFlag}
+            </if>
+            <if test="delFlag == null">
+                AND del_flag = 0
+            </if>
+            <if test="id != null">
+                AND id = #{id}
+            </if>
+            <if test="settingName != null and settingName != ''">
+                AND setting_name LIKE CONCAT('%', #{settingName}, '%')
+            </if>
+            <if test="stockSynchronizeType != null">
+                AND stock_synchronize_type = #{stockSynchronizeType}
+            </if>
+            <if test="autoIssue != null">
+                AND auto_issue = #{autoIssue}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="stockRollback != null">
+                AND stock_rollback = #{stockRollback}
+            </if>
+        </where>
+        ORDER BY create_at DESC
+    </select>
+
+    <!-- 新增 -->
+    <insert id="insert" parameterType="com.order.main.entity.WarehouseSettings" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO warehouse_settings (
+            setting_name,
+            stock_synchronize_type,
+            auto_issue,
+            loss_protection,
+            profit_floor,
+            status,
+            del_flag,
+            stock_rollback,
+            create_by,
+            create_at,
+            update_by,
+            update_at,
+            shop_ids
+        ) VALUES (
+                     #{settingName},
+                     #{stockSynchronizeType},
+                     #{autoIssue},
+                      #{lossProtection},
+                     #{profitFloor},
+                     #{status},
+                     #{delFlag},
+                     #{stockRollback},
+                     #{createBy},
+                     #{createAt},
+                     #{updateBy},
+                     #{updateAt},
+                      #{shopIds}
+                 )
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.order.main.entity.WarehouseSettings">
+        UPDATE warehouse_settings
+        <set>
+            <if test="settingName != null and settingName != ''">
+                setting_name = #{settingName},
+            </if>
+            <if test="stockSynchronizeType != null">
+                stock_synchronize_type = #{stockSynchronizeType},
+            </if>
+            <if test="autoIssue != null">
+                auto_issue = #{autoIssue},
+            </if>
+            <if test="lossProtection != null">
+                loss_protection = #{lossProtection},
+            </if>
+            <if test="profitFloor != null">
+                profit_floor = #{profitFloor},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="delFlag != null">
+                del_flag = #{delFlag},
+            </if>
+            <if test="stockRollback != null">
+                stock_rollback = #{stockRollback},
+            </if>
+            <if test="shopIds != null">
+                shop_ids = #{shopIds},
+            </if>
+            <if test="updateBy != null">
+                update_by = #{updateBy},
+            </if>
+            update_at = #{updateAt}
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据修改人进行批量修改 -->
+    <update id="updateByUpdateBy" parameterType="com.order.main.entity.WarehouseSettings">
+        UPDATE warehouse_settings
+        <set>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            update_at = #{updateAt}
+        </set>
+        WHERE update_by = #{updateBy}
+    </update>
+
+    <!-- 根据ID删除 -->
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM warehouse_settings
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 批量删除 -->
+    <delete id="deleteBatch" parameterType="java.util.List">
+        DELETE FROM warehouse_settings
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

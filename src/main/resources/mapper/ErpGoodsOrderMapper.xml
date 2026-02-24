@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.ErpGoodsOrderMapper">
+
+    <resultMap id="ErpGoodsOrderResult" type="com.order.main.entity.ErpGoodsOrder">
+        <id property="id" column="id" />
+        <result property="orderSn" column="order_sn" />
+        <result property="shopId" column="shop_id" />
+        <result property="shopErpId" column="shop_erp_id" />
+        <result property="shopErpName" column="shop_erp_name"/>
+        <result property="shopType" column="shop_type" />
+        <result property="catId1" column="cat_id_1" />
+        <result property="catId2" column="cat_id_2" />
+        <result property="catId3" column="cat_id_3" />
+        <result property="catId4" column="cat_id_4" />
+        <result property="itemList" column="item_list" />
+        <result property="orderTotal" column="order_total" />
+        <result property="goodsAmount" column="goods_amount" />
+        <result property="orderChangeAmount" column="order_change_amount" />
+        <result property="payAmount" column="pay_amount" />
+        <result property="createdBy" column="created_by"/>
+        <result property="createdAt" column="created_at" />
+        <result property="confirmStatus" column="confirm_status" />
+        <result property="confirmAt" column="confirm_at" />
+        <result property="payNo" column="pay_no" />
+        <result property="payAt" column="pay_at" />
+        <result property="payType" column="pay_type" />
+        <result property="platformDiscount" column="platform_discount" />
+        <result property="buyerMemo" column="buyer_memo" />
+        <result property="orderStatus" column="order_status" />
+        <result property="shippingId" column="shipping_id" />
+        <result property="shippingAt" column="shipping_at" />
+        <result property="city" column="city" />
+        <result property="cityId" column="city_id" />
+        <result property="province" column="province" />
+        <result property="provinceId" column="province_id" />
+        <result property="country" column="country" />
+        <result property="countryId" column="country_id" />
+        <result property="town" column="town" />
+        <result property="townId" column="town_id" />
+        <result property="trackingNumber" column="tracking_number" />
+        <result property="remark" column="remark" />
+        <result property="remarkTag" column="remark_tag" />
+        <result property="remarkTagName" column="remark_tag_name" />
+        <result property="receiveAt" column="receive_at" />
+        <result property="afterSalesStatus" column="after_sales_status" />
+        <result property="updatedAt" column="updated_at" />
+        <result property="isShow" column="is_show" />
+        <result property="shopMd5Prefix" column="shop_md5_prefix" />
+    </resultMap>
+
+    <sql id="selectErpGoodsOrderVo">
+        select id, order_sn, shop_id, shop_erp_id,shop_erp_name, shop_type, cat_id_1, cat_id_2, cat_id_3, cat_id_4,
+               item_list, order_total, goods_amount, order_change_amount, pay_amount,created_by, created_at,
+               confirm_status, confirm_at, pay_no, pay_at, pay_type, platform_discount, buyer_memo,
+               order_status, shipping_id, shipping_at, city, city_id, province, province_id, country,
+               country_id, town, town_id, tracking_number, remark, remark_tag, remark_tag_name,
+               receive_at, after_sales_status, updated_at, is_show, shop_md5_prefix,is_issue,erp_after_sales_status,
+               erp_ass_create_at,erp_ass_reason,erp_ass_remark,erp_ass_address,receiver_name,mobile
+        from erp_goods_order
+    </sql>
+
+    <!-- 动态条件SQL片段 -->
+    <sql id="dynamicWhere">
+        <where>
+            <if test="order.id != null">
+                and id = #{order.id}
+            </if>
+            <if test="order.orderSn != null and order.orderSn != ''">
+                and order_sn like concat('%', #{order.orderSn}, '%')
+            </if>
+            <if test="order.shopId != null">
+                and shop_id = #{order.shopId}
+            </if>
+            <if test="order.shopErpId != null">
+                and shop_erp_id = #{order.shopErpId}
+            </if>
+            <if test="order.shopType != null">
+                and shop_type = #{order.shopType}
+            </if>
+            <if test="order.orderStatus != null">
+                and order_status = #{order.orderStatus}
+            </if>
+            <if test="order.createdBy != null">
+                and created_by = #{order.createdBy}
+            </if>
+            <if test="order.confirmStatus != null">
+                and confirm_status = #{order.confirmStatus}
+            </if>
+            <if test="order.payType != null">
+                and pay_type = #{order.payType}
+            </if>
+            <if test="order.afterSalesStatus != null">
+                and after_sales_status = #{order.afterSalesStatus}
+            </if>
+            <if test="order.isShow != null">
+                and is_show = #{order.isShow}
+            </if>
+            <if test="order.province != null and order.province != ''">
+                and province like concat('%', #{order.province}, '%')
+            </if>
+            <if test="order.city != null and order.city != ''">
+                and city like concat('%', #{order.city}, '%')
+            </if>
+            <if test="order.country != null and order.country != ''">
+                and country like concat('%', #{order.country}, '%')
+            </if>
+            <if test="order.town != null and order.town != ''">
+                and town like concat('%', #{order.town}, '%')
+            </if>
+            <if test="order.remarkTag != null and order.remarkTag != ''">
+                and remark_tag = #{order.remarkTag}
+            </if>
+            <if test="order.remark != null and order.remark != ''">
+                and remark like concat('%', #{order.remark}, '%')
+            </if>
+            <if test="order.isIssue != null">
+                and is_issue = #{order.isIssue}
+            </if>
+            <if test="order.erpAfterSalesStatus != null">
+                and erp_after_sales_status = #{order.erpAfterSalesStatus}
+            </if>
+            <if test="order.startTime != null">
+                and created_at >=
+                CASE
+                WHEN LENGTH(created_at) = 10 THEN #{order.startTime} / 1000
+                ELSE #{order.startTime}
+                END
+            </if>
+            <if test="order.endTime != null">
+                and created_at &lt;=
+                CASE
+                WHEN LENGTH(created_at) = 10 THEN #{order.endTime} / 1000
+                ELSE #{order.endTime}
+                END
+            </if>
+        </where>
+    </sql>
+
+
+    <select id="selectById" resultMap="ErpGoodsOrderResult">
+        <include refid="selectErpGoodsOrderVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByOrderNo" resultMap="ErpGoodsOrderResult">
+        <include refid="selectErpGoodsOrderVo"/>
+        where order_sn = #{orderSn}
+    </select>
+
+    <select id="selectListByOrderNo" resultMap="ErpGoodsOrderResult">
+        <include refid="selectErpGoodsOrderVo"/>
+        where order_sn = #{orderSn}
+    </select>
+
+
+    <select id="selectBoOrderNoAndGoodsId" resultMap="ErpGoodsOrderResult">
+        <include refid="selectErpGoodsOrderVo"/>
+        where order_sn = #{orderSn} and item_list like concat('%', #{goodsId}, '%')
+    </select>
+
+    <!-- 分页查询 -->
+    <select id="selectPageList" resultMap="ErpGoodsOrderResult">
+        <include refid="selectErpGoodsOrderVo"/>
+        <include refid="dynamicWhere"/>
+        order by created_at desc
+        limit #{order.pageNum}, #{order.pageSize}
+    </select>
+
+    <!-- 总数查询 -->
+    <select id="selectPageCount" resultType="int">
+        select count(*)
+        from erp_goods_order
+        <include refid="dynamicWhere"/>
+    </select>
+
+    <insert id="insert" parameterType="com.order.main.entity.ErpGoodsOrder" useGeneratedKeys="true" keyProperty="id">
+        insert into erp_goods_order (
+            order_sn,
+            shop_id,
+            shop_erp_id,
+            shop_erp_name,
+            shop_type,
+            cat_id_1,
+            cat_id_2,
+            cat_id_3,
+            cat_id_4,
+            item_list,
+            order_total,
+            goods_amount,
+            order_change_amount,
+            pay_amount,
+            created_by,
+            created_at,
+            confirm_status,
+            confirm_at,
+            pay_no,
+            pay_at,
+            pay_type,
+            platform_discount,
+            buyer_memo,
+            order_status,
+            shipping_id,
+            shipping_at,
+            city,
+            city_id,
+            province,
+            province_id,
+            country,
+            country_id,
+            town,
+            town_id,
+            tracking_number,
+            remark,
+            remark_tag,
+            remark_tag_name,
+            receive_at,
+            after_sales_status,
+            updated_at,
+            is_show,
+            is_issue,
+            receiver_name,
+            mobile
+        ) values (
+                     #{orderSn},
+                     #{shopId},
+                     #{shopErpId},
+                     #{shopErpName},
+                     #{shopType},
+                     #{catId1},
+                     #{catId2},
+                     #{catId3},
+                     #{catId4},
+                     #{itemList},
+                     #{orderTotal},
+                     #{goodsAmount},
+                     #{orderChangeAmount},
+                     #{payAmount},
+                     #{createdBy},
+                     #{createdAt},
+                     #{confirmStatus},
+                     #{confirmAt},
+                     #{payNo},
+                     #{payAt},
+                     #{payType},
+                     #{platformDiscount},
+                     #{buyerMemo},
+                     #{orderStatus},
+                     #{shippingId},
+                     #{shippingAt},
+                     #{city},
+                     #{cityId},
+                     #{province},
+                     #{provinceId},
+                     #{country},
+                     #{countryId},
+                     #{town},
+                     #{townId},
+                     #{trackingNumber},
+                     #{remark},
+                     #{remarkTag},
+                     #{remarkTagName},
+                     #{receiveAt},
+                     #{afterSalesStatus},
+                     #{updatedAt},
+                     #{isShow},
+                     #{isIssue},
+                     #{receiverName},
+                     #{mobile}
+                 )
+    </insert>
+
+    <update id="update" parameterType="com.order.main.entity.ErpGoodsOrder">
+        update erp_goods_order
+        <set>
+            <if test="orderSn != null">order_sn = #{orderSn},</if>
+            <if test="shopId != null">shop_id = #{shopId},</if>
+            <if test="shopErpId != null">shop_erp_id = #{shopErpId},</if>
+            <if test="shopType != null">shop_type = #{shopType},</if>
+            <if test="catId1 != null">cat_id_1 = #{catId1},</if>
+            <if test="catId2 != null">cat_id_2 = #{catId2},</if>
+            <if test="catId3 != null">cat_id_3 = #{catId3},</if>
+            <if test="catId4 != null">cat_id_4 = #{catId4},</if>
+            <if test="itemList != null">item_list = #{itemList},</if>
+            <if test="orderTotal != null">order_total = #{orderTotal},</if>
+            <if test="goodsAmount != null">goods_amount = #{goodsAmount},</if>
+            <if test="orderChangeAmount != null">order_change_amount = #{orderChangeAmount},</if>
+            <if test="payAmount != null">pay_amount = #{payAmount},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="confirmStatus != null">confirm_status = #{confirmStatus},</if>
+            <if test="confirmAt != null">confirm_at = #{confirmAt},</if>
+            <if test="payNo != null">pay_no = #{payNo},</if>
+            <if test="payAt != null">pay_at = #{payAt},</if>
+            <if test="payType != null">pay_type = #{payType},</if>
+            <if test="platformDiscount != null">platform_discount = #{platformDiscount},</if>
+            <if test="buyerMemo != null">buyer_memo = #{buyerMemo},</if>
+            <if test="orderStatus != null">order_status = #{orderStatus},</if>
+            <if test="shippingId != null">shipping_id = #{shippingId},</if>
+            <if test="shippingAt != null">shipping_at = #{shippingAt},</if>
+            <if test="city != null">city = #{city},</if>
+            <if test="cityId != null">city_id = #{cityId},</if>
+            <if test="province != null">province = #{province},</if>
+            <if test="provinceId != null">province_id = #{provinceId},</if>
+            <if test="country != null">country = #{country},</if>
+            <if test="countryId != null">country_id = #{countryId},</if>
+            <if test="town != null">town = #{town},</if>
+            <if test="townId != null">town_id = #{townId},</if>
+            <if test="trackingNumber != null">tracking_number = #{trackingNumber},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="remarkTag != null">remark_tag = #{remarkTag},</if>
+            <if test="remarkTagName != null">remark_tag_name = #{remarkTagName},</if>
+            <if test="receiveAt != null">receive_at = #{receiveAt},</if>
+            <if test="afterSalesStatus != null">after_sales_status = #{afterSalesStatus},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+            <if test="isShow != null">is_show = #{isShow},</if>
+            <if test="isIssue != null">is_issue = #{isIssue},</if>
+            <if test="erpAfterSalesStatus != null"> erp_after_sales_status = #{erpAfterSalesStatus},</if>
+            <if test="erpAssCreateAt != null"> erp_ass_create_at = #{erpAssCreateAt},</if>
+            <if test="erpAssReason != null"> erp_ass_reason = #{erpAssReason},</if>
+            <if test="erpAssRemark != null"> erp_ass_remark = #{erpAssRemark},</if>
+            <if test="erpAssAddress != null"> erp_ass_address = #{erpAssAddress},</if>
+            <if test="receiverName != null"> receiver_name = #{receiverName},</if>
+            <if test="mobile != null"> mobile = #{mobile},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        delete from erp_goods_order where id = #{id}
+    </delete>
+
+    <update id="fakeDeleteById">
+        update erp_goods_order set is_show = 1 where id = #{id}
+    </update>
+</mapper>

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.UserSettingsAttributeMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.UserSettingsAttribute">
+        <id column="id" property="id" />
+        <result column="warehouse_settings_id" property="warehouseSettingId" />
+        <result column="attribute_id" property="attributeId" />
+        <result column="attribute_value" property="attributeValue" />
+        <result column="create_by" property="createBy" />
+        <result column="create_at" property="createAt" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_at" property="updateAt" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, warehouse_settings_id, attribute_id, attribute_value, create_by, create_at, update_by, update_at
+    </sql>
+
+    <!-- 新增 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_settings_attribute (
+            warehouse_settings_id, attribute_id, attribute_value,
+            create_by, create_at, update_by, update_at
+        ) VALUES (
+                     #{warehouseSettingId}, #{attributeId}, #{attributeValue},
+                     #{createBy}, #{createAt}, #{updateBy}, #{updateAt}
+                 )
+    </insert>
+
+    <!-- 批量新增 -->
+    <insert id="batchInsert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_settings_attribute (
+        warehouse_settings_id, attribute_id, attribute_value,
+        create_by, create_at, update_by, update_at
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.warehouseSettingId}, #{item.attributeId}, #{item.attributeValue},
+            #{item.createBy}, #{item.createAt}, #{item.updateBy}, #{item.updateAt}
+            )
+        </foreach>
+    </insert>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM user_settings_attribute
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByWarehouseSettingsId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM user_settings_attribute
+        where warehouse_settings_id = #{warehouseSettingsId}
+    </select>
+
+    <!-- 动态条件查询 -->
+    <select id="selectList" resultMap="BaseResultMap" parameterType="com.order.main.entity.UserSettingsAttribute">
+        SELECT <include refid="Base_Column_List" />
+        FROM user_settings_attribute
+        <where>
+            <if test="id != null">AND id = #{id}</if>
+            <if test="warehouseSettingId != null">AND warehouse_settings_id = #{warehouseSettingId}</if>
+            <if test="attributeId != null">AND attribute_id = #{attributeId}</if>
+            <if test="attributeValue != null and attributeValue != ''">AND attribute_value LIKE CONCAT('%', #{attributeValue}, '%')</if>
+            <if test="createBy != null">AND create_by = #{createBy}</if>
+            <if test="createAt != null">AND create_at = #{createAt}</if>
+            <if test="updateBy != null">AND update_by = #{updateBy}</if>
+            <if test="updateAt != null">AND update_at = #{updateAt}</if>
+        </where>
+    </select>
+
+    <!-- 根据ID更新 -->
+    <update id="updateById">
+        UPDATE user_settings_attribute
+        <set>
+            <if test="warehouseSettingId != null">warehouse_settings_id = #{warehouseSettingId},</if>
+            <if test="attributeId != null">attribute_id = #{attributeId},</if>
+            <if test="attributeValue != null">attribute_value = #{attributeValue},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createAt != null">create_at = #{createAt},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateAt != null">update_at = #{updateAt},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除 -->
+    <delete id="deleteById">
+        DELETE FROM user_settings_attribute WHERE id = #{id}
+    </delete>
+
+    <!-- 根据 warehouseSettingId 删除 -->
+    <delete id="deleteByWarehouseSettingId">
+        DELETE FROM user_settings_attribute WHERE warehouse_settings_id = #{warehouseSettingId}
+    </delete>
+
+    <!-- 批量删除 -->
+    <delete id="batchDeleteByIds">
+        DELETE FROM user_settings_attribute WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!-- 根据 warehouseSettingId 查询 -->
+    <select id="selectByWarehouseSettingId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM user_settings_attribute
+        WHERE warehouse_settings_id = #{warehouseSettingId}
+    </select>
+
+    <!-- 根据 attributeId 查询 -->
+    <select id="selectByAttributeId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM user_settings_attribute
+        WHERE attribute_id = #{attributeId}
+    </select>
+
+</mapper>

@@ -1,0 +1,59 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '2.7.18'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'war'
+}
+
+group = 'com.order'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(11)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	//dll
+	implementation 'net.java.dev.jna:jna:5.13.0'
+	implementation 'net.java.dev.jna:jna-platform:5.13.0'
+	// Caffeine缓存
+	implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+	implementation 'org.springframework.boot:spring-boot-starter'
+	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:2.2.2'
+	implementation fileTree(dir: 'libs', include: ['*.jar'])
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework:spring-context'
+	// 新增AOP依赖
+	implementation 'org.springframework.boot:spring-boot-starter-aop'
+	// 使用Lombok
+	implementation 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	implementation group: 'com.dtflys.forest', name: 'forest-spring-boot-starter', version: '1.6.4'
+	implementation 'com.google.guava:guava:32.1.3-jre'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:2.2.2'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat' // 标记为provided
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// Spring Data Redis 支持 (包含 lettuce 客户端)
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+	// 添加动态数据源依赖
+	implementation 'com.baomidou:dynamic-datasource-spring-boot-starter:4.1.3'
+}
+
+tasks.withType(Test).configureEach {
+	enabled = false
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

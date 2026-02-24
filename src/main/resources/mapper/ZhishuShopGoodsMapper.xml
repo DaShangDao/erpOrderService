@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.ZhishuShopGoodsMapper">
+
+    <select id="selectList" resultType="com.order.main.entity.ZhishuShopGoods">
+        SELECT s.*,d.user_id as depot_user_id,u.warehouse_name
+        FROM `zhishu_shop_goods` s
+        left join t_depot d on s.depot_id = d.id
+        left join sys_user u on d.user_id = u.user_id
+        <where>
+            <if test="isbn != null and isbn != ''">
+                AND s.isbn = #{isbn}
+            </if>
+            <if test="inventory != null">
+                AND s.inventory = #{inventory}
+            </if>
+            <if test="delFlag != null">
+                AND s.del_flag = #{delFlag}
+            </if>
+            <if test="isJoinDistribution != null">
+                AND s.is_join_distribution = #{isJoinDistribution}
+            </if>
+            <if test="conditionCode != null">
+                AND s.condition_code >= #{conditionCode}
+            </if>
+        </where>
+        order by UPPER(s.condition_code) desc,s.price asc
+        limit #{pageNum},#{pageSize}
+    </select>
+
+    <select id="selectById" resultType="com.order.main.entity.ZhishuShopGoods">
+    select s.*,d.user_id as depot_user_id,u.warehouse_name from zhishu_shop_goods s
+      left join t_depot d on s.depot_id = d.id
+      left join sys_user u on d.user_id = u.user_id
+     where s.id = #{id}
+    </select>
+
+    <select id="selectLogisticsByGoodsId" resultType="map">
+        select l.* from t_logistics l
+        left join t_depot d on d.template_id = l.id
+        left join zhishu_shop_goods g on d.id = g.depot_id
+        where g.id = #{goodsId}
+    </select>
+
+    <select id="selectByArtNo" resultType="com.order.main.entity.ZhishuShopGoods">
+        select * from zhishu_shop_goods where art_no = #{artNo}
+    </select>
+
+    <update id="updateInventory">
+        update zhishu_shop_goods set inventory = #{inventory},update_time = now()
+        <where>
+            <if test="id != null">
+                and id = #{id}
+            </if>
+            <if test="productId!=null">
+                and product_id = #{productId}
+            </if>
+            <if test="goodsName!=null">
+                and goods_name = #{goodsName}
+            </if>
+            <if test="isbn!=null">
+                and isbn = #{isbn}
+            </if>
+            <if test="price!=null">
+                and price = #{price}
+            </if>
+            <if test="conditionCode!=null">
+                and condition_code = #{conditionCode}
+            </if>
+            <if test="fixPrice!=null">
+                and fix_price = #{fixPrice}
+            </if>
+            <if test="artNo!=null">
+                and art_no = #{artNo}
+            </if>
+        </where>
+    </update>
+
+</mapper>

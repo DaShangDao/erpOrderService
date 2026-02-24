@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.ShopMapper">
+
+    <select id="selectOneById" resultType="com.order.main.entity.Shop" >
+        select * from t_shop
+        where id = #{id} and del_flag = 0
+    </select>
+
+    <select id="selectShopIdsList" resultType="Long">
+        select id from t_shop
+        where shop_type = #{shopType} and del_flag = '0' and status = '0' and is_syn_order = 1 and shop_authorize = '1'
+    </select>
+
+    <select id="selectShopByMallId" resultType="com.order.main.entity.Shop">
+        SELECT * FROM `t_shop`
+        where del_flag = '0' and mall_id = #{mallId}
+    </select>
+
+    <select id="selectShopByShopKey" resultType="com.order.main.entity.Shop">
+        SELECT * FROM `t_shop`
+        where del_flag = '0' and is_expiration = '1'  and shop_key = #{shopKey}
+    </select>
+
+    <select id="selectShopIdsByMallId" resultType="string">
+        SELECT id FROM `t_shop`
+        where shop_type = #{shopType} and del_flag = '0' and mall_id = #{mallId}
+    </select>
+
+
+    <select id="selectOpenPolishShopList" resultType="com.order.main.entity.Shop">
+        select s.* from t_shop s
+                            left join t_shop_detail d on s.id = d.shop_id
+        where s.shop_type = '5' and s.del_flag = '0' and d.open_polish = '1'
+    </select>
+
+    <select id="selectShopKeysByMallId" resultType="string">
+        SELECT shop_key FROM `t_shop`
+        where shop_type = #{shopType} and del_flag = '0' and id = #{id}
+    </select>
+
+    <update id="updateShopStartUpdatedAt">
+        update t_shop
+        set start_updated_at = #{startUpdatedAt}
+        where id = #{id}
+    </update>
+</mapper>
