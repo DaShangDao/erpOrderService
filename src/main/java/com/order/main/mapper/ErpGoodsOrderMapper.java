@@ -4,6 +4,7 @@ import com.order.main.entity.ErpGoodsOrder;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -93,4 +94,15 @@ public interface ErpGoodsOrderMapper {
      * @return 结果
      */
     int fakeDeleteById(Long id);
+
+
+    Integer countOrder(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    BigDecimal todaySale(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    Integer monthOrder(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    BigDecimal monthSale(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+
+    Integer countOrderAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    BigDecimal todaySaleAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    Integer monthOrderAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    BigDecimal monthSaleAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
 }

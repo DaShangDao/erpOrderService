@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.validation.annotation.Validated;
 
+import java.math.BigDecimal;
 import java.sql.SQLOutput;
 import java.util.*;
 
@@ -504,4 +505,105 @@ public class ErpGoodsOrderController  {
         result.put("msg","开启手动同步任务");
         return result;
     }
+
+
+    @GetMapping("/todayCount")
+    public Integer countOrder(@RequestParam Long id, @RequestParam List<String> shopIdList) {
+        if (id == 1) {
+            return erpGoodsOrderService.countAll();
+        }
+
+        Integer count = 0;
+        for (String shopId : shopIdList) {
+            count += erpGoodsOrderService.countById(shopId);
+        }
+        return count;
+    }
+
+    @GetMapping("/todaySale")
+    public BigDecimal todaySale(@RequestParam Long id, @RequestParam List<String> shopIdList) {
+        if (id == 1) {
+            return erpGoodsOrderService.todaySaleAll();
+        }
+
+        BigDecimal totalSale = BigDecimal.ZERO;
+        for (String shopId : shopIdList) {
+            BigDecimal sale = erpGoodsOrderService.todaySale(shopId);
+            if (sale != null) {
+                totalSale = totalSale.add(sale);
+            }
+        }
+        return totalSale;
+    }
+
+    @GetMapping("/monthOrder")
+    public Integer monthOrder(@RequestParam Long id, @RequestParam List<String> shopIdList) {
+        if (id == 1) {
+            return erpGoodsOrderService.monthOrderAll();
+        }
+        Integer count = 0;
+        for (String shopId : shopIdList) {
+            count += erpGoodsOrderService.monthOrderById(shopId);
+        }
+        return count;
+    }
+
+    @GetMapping("/monthSale")
+    public BigDecimal monthSale(@RequestParam Long id, @RequestParam List<String> shopIdList) {
+        if (id == 1) {
+            return erpGoodsOrderService.monthSaleAll();
+        }
+        BigDecimal totalSale = BigDecimal.ZERO;
+        for (String shopId : shopIdList) {
+            BigDecimal sale = erpGoodsOrderService.monthSale(shopId);
+            if (sale != null) {
+                totalSale = totalSale.add(sale);
+            }
+        }
+        return totalSale;
+    }
+
+//    @GetMapping("/totalCount/{id}")
+//    public Integer TotalOrder(@PathVariable Long id){
+//        if (id == 1) {
+//            return erpGoodsOrderService.monthOrderAll();
+//        }
+//        List<String> shopIdList = shopMapper.getShopIdByCreateBy(id);
+//
+//        Integer count = 0;
+//
+//        for (String shopId : shopIdList) {
+//            count += erpGoodsOrderService.monthOrderById(shopId);
+//        }
+//
+//        return count;
+//    }
+//
+//    @GetMapping("/todaySale/{id}")
+//    public BigDecimal todaySale(@PathVariable Long id) {
+//        System.out.println("开始统计");
+//        if (id == 1) {
+//            return erpGoodsOrderService.todaySaleAll();
+//        }
+//        List<String> shopIdList = shopMapper.getShopIdByCreateBy(id);
+//
+//        return shopIdList.stream()
+//                .map(erpGoodsOrderService::todaySale)
+//                .filter(Objects::nonNull)  // 过滤掉null值
+//                .reduce(BigDecimal.ZERO, BigDecimal::add);  // 累加所有销售额
+//    }
+//
+//    @GetMapping("/totalSale/{id}")
+//    public BigDecimal totalSale(@PathVariable Long id) {
+//        System.out.println("开始统计");
+//        if (id == 1) {
+//            return erpGoodsOrderService.monthSaleAll();
+//        }
+//        List<String> shopIdList = shopMapper.getShopIdByCreateBy(id);
+//
+//        return shopIdList.stream()
+//                .map(erpGoodsOrderService::monthSale)
+//                .filter(Objects::nonNull)  // 过滤掉null值
+//                .reduce(BigDecimal.ZERO, BigDecimal::add);  // 累加所有销售额
+//    }
 }

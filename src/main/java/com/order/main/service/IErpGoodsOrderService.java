@@ -176,4 +176,67 @@ public interface IErpGoodsOrderService {
      * @return 结果
      */
     int fakeDeleteById(Long id);
+
+
+
+
+    /**
+     * 统计今日订单
+     *
+     * @param id 主键
+     * @return 订单
+     */
+    Integer countById(String id);
+
+    /**
+     * 统计所有今日订单
+     *
+     * @return 订单
+     */
+    Integer countAll();
+
+    /**
+     * 统计本月订单
+     *
+     * @param id 主键
+     * @return 订单
+     */
+    Integer monthOrderById(String id);
+
+    /**
+     * 统计所有本月订单
+     *
+     * @return 订单
+     */
+    Integer monthOrderAll();
+
+    /**
+     * 统计交易总额
+     *
+     * @param id 主键
+     * @return 订单
+     */
+    BigDecimal todaySale(String id);
+
+    /**
+     * 统计所有交易总额
+     *
+     * @return 订单
+     */
+    BigDecimal todaySaleAll();
+
+    /**
+     * 统计交易总额
+     *
+     * @param id 主键
+     * @return 订单
+     */
+    BigDecimal monthSale(String id);
+
+    /**
+     * 统计所有交易总额
+     *
+     * @return 订单
+     */
+    BigDecimal monthSaleAll();
 }

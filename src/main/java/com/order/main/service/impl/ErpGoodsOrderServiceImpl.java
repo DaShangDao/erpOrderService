@@ -21,6 +21,10 @@ import org.springframework.stereotype.Service;
 import com.order.main.mapper.ErpGoodsOrderMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -1927,5 +1931,117 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     @Override
     public int fakeDeleteById(Long id) {
         return baseMapper.fakeDeleteById(id);
+    }
+
+    @Override
+    public Integer countById(String id) {
+        // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
+        long startOfDay = getStartOfDayTimestamp();
+        long endOfDay = getEndOfDayTimestamp();
+        return baseMapper.countOrder(id, startOfDay, endOfDay);
+    }
+
+    @Override
+    public Integer countAll() {
+        // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
+        long startOfDay = getStartOfDayTimestamp();
+        long endOfDay = getEndOfDayTimestamp();
+
+        return baseMapper.countOrderAll(startOfDay, endOfDay);
+    }
+
+    @Override
+    public BigDecimal todaySale(String id) {
+        // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
+        long startOfDay = getStartOfDayTimestamp();
+        long endOfDay = getEndOfDayTimestamp();
+        return baseMapper.todaySale(id, startOfDay, endOfDay);
+    }
+
+    @Override
+    public BigDecimal todaySaleAll() {
+        // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
+        long startOfDay = getStartOfDayTimestamp();
+        long endOfDay = getEndOfDayTimestamp();
+        return baseMapper.todaySaleAll(startOfDay, endOfDay);
+    }
+
+    @Override
+    public BigDecimal monthSale(String id) {
+
+        // 获取本月的开始时间（当月1日 00:00:00）和结束时间（当月最后一天 23:59:59）
+        long startOfMonth = getStartOfMonthTimestamp();
+        long endOfMonth = getEndOfMonthTimestamp();
+        return baseMapper.monthSale(id, startOfMonth, endOfMonth);
+    }
+
+    @Override
+    public Integer monthOrderById(String id) {
+        // 获取本月的开始时间（当月1日 00:00:00）和结束时间（当月最后一天 23:59:59）
+        long startOfMonth = getStartOfMonthTimestamp();
+        long endOfMonth = getEndOfMonthTimestamp();
+        return baseMapper.monthOrder(id, startOfMonth, endOfMonth);
+    }
+
+    @Override
+    public Integer monthOrderAll() {
+        // 获取本月的开始时间（当月1日 00:00:00）和结束时间（当月最后一天 23:59:59）
+        long startOfMonth = getStartOfMonthTimestamp();
+        System.out.println(startOfMonth);
+        long endOfMonth = getEndOfMonthTimestamp();
+
+        return baseMapper.monthOrderAll(startOfMonth, endOfMonth);
+    }
+
+    @Override
+    public BigDecimal monthSaleAll() {
+        long startOfMonth = getStartOfMonthTimestamp();
+        long endOfMonth = getEndOfMonthTimestamp();
+        return baseMapper.monthSaleAll(startOfMonth, endOfMonth);
+    }
+
+
+    /**
+     * 获取当天开始时间的时间戳（毫秒级）
+     */
+    private long getStartOfDayTimestamp() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        return calendar.getTimeInMillis();
+    }
+
+    /**
+     * 获取当天结束时间的时间戳（毫秒级）
+     */
+    private long getEndOfDayTimestamp() {
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 23);
+        calendar.set(Calendar.MINUTE, 59);
+        calendar.set(Calendar.SECOND, 59);
+        calendar.set(Calendar.MILLISECOND, 999);
+        return calendar.getTimeInMillis();
+    }
+
+    /**
+     * 获取本月开始的毫秒级时间戳（当月1日 00:00:00.000）
+     */
+    private long getStartOfMonthTimestamp() {
+        LocalDateTime startOfMonth = LocalDate.now()
+                .withDayOfMonth(1)
+                .atStartOfDay(); // 00:00:00.000
+        return startOfMonth.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    /**
+     * 获取本月结束的毫秒级时间戳（当月最后一天 23:59:59.999）
+     */
+    private long getEndOfMonthTimestamp() {
+        LocalDateTime endOfMonth = LocalDate.now()
+                .withDayOfMonth(LocalDate.now().lengthOfMonth())
+                .atTime(LocalTime.MAX); // 23:59:59.999999999，转换为毫秒会变成23:59:59.999
+        return endOfMonth.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
 }

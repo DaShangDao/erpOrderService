@@ -334,4 +334,77 @@
     <update id="fakeDeleteById">
         update erp_goods_order set is_show = 1 where id = #{id}
     </update>
+
+
+    <select id="countOrder" resultType="java.lang.Integer">
+        SELECT
+            COUNT(id) as order_count
+        FROM
+            erp_goods_order
+        WHERE
+            shop_erp_id = #{shopId}
+          AND created_at  >= #{creatStart}
+          AND created_at  &lt; #{creatEnd}
+    </select>
+    <select id="todaySale" resultType="java.math.BigDecimal">
+        SELECT
+            SUM(pay_amount) AS total_pay_amount
+        FROM
+            erp_goods_order
+        WHERE shop_erp_id = #{shopId}
+          AND created_at >= #{creatStart}
+          AND created_at  &lt; #{creatEnd}
+    </select>
+    <select id="monthOrder" resultType="java.lang.Integer">
+        SELECT
+            COUNT(id) as order_count
+        FROM
+            erp_goods_order
+        WHERE
+            shop_erp_id = #{shopId}
+          AND created_at >= #{creatStart}
+          AND created_at  &lt; #{creatEnd}
+    </select>
+    <select id="monthSale" resultType="java.math.BigDecimal">
+        SELECT
+            SUM(pay_amount) AS total_pay_amount
+        FROM
+            erp_goods_order
+        WHERE
+            shop_erp_id = #{shopId}
+          AND created_at  >= #{creatStart}
+          AND created_at  &lt; #{creatEnd}
+    </select>
+    <select id="countOrderAll" resultType="java.lang.Integer">
+        SELECT
+            COUNT(id) as order_count
+        FROM
+            erp_goods_order
+        WHERE created_at  >= #{creatStart}
+          AND created_at  &lt; #{creatEnd}
+    </select>
+    <select id="todaySaleAll" resultType="java.math.BigDecimal">
+        SELECT
+            SUM(pay_amount) AS total_pay_amount
+        FROM
+            erp_goods_order
+        WHERE created_at  >= #{creatStart}
+          AND created_at  &lt; #{creatEnd}
+    </select>
+    <select id="monthOrderAll" resultType="java.lang.Integer">
+        SELECT
+            COUNT(id) as order_count
+        FROM
+            erp_goods_order
+        WHERE created_at  >= #{creatStart}
+          AND created_at  &lt; #{creatEnd}
+    </select>
+    <select id="monthSaleAll" resultType="java.math.BigDecimal">
+        SELECT
+            SUM(pay_amount) AS total_pay_amount
+        FROM
+            erp_goods_order
+        WHERE created_at  >= #{creatStart}
+          AND created_at  &lt; #{creatEnd}
+    </select>
 </mapper>
