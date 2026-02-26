@@ -5,6 +5,7 @@ import com.pdd.pop.sdk.message.model.Message;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 平台订单Service接口
@@ -184,14 +185,14 @@ public interface IErpGoodsOrderService {
      * 统计今日订单
      *
      * @param id 主键
-     * @return 订单
+     * @return 日订单
      */
     Integer countById(String id);
 
     /**
      * 统计所有今日订单
      *
-     * @return 订单
+     * @return 全部日订单
      */
     Integer countAll();
 
@@ -199,14 +200,14 @@ public interface IErpGoodsOrderService {
      * 统计本月订单
      *
      * @param id 主键
-     * @return 订单
+     * @return 月订单
      */
     Integer monthOrderById(String id);
 
     /**
      * 统计所有本月订单
      *
-     * @return 订单
+     * @return 全部月订单
      */
     Integer monthOrderAll();
 
@@ -214,14 +215,14 @@ public interface IErpGoodsOrderService {
      * 统计交易总额
      *
      * @param id 主键
-     * @return 订单
+     * @return 日总额
      */
     BigDecimal todaySale(String id);
 
     /**
      * 统计所有交易总额
      *
-     * @return 订单
+     * @return 全部日总额
      */
     BigDecimal todaySaleAll();
 
@@ -229,14 +230,33 @@ public interface IErpGoodsOrderService {
      * 统计交易总额
      *
      * @param id 主键
-     * @return 订单
+     * @return 月总额
      */
     BigDecimal monthSale(String id);
 
     /**
      * 统计所有交易总额
      *
-     * @return 订单
+     * @return 全部月总额
      */
     BigDecimal monthSaleAll();
+
+    /**
+     * 订单展示
+     *
+     * @return 订单列表
+     */
+    Map<String, Integer> orderDisplay(String id);
+    Map<String, Integer> hourOrder(String id);
+
+    Map<String, Integer> orderDisplayAll();
+    Map<String, Integer> hourOrderAll();
+
+    /**
+     * 订单金额分布统计
+     *
+     * @return 金额区间订单数量
+     */
+    Map<String, Integer> orderAmountDistributionAll();
+    Map<String, Integer> orderAmountDistribution(String id);
 }

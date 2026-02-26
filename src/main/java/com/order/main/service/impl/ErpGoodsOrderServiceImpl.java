@@ -2000,6 +2000,127 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         return baseMapper.monthSaleAll(startOfMonth, endOfMonth);
     }
 
+    @Override
+    public Map<String, Integer> orderDisplay(String id) {
+        // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
+        long startOfDay = getStartOfDayTimestamp();
+        long endOfDay = getEndOfDayTimestamp();
+
+        // 现在返回的是 List<Map<String, Object>>
+        List<Map<String, Object>> list = baseMapper.orderDisplay(id, startOfDay, endOfDay);
+
+        // 转换为需要的 Map<String, Integer> 格式
+        Map<String, Integer> finalResult = new LinkedHashMap<>();
+
+        for (Map<String, Object> item : list) {
+            // 获取省份
+            String province = (String) item.get("province");
+
+            // 获取数量（MySQL的COUNT返回的是Long）
+            Object countObj = item.get("count");
+            Integer count;
+
+            if (countObj instanceof Number) {
+                count = ((Number) countObj).intValue();
+            } else {
+                // 如果是字符串等其他类型，转换一下
+                count = Integer.parseInt(countObj.toString());
+            }
+
+            finalResult.put(province, count);
+        }
+
+        return finalResult;
+    }
+
+    @Override
+    public Map<String, Integer> hourOrder(String id) {
+        // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
+        long startOfDay = getStartOfDayTimestamp();
+        long endOfDay = getEndOfDayTimestamp();
+        // 调用mapper层获取原始数据
+        List<Map<String, Object>> list = baseMapper.hourOrder(id, startOfDay, endOfDay);
+
+        // 转换为Map格式
+        Map<String, Integer> result = new LinkedHashMap<>();
+        for (Map<String, Object> map : list) {
+            String hourTime = (String) map.get("hour_time");
+            Long orderCount = (Long) map.get("order_count");
+            result.put(hourTime, orderCount.intValue());
+        }
+
+        return result;
+    }
+
+    @Override
+    public Map<String, Integer> orderDisplayAll() {
+        // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
+        long startOfDay = getStartOfDayTimestamp();
+        long endOfDay = getEndOfDayTimestamp();
+
+        // 现在返回的是 List<Map<String, Object>>
+        List<Map<String, Object>> list = baseMapper.orderDisplayAll(startOfDay, endOfDay);
+
+        // 转换为需要的 Map<String, Integer> 格式
+        Map<String, Integer> finalResult = new LinkedHashMap<>();
+
+        for (Map<String, Object> item : list) {
+            // 获取省份
+            String province = (String) item.get("province");
+
+            // 获取数量（MySQL的COUNT返回的是Long）
+            Object countObj = item.get("count");
+            Integer count;
+
+            if (countObj instanceof Number) {
+                count = ((Number) countObj).intValue();
+            } else {
+                // 如果是字符串等其他类型，转换一下
+                count = Integer.parseInt(countObj.toString());
+            }
+
+            finalResult.put(province, count);
+        }
+
+        return finalResult;
+    }
+
+    @Override
+    public Map<String, Integer> hourOrderAll() {
+        // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
+        long startOfDay = getStartOfDayTimestamp();
+        long endOfDay = getEndOfDayTimestamp();
+        // 调用mapper层获取原始数据
+        List<Map<String, Object>> list = baseMapper.hourOrderAll(startOfDay, endOfDay);
+
+        // 转换为Map格式
+        Map<String, Integer> result = new LinkedHashMap<>();
+        for (Map<String, Object> map : list) {
+            String hourTime = (String) map.get("hour_time");
+            Long orderCount = (Long) map.get("order_count");
+            result.put(hourTime, orderCount.intValue());
+        }
+
+        return result;
+    }
+
+    @Override
+    public Map<String, Integer> orderAmountDistributionAll() {
+        long startOfDay = getStartOfDayTimestamp();
+        long endOfDay = getEndOfDayTimestamp();
+        // 取List的第一个元素
+        return baseMapper.orderAmountDistributionAll(startOfDay, endOfDay).get(0);
+    }
+
+
+    @Override
+    public Map<String, Integer> orderAmountDistribution(String id) {
+        // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
+        long startOfDay = getStartOfDayTimestamp();
+        long endOfDay = getEndOfDayTimestamp();
+        // 调用mapper层获取原始数据
+        return baseMapper.orderAmountDistribution(id, startOfDay, endOfDay).get(0);
+    }
 
     /**
      * 获取当天开始时间的时间戳（毫秒级）

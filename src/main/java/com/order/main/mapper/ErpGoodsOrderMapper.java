@@ -1,11 +1,13 @@
 package com.order.main.mapper;
 
 import com.order.main.entity.ErpGoodsOrder;
+import org.apache.ibatis.annotations.MapKey;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 平台订单Mapper接口
@@ -105,4 +107,13 @@ public interface ErpGoodsOrderMapper {
     BigDecimal todaySaleAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
     Integer monthOrderAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
     BigDecimal monthSaleAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+
+    List<Map<String, Object>> orderDisplay(@Param("id") String id, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    List<Map<String, Object>> hourOrder(@Param("id") String id, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    List<Map<String, Integer>> orderAmountDistribution(@Param("id") String id, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+
+    List<Map<String, Object>> orderDisplayAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    List<Map<String, Object>> hourOrderAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    List<Map<String, Integer>> orderAmountDistributionAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+
 }

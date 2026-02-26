@@ -506,7 +506,12 @@ public class ErpGoodsOrderController  {
         return result;
     }
 
-
+    /**
+     * 今日订单
+     * @param id
+     * @param shopIdList
+     * @return
+     */
     @GetMapping("/todayCount")
     public Integer countOrder(@RequestParam Long id, @RequestParam List<String> shopIdList) {
         if (id == 1) {
@@ -520,6 +525,12 @@ public class ErpGoodsOrderController  {
         return count;
     }
 
+    /**
+     * 今日总额
+     * @param id
+     * @param shopIdList
+     * @return
+     */
     @GetMapping("/todaySale")
     public BigDecimal todaySale(@RequestParam Long id, @RequestParam List<String> shopIdList) {
         if (id == 1) {
@@ -536,6 +547,12 @@ public class ErpGoodsOrderController  {
         return totalSale;
     }
 
+    /**
+     * 本月订单
+     * @param id
+     * @param shopIdList
+     * @return
+     */
     @GetMapping("/monthOrder")
     public Integer monthOrder(@RequestParam Long id, @RequestParam List<String> shopIdList) {
         if (id == 1) {
@@ -548,6 +565,12 @@ public class ErpGoodsOrderController  {
         return count;
     }
 
+    /**
+     * 本月总额
+     * @param id
+     * @param shopIdList
+     * @return
+     */
     @GetMapping("/monthSale")
     public BigDecimal monthSale(@RequestParam Long id, @RequestParam List<String> shopIdList) {
         if (id == 1) {
@@ -561,6 +584,31 @@ public class ErpGoodsOrderController  {
             }
         }
         return totalSale;
+    }
+
+    @GetMapping("/orderDisplay")
+    public Map<String, Integer> orderDisplay(@RequestParam Long id) {
+        if (id == 1) {
+            return erpGoodsOrderService.orderDisplayAll();
+        }
+
+        return erpGoodsOrderService.orderDisplay(id.toString());
+    }
+
+    @GetMapping("/hourOrder")
+    public Map<String, Integer> hourOrder(@RequestParam Long id) {
+        if (id == 1) {
+            return erpGoodsOrderService.hourOrderAll();
+        }
+        return erpGoodsOrderService.hourOrder(id.toString());
+    }
+
+    @GetMapping("/orderAmountDistribution")
+    public Map<String, Integer> orderAmountDistribution(@RequestParam Long id) {
+        if (id == 1) {
+            return erpGoodsOrderService.orderAmountDistributionAll();
+        }
+        return erpGoodsOrderService.orderAmountDistribution(id.toString());
     }
 
 //    @GetMapping("/totalCount/{id}")

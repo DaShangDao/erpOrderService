@@ -139,6 +139,13 @@
         </where>
     </sql>
 
+    <resultMap id="distributionMap" type="java.util.HashMap">
+        <result property="0-10元" column="0-10元" javaType="java.lang.Integer"/>
+        <result property="10-30元" column="10-30元" javaType="java.lang.Integer"/>
+        <result property="30-50元" column="30-50元" javaType="java.lang.Integer"/>
+        <result property="50-100元" column="50-100元" javaType="java.lang.Integer"/>
+        <result property="100元以上" column="100元以上" javaType="java.lang.Integer"/>
+    </resultMap>
 
     <select id="selectById" resultMap="ErpGoodsOrderResult">
         <include refid="selectErpGoodsOrderVo"/>
@@ -406,5 +413,73 @@
             erp_goods_order
         WHERE created_at  >= #{creatStart}
           AND created_at  &lt; #{creatEnd}
+    </select>
+
+    <select id="orderDisplay" resultType="java.util.Map">
+        SELECT province, COUNT(*) AS count
+        FROM `erp_goods_order`
+        WHERE created_at >= #{creatStart}
+          AND created_at &lt; #{creatEnd}
+          AND created_by = #{id}
+        GROUP BY province
+            LIMIT 10
+    </select>
+
+    <select id="hourOrder" resultType="java.util.Map">
+        SELECT FROM_UNIXTIME(created_at/1000, '%Y-%m-%d %H:00') as hour_time,
+               COUNT(*) as order_count
+        FROM erp_goods_order
+        WHERE created_at >= #{creatStart}
+          AND created_at &lt; #{creatEnd}
+          AND created_by = #{id}
+        GROUP BY FROM_UNIXTIME(created_at/1000, '%Y-%m-%d %H:00')
+        ORDER BY hour_time;
+    </select>
+
+    <select id="orderAmountDistribution" resultMap="distributionMap">
+        SELECT
+            SUM(CASE WHEN pay_amount &lt; 1000 THEN 1 ELSE 0 END) as '0-10元',
+                SUM(CASE WHEN pay_amount >= 1000 AND pay_amount &lt; 3000 THEN 1 ELSE 0 END) as '10-30元',
+                SUM(CASE WHEN pay_amount >= 3000 AND pay_amount &lt; 5000 THEN 1 ELSE 0 END) as '30-50元',
+                SUM(CASE WHEN pay_amount >= 5000 AND pay_amount &lt; 10000 THEN 1 ELSE 0 END) as '50-100元',
+                SUM(CASE WHEN pay_amount >= 10000 THEN 1 ELSE 0 END) as '100元以上'
+        FROM erp_goods_order
+        WHERE created_at >= #{creatStart}
+          AND created_at &lt; #{creatEnd}
+          AND created_by = #{id}
+          AND order_status NOT IN (5, 6)
+          AND pay_amount > 0
+    </select>
+
+    <select id="orderDisplayAll" resultType="java.util.Map">
+        SELECT province, COUNT(*) AS count
+        FROM `erp_goods_order`
+        WHERE created_at >= #{creatStart}
+          AND created_at &lt; #{creatEnd}
+        GROUP BY province
+            LIMIT 10
+    </select>
+    <select id="hourOrderAll" resultType="java.util.Map">
+        SELECT FROM_UNIXTIME(created_at/1000, '%Y-%m-%d %H:00') as hour_time,
+               COUNT(*) as order_count
+        FROM erp_goods_order
+        WHERE created_at >= #{creatStart}
+          AND created_at &lt; #{creatEnd}
+        GROUP BY FROM_UNIXTIME(created_at/1000, '%Y-%m-%d %H:00')
+        ORDER BY hour_time;
+    </select>
+
+    <select id="orderAmountDistributionAll" resultMap="distributionMap">
+        SELECT
+            SUM(CASE WHEN pay_amount &lt; 1000 THEN 1 ELSE 0 END) as '0-10元',
+                SUM(CASE WHEN pay_amount >= 1000 AND pay_amount &lt; 3000 THEN 1 ELSE 0 END) as '10-30元',
+                SUM(CASE WHEN pay_amount >= 3000 AND pay_amount &lt; 5000 THEN 1 ELSE 0 END) as '30-50元',
+                SUM(CASE WHEN pay_amount >= 5000 AND pay_amount &lt; 10000 THEN 1 ELSE 0 END) as '50-100元',
+                SUM(CASE WHEN pay_amount >= 10000 THEN 1 ELSE 0 END) as '100元以上'
+        FROM erp_goods_order
+        WHERE created_at >= #{creatStart}
+          AND created_at &lt; #{creatEnd}
+          AND order_status NOT IN (5, 6)
+          AND pay_amount > 0
     </select>
 </mapper>
