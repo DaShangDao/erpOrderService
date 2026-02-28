@@ -452,12 +452,22 @@
     </select>
 
     <select id="orderDisplayAll" resultType="java.util.Map">
-        SELECT province, COUNT(*) AS count
+        SELECT
+        CASE
+        WHEN province IS NULL OR province = '' THEN '未知地区'
+        ELSE province
+        END AS province,
+        COUNT(*) AS count
         FROM `erp_goods_order`
-        WHERE created_at >= #{creatStart}
-          AND created_at &lt; #{creatEnd}
-        GROUP BY province
-            LIMIT 10
+        WHERE created_at >= 1772208000000
+        AND created_at &lt; 1772294399000
+        GROUP BY
+        CASE
+        WHEN province IS NULL OR province = '' THEN '未知地区'
+        ELSE province
+        END
+        ORDER BY count DESC
+        LIMIT 10
     </select>
     <select id="hourOrderAll" resultType="java.util.Map">
         SELECT FROM_UNIXTIME(created_at/1000, '%Y-%m-%d %H:00') as hour_time,
