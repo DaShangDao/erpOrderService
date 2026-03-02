@@ -98,22 +98,22 @@ public interface ErpGoodsOrderMapper {
     int fakeDeleteById(Long id);
 
 
-    Integer countOrder(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
-    BigDecimal todaySale(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
-    Integer monthOrder(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
-    BigDecimal monthSale(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    Integer countOrder(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
+    BigDecimal todaySale(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
+    Integer monthOrder(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
+    BigDecimal monthSale(@Param("shopId") String shopId, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
 
-    Integer countOrderAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
-    BigDecimal todaySaleAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
-    Integer monthOrderAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
-    BigDecimal monthSaleAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    Integer countOrderAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
+    BigDecimal todaySaleAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
+    Integer monthOrderAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
+    BigDecimal monthSaleAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
 
-    List<Map<String, Object>> orderDisplay(@Param("id") String id, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
-    List<Map<String, Object>> hourOrder(@Param("id") String id, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
-    List<Map<String, Integer>> orderAmountDistribution(@Param("id") String id, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    List<Map<String, Object>> orderDisplay(@Param("id") String id, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
+    List<Map<String, Object>> hourOrder(@Param("id") String id, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
+    List<Map<String, Integer>> orderAmountDistribution(@Param("id") String id, @Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
 
-    List<Map<String, Object>> orderDisplayAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
-    List<Map<String, Object>> hourOrderAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
-    List<Map<String, Integer>> orderAmountDistributionAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd);
+    List<Map<String, Object>> orderDisplayAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
+    List<Map<String, Object>> hourOrderAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
+    List<Map<String, Integer>> orderAmountDistributionAll(@Param("creatStart") long creatStart, @Param("creatEnd") long creatEnd,@Param("creatStartShort") long creatStartShort, @Param("creatEndShort") long creatEndShort);
 
 }

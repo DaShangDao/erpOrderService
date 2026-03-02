@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -1938,7 +1939,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
         long startOfDay = getStartOfDayTimestamp();
         long endOfDay = getEndOfDayTimestamp();
-        return baseMapper.countOrder(id, startOfDay, endOfDay);
+        long startOfDaySort = getTodayStartTimestamp();
+        long endOfDaySort = getTodayEndTimestamp();
+        return baseMapper.countOrder(id, startOfDay, endOfDay, startOfDaySort, endOfDaySort);
     }
 
     @Override
@@ -1947,7 +1950,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         long startOfDay = getStartOfDayTimestamp();
         long endOfDay = getEndOfDayTimestamp();
 
-        return baseMapper.countOrderAll(startOfDay, endOfDay);
+        long startOfDaySort = getTodayStartTimestamp();
+        long endOfDaySort = getTodayEndTimestamp();
+        return baseMapper.countOrderAll(startOfDay, endOfDay, startOfDaySort, endOfDaySort);
     }
 
     @Override
@@ -1955,7 +1960,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
         long startOfDay = getStartOfDayTimestamp();
         long endOfDay = getEndOfDayTimestamp();
-        return baseMapper.todaySale(id, startOfDay, endOfDay);
+        long startOfDaySort = getTodayStartTimestamp();
+        long endOfDaySort = getTodayEndTimestamp();
+        return baseMapper.todaySale(id, startOfDay, endOfDay, startOfDaySort, endOfDaySort);
     }
 
     @Override
@@ -1963,7 +1970,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
         long startOfDay = getStartOfDayTimestamp();
         long endOfDay = getEndOfDayTimestamp();
-        return baseMapper.todaySaleAll(startOfDay, endOfDay);
+        long startOfDaySort = getTodayStartTimestamp();
+        long endOfDaySort = getTodayEndTimestamp();
+        return baseMapper.todaySaleAll(startOfDay, endOfDay, startOfDaySort, endOfDaySort);
     }
 
     @Override
@@ -1972,7 +1981,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 获取本月的开始时间（当月1日 00:00:00）和结束时间（当月最后一天 23:59:59）
         long startOfMonth = getStartOfMonthTimestamp();
         long endOfMonth = getEndOfMonthTimestamp();
-        return baseMapper.monthSale(id, startOfMonth, endOfMonth);
+        long startOfMonthSort = getMonthStartTimestamp();
+        long endOfMonthSort = getMonthEndTimestamp();
+        return baseMapper.monthSale(id, startOfMonth, endOfMonth, startOfMonthSort, endOfMonthSort);
     }
 
     @Override
@@ -1980,7 +1991,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 获取本月的开始时间（当月1日 00:00:00）和结束时间（当月最后一天 23:59:59）
         long startOfMonth = getStartOfMonthTimestamp();
         long endOfMonth = getEndOfMonthTimestamp();
-        return baseMapper.monthOrder(id, startOfMonth, endOfMonth);
+        long startOfMonthSort = getMonthStartTimestamp();
+        long endOfMonthSort = getMonthEndTimestamp();
+        return baseMapper.monthOrder(id, startOfMonth, endOfMonth, startOfMonthSort, endOfMonthSort);
     }
 
     @Override
@@ -1989,15 +2002,19 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         long startOfMonth = getStartOfMonthTimestamp();
         System.out.println(startOfMonth);
         long endOfMonth = getEndOfMonthTimestamp();
+        long startOfMonthSort = getMonthStartTimestamp();
+        long endOfMonthSort = getMonthEndTimestamp();
 
-        return baseMapper.monthOrderAll(startOfMonth, endOfMonth);
+        return baseMapper.monthOrderAll(startOfMonth, endOfMonth, startOfMonthSort, endOfMonthSort);
     }
 
     @Override
     public BigDecimal monthSaleAll() {
         long startOfMonth = getStartOfMonthTimestamp();
         long endOfMonth = getEndOfMonthTimestamp();
-        return baseMapper.monthSaleAll(startOfMonth, endOfMonth);
+        long startOfMonthSort = getMonthStartTimestamp();
+        long endOfMonthSort = getMonthEndTimestamp();
+        return baseMapper.monthSaleAll(startOfMonth, endOfMonth, startOfMonthSort, endOfMonthSort);
     }
 
     @Override
@@ -2005,9 +2022,11 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
         long startOfDay = getStartOfDayTimestamp();
         long endOfDay = getEndOfDayTimestamp();
+        long startOfDaySort = getTodayStartTimestamp();
+        long endOfDaySort = getTodayEndTimestamp();
 
         // 现在返回的是 List<Map<String, Object>>
-        List<Map<String, Object>> list = baseMapper.orderDisplay(id, startOfDay, endOfDay);
+        List<Map<String, Object>> list = baseMapper.orderDisplay(id, startOfDay, endOfDay, startOfDaySort, endOfDaySort);
 
         // 转换为需要的 Map<String, Integer> 格式
         Map<String, Integer> finalResult = new LinkedHashMap<>();
@@ -2038,8 +2057,10 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
         long startOfDay = getStartOfDayTimestamp();
         long endOfDay = getEndOfDayTimestamp();
+        long startOfDaySort = getTodayStartTimestamp();
+        long endOfDaySort = getTodayEndTimestamp();
         // 调用mapper层获取原始数据
-        List<Map<String, Object>> list = baseMapper.hourOrder(id, startOfDay, endOfDay);
+        List<Map<String, Object>> list = baseMapper.hourOrder(id, startOfDay, endOfDay, startOfDaySort, endOfDaySort);
 
         // 转换为Map格式
         Map<String, Integer> result = new LinkedHashMap<>();
@@ -2057,9 +2078,11 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
         long startOfDay = getStartOfDayTimestamp();
         long endOfDay = getEndOfDayTimestamp();
+        long startOfDaySort = getTodayStartTimestamp();
+        long endOfDaySort = getTodayEndTimestamp();
 
         // 现在返回的是 List<Map<String, Object>>
-        List<Map<String, Object>> list = baseMapper.orderDisplayAll(startOfDay, endOfDay);
+        List<Map<String, Object>> list = baseMapper.orderDisplayAll(startOfDay, endOfDay, startOfDaySort, endOfDaySort);
 
         // 转换为需要的 Map<String, Integer> 格式
         Map<String, Integer> finalResult = new LinkedHashMap<>();
@@ -2090,8 +2113,10 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
         long startOfDay = getStartOfDayTimestamp();
         long endOfDay = getEndOfDayTimestamp();
+        long startOfDaySort = getTodayStartTimestamp();
+        long endOfDaySort = getTodayEndTimestamp();
         // 调用mapper层获取原始数据
-        List<Map<String, Object>> list = baseMapper.hourOrderAll(startOfDay, endOfDay);
+        List<Map<String, Object>> list = baseMapper.hourOrderAll(startOfDay, endOfDay, startOfDaySort, endOfDaySort);
 
         // 转换为Map格式
         Map<String, Integer> result = new LinkedHashMap<>();
@@ -2108,8 +2133,10 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     public Map<String, Integer> orderAmountDistributionAll() {
         long startOfDay = getStartOfDayTimestamp();
         long endOfDay = getEndOfDayTimestamp();
+        long startOfDaySort = getTodayStartTimestamp();
+        long endOfDaySort = getTodayEndTimestamp();
         // 取List的第一个元素
-        return baseMapper.orderAmountDistributionAll(startOfDay, endOfDay).get(0);
+        return baseMapper.orderAmountDistributionAll(startOfDay, endOfDay, startOfDaySort, endOfDaySort).get(0);
     }
 
 
@@ -2118,8 +2145,10 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 获取当天的开始时间（00:00:00）和结束时间（23:59:59）
         long startOfDay = getStartOfDayTimestamp();
         long endOfDay = getEndOfDayTimestamp();
+        long startOfDaySort = getTodayStartTimestamp();
+        long endOfDaySort = getTodayEndTimestamp();
         // 调用mapper层获取原始数据
-        return baseMapper.orderAmountDistribution(id, startOfDay, endOfDay).get(0);
+        return baseMapper.orderAmountDistribution(id, startOfDay, endOfDay, startOfDaySort, endOfDaySort).get(0);
     }
 
     /**
@@ -2164,5 +2193,27 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                 .withDayOfMonth(LocalDate.now().lengthOfMonth())
                 .atTime(LocalTime.MAX); // 23:59:59.999999999，转换为毫秒会变成23:59:59.999
         return endOfMonth.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    public static long getTodayStartTimestamp() {
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        return todayStart.atZone(ZoneId.systemDefault()).toEpochSecond();
+    }
+
+    public static long getTodayEndTimestamp() {
+        LocalDateTime todayEnd = LocalDate.now().atTime(23, 59, 59);
+        return todayEnd.atZone(ZoneId.systemDefault()).toEpochSecond();
+    }
+    public static long getMonthStartTimestamp() {
+        LocalDateTime monthStart = LocalDate.now()
+                .withDayOfMonth(1)
+                .atStartOfDay();
+        return monthStart.atZone(ZoneId.systemDefault()).toEpochSecond();
+    }
+    public static long getMonthEndTimestamp() {
+        LocalDateTime monthEnd = LocalDate.now()
+                .with(TemporalAdjusters.lastDayOfMonth())
+                .atTime(23, 59, 59);
+        return monthEnd.atZone(ZoneId.systemDefault()).toEpochSecond();
     }
 }

@@ -350,8 +350,10 @@
             erp_goods_order
         WHERE
             shop_erp_id = #{shopId}
-          AND created_at  >= #{creatStart}
-          AND created_at  &lt; #{creatEnd}
+          AND (
+            created_at BETWEEN #{creatStart} AND #{creatEnd}
+                OR created_at BETWEEN #{creatStartShort} AND #{creatEndShort}
+            )
     </select>
     <select id="todaySale" resultType="java.math.BigDecimal">
         SELECT
@@ -359,8 +361,10 @@
         FROM
             erp_goods_order
         WHERE shop_erp_id = #{shopId}
-          AND created_at >= #{creatStart}
-          AND created_at  &lt; #{creatEnd}
+          AND (
+            created_at BETWEEN #{creatStart} AND #{creatEnd}
+                OR created_at BETWEEN #{creatStartShort} AND #{creatEndShort}
+            )
     </select>
     <select id="monthOrder" resultType="java.lang.Integer">
         SELECT
@@ -369,8 +373,10 @@
             erp_goods_order
         WHERE
             shop_erp_id = #{shopId}
-          AND created_at >= #{creatStart}
-          AND created_at  &lt; #{creatEnd}
+          AND (
+            created_at BETWEEN #{creatStart} AND #{creatEnd}
+                OR created_at BETWEEN #{creatStartShort} AND #{creatEndShort}
+            )
     </select>
     <select id="monthSale" resultType="java.math.BigDecimal">
         SELECT
@@ -379,48 +385,52 @@
             erp_goods_order
         WHERE
             shop_erp_id = #{shopId}
-          AND created_at  >= #{creatStart}
-          AND created_at  &lt; #{creatEnd}
+          AND (
+            created_at BETWEEN #{creatStart} AND #{creatEnd}
+                OR created_at BETWEEN #{creatStartShort} AND #{creatEndShort}
+            )
     </select>
     <select id="countOrderAll" resultType="java.lang.Integer">
         SELECT
             COUNT(id) as order_count
         FROM
             erp_goods_order
-        WHERE created_at  >= #{creatStart}
-          AND created_at  &lt; #{creatEnd}
+        WHERE created_at  between #{creatStart} AND  #{creatEnd}
+          OR created_at between #{creatStartShort} AND #{creatEndShort}
     </select>
     <select id="todaySaleAll" resultType="java.math.BigDecimal">
         SELECT
             SUM(pay_amount) AS total_pay_amount
         FROM
             erp_goods_order
-        WHERE created_at  >= #{creatStart}
-          AND created_at  &lt; #{creatEnd}
+        WHERE created_at  between #{creatStart} AND  #{creatEnd}
+          OR created_at between #{creatStartShort} AND #{creatEndShort}
     </select>
     <select id="monthOrderAll" resultType="java.lang.Integer">
         SELECT
             COUNT(id) as order_count
         FROM
             erp_goods_order
-        WHERE created_at  >= #{creatStart}
-          AND created_at  &lt; #{creatEnd}
+        WHERE created_at  between #{creatStart} AND  #{creatEnd}
+          OR created_at between #{creatStartShort} AND #{creatEndShort}
     </select>
     <select id="monthSaleAll" resultType="java.math.BigDecimal">
         SELECT
             SUM(pay_amount) AS total_pay_amount
         FROM
             erp_goods_order
-        WHERE created_at  >= #{creatStart}
-          AND created_at  &lt; #{creatEnd}
+        WHERE created_at  between #{creatStart} AND  #{creatEnd}
+          OR created_at between #{creatStartShort} AND #{creatEndShort}
     </select>
 
     <select id="orderDisplay" resultType="java.util.Map">
         SELECT province, COUNT(*) AS count
         FROM `erp_goods_order`
-        WHERE created_at >= #{creatStart}
-          AND created_at &lt; #{creatEnd}
-          AND created_by = #{id}
+        WHERE created_by = #{id}
+        AND (
+            created_at BETWEEN #{creatStart} AND #{creatEnd}
+           OR created_at BETWEEN #{creatStartShort} AND #{creatEndShort}
+            )
         GROUP BY province
             LIMIT 10
     </select>
@@ -429,9 +439,11 @@
         SELECT FROM_UNIXTIME(created_at/1000, '%Y-%m-%d %H:00') as hour_time,
                COUNT(*) as order_count
         FROM erp_goods_order
-        WHERE created_at >= #{creatStart}
-          AND created_at &lt; #{creatEnd}
-          AND created_by = #{id}
+        WHERE created_by = #{id}
+          AND (
+            created_at BETWEEN #{creatStart} AND #{creatEnd}
+                OR created_at BETWEEN #{creatStartShort} AND #{creatEndShort}
+            )
         GROUP BY FROM_UNIXTIME(created_at/1000, '%Y-%m-%d %H:00')
         ORDER BY hour_time;
     </select>
@@ -444,9 +456,11 @@
                 SUM(CASE WHEN pay_amount >= 5000 AND pay_amount &lt; 10000 THEN 1 ELSE 0 END) as '50-100元',
                 SUM(CASE WHEN pay_amount >= 10000 THEN 1 ELSE 0 END) as '100元以上'
         FROM erp_goods_order
-        WHERE created_at >= #{creatStart}
-          AND created_at &lt; #{creatEnd}
-          AND created_by = #{id}
+        WHERE created_by = #{id}
+          AND (
+            created_at BETWEEN #{creatStart} AND #{creatEnd}
+                OR created_at BETWEEN #{creatStartShort} AND #{creatEndShort}
+            )
           AND order_status NOT IN (5, 6)
           AND pay_amount > 0
     </select>
@@ -459,8 +473,8 @@
         END AS province,
         COUNT(*) AS count
         FROM `erp_goods_order`
-        WHERE created_at >= 1772208000000
-        AND created_at &lt; 1772294399000
+        WHERE created_at  between #{creatStart} AND  #{creatEnd}
+           OR created_at between #{creatStartShort} AND #{creatEndShort}
         GROUP BY
         CASE
         WHEN province IS NULL OR province = '' THEN '未知地区'
@@ -473,8 +487,8 @@
         SELECT FROM_UNIXTIME(created_at/1000, '%Y-%m-%d %H:00') as hour_time,
                COUNT(*) as order_count
         FROM erp_goods_order
-        WHERE created_at >= #{creatStart}
-          AND created_at &lt; #{creatEnd}
+        WHERE created_at  between #{creatStart} AND  #{creatEnd}
+          OR created_at between #{creatStartShort} AND #{creatEndShort}
         GROUP BY FROM_UNIXTIME(created_at/1000, '%Y-%m-%d %H:00')
         ORDER BY hour_time;
     </select>
@@ -487,8 +501,8 @@
                 SUM(CASE WHEN pay_amount >= 5000 AND pay_amount &lt; 10000 THEN 1 ELSE 0 END) as '50-100元',
                 SUM(CASE WHEN pay_amount >= 10000 THEN 1 ELSE 0 END) as '100元以上'
         FROM erp_goods_order
-        WHERE created_at >= #{creatStart}
-          AND created_at &lt; #{creatEnd}
+        WHERE created_at  between #{creatStart} AND  #{creatEnd}
+          OR created_at between #{creatStartShort} AND #{creatEndShort}
           AND order_status NOT IN (5, 6)
           AND pay_amount > 0
     </select>
