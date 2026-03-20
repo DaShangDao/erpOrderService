@@ -52,87 +52,97 @@
     </resultMap>
 
     <sql id="selectErpGoodsOrderVo">
-        select id, order_sn, shop_id, shop_erp_id,shop_erp_name, shop_type, cat_id_1, cat_id_2, cat_id_3, cat_id_4,
-               item_list, order_total, goods_amount, order_change_amount, pay_amount,created_by, created_at,
-               confirm_status, confirm_at, pay_no, pay_at, pay_type, platform_discount, buyer_memo,
-               order_status, shipping_id, shipping_at, city, city_id, province, province_id, country,
-               country_id, town, town_id, tracking_number, remark, remark_tag, remark_tag_name,
-               receive_at, after_sales_status, updated_at, is_show, shop_md5_prefix,is_issue,erp_after_sales_status,
-               erp_ass_create_at,erp_ass_reason,erp_ass_remark,erp_ass_address,receiver_name,mobile
-        from erp_goods_order
+        select e.id, e.order_sn, e.shop_id, e.shop_erp_id, e.shop_erp_name, e.shop_type, e.cat_id_1, e.cat_id_2, e.cat_id_3, e.cat_id_4,
+               e.item_list, e.order_total, e.goods_amount, e.order_change_amount, e.pay_amount, e.created_by, e.created_at,
+               e.confirm_status, e.confirm_at, e.pay_no, e.pay_at, e.pay_type, e.platform_discount, e.buyer_memo,
+               e.order_status, e.shipping_id, e.shipping_at, e.city, e.city_id, e.province, e.province_id, e.country,
+               e.country_id, e.town, e.town_id, e.tracking_number, e.remark, e.remark_tag, e.remark_tag_name,
+               e.receive_at, e.after_sales_status, e.updated_at, e.is_show, e.shop_md5_prefix, e.is_issue, e.erp_after_sales_status,
+               e.erp_ass_create_at, e.erp_ass_reason, e.erp_ass_remark, e.erp_ass_address, e.receiver_name, e.mobile,o.goods_id as erp_goods_id
+        from erp_goods_order e
+        left join order_external_goods o on o.order_id = e.id
     </sql>
 
     <!-- 动态条件SQL片段 -->
     <sql id="dynamicWhere">
         <where>
             <if test="order.id != null">
-                and id = #{order.id}
+                and e.id = #{order.id}
             </if>
             <if test="order.orderSn != null and order.orderSn != ''">
-                and order_sn like concat('%', #{order.orderSn}, '%')
+                and e.order_sn like concat('%', #{order.orderSn}, '%')
             </if>
             <if test="order.shopId != null">
-                and shop_id = #{order.shopId}
+                and e.shop_id = #{order.shopId}
             </if>
             <if test="order.shopErpId != null">
-                and shop_erp_id = #{order.shopErpId}
+                and e.shop_erp_id = #{order.shopErpId}
             </if>
             <if test="order.shopType != null">
-                and shop_type = #{order.shopType}
+                and e.shop_type = #{order.shopType}
             </if>
             <if test="order.orderStatus != null">
-                and order_status = #{order.orderStatus}
+                and e.order_status = #{order.orderStatus}
             </if>
             <if test="order.createdBy != null">
-                and created_by = #{order.createdBy}
+                and e.created_by = #{order.createdBy}
             </if>
             <if test="order.confirmStatus != null">
-                and confirm_status = #{order.confirmStatus}
+                and e.confirm_status = #{order.confirmStatus}
             </if>
             <if test="order.payType != null">
-                and pay_type = #{order.payType}
+                and e.pay_type = #{order.payType}
             </if>
             <if test="order.afterSalesStatus != null">
-                and after_sales_status = #{order.afterSalesStatus}
+                and e.after_sales_status = #{order.afterSalesStatus}
             </if>
             <if test="order.isShow != null">
-                and is_show = #{order.isShow}
+                and e.is_show = #{order.isShow}
             </if>
             <if test="order.province != null and order.province != ''">
-                and province like concat('%', #{order.province}, '%')
+                and e.province like concat('%', #{order.province}, '%')
             </if>
             <if test="order.city != null and order.city != ''">
-                and city like concat('%', #{order.city}, '%')
+                and e.city like concat('%', #{order.city}, '%')
             </if>
             <if test="order.country != null and order.country != ''">
-                and country like concat('%', #{order.country}, '%')
+                and e.country like concat('%', #{order.country}, '%')
             </if>
             <if test="order.town != null and order.town != ''">
-                and town like concat('%', #{order.town}, '%')
+                and e.town like concat('%', #{order.town}, '%')
             </if>
             <if test="order.remarkTag != null and order.remarkTag != ''">
-                and remark_tag = #{order.remarkTag}
+                and e.remark_tag = #{order.remarkTag}
             </if>
             <if test="order.remark != null and order.remark != ''">
-                and remark like concat('%', #{order.remark}, '%')
+                and e.remark like concat('%', #{order.remark}, '%')
             </if>
             <if test="order.isIssue != null">
-                and is_issue = #{order.isIssue}
+                and e.is_issue = #{order.isIssue}
+            </if>
+            <if test="order.itemList != null and order.itemList != ''">
+                and e.item_list ->> '$.outerGoodsId' like concat('%', #{order.itemList}, '%')
             </if>
             <if test="order.erpAfterSalesStatus != null">
-                and erp_after_sales_status = #{order.erpAfterSalesStatus}
+                and e.erp_after_sales_status = #{order.erpAfterSalesStatus}
             </if>
+
+            <if test="order.trackingNumber != null">
+                and e.tracking_number = #{order.trackingNumber}
+            </if>
+
+
             <if test="order.startTime != null">
-                and created_at >=
+                and e.created_at >=
                 CASE
-                WHEN LENGTH(created_at) = 10 THEN #{order.startTime} / 1000
+                WHEN LENGTH(e.created_at) = 10 THEN #{order.startTime} / 1000
                 ELSE #{order.startTime}
                 END
             </if>
             <if test="order.endTime != null">
-                and created_at &lt;=
+                and e.created_at &lt;=
                 CASE
-                WHEN LENGTH(created_at) = 10 THEN #{order.endTime} / 1000
+                WHEN LENGTH(e.created_at) = 10 THEN #{order.endTime} / 1000
                 ELSE #{order.endTime}
                 END
             </if>
@@ -149,7 +159,7 @@
 
     <select id="selectById" resultMap="ErpGoodsOrderResult">
         <include refid="selectErpGoodsOrderVo"/>
-        where id = #{id}
+        where e.id = #{id}
     </select>
 
     <select id="selectByOrderNo" resultMap="ErpGoodsOrderResult">
@@ -168,6 +178,13 @@
         where order_sn = #{orderSn} and item_list like concat('%', #{goodsId}, '%')
     </select>
 
+    <!-- 查询列表 -->
+    <select id="selectOrderList" resultMap="ErpGoodsOrderResult">
+        <include refid="selectErpGoodsOrderVo"/>
+        <include refid="dynamicWhere"/>
+        order by created_at desc
+    </select>
+
     <!-- 分页查询 -->
     <select id="selectPageList" resultMap="ErpGoodsOrderResult">
         <include refid="selectErpGoodsOrderVo"/>
@@ -179,7 +196,7 @@
     <!-- 总数查询 -->
     <select id="selectPageCount" resultType="int">
         select count(*)
-        from erp_goods_order
+        from erp_goods_order e
         <include refid="dynamicWhere"/>
     </select>
 

@@ -844,6 +844,12 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                 map.put("mallId",message.getMallID().toString());
                 Map contentMap = JsonUtil.transferToObj(message.getContent(),Map.class);
                 map.put("goodsId",contentMap.get("goods_id").toString());
+                if (type.equals("pdd_goods_GoodsCheckReject")){
+                    // 商品驳回存储原因和时间
+                    map.put("goodsCommitId",contentMap.get("goods_commit_id") == null ? "" : contentMap.get("goods_commit_id").toString());
+                    map.put("rejectComment",contentMap.get("reject_comment") == null ? "" : contentMap.get("reject_comment").toString());
+                    map.put("rejectTime",contentMap.get("reject_time") == null ? "" : contentMap.get("reject_time").toString());
+                }
                 redisService.listSetOrAppendAsJson(shop.getId().toString(),map);
             }
         }
@@ -1898,6 +1904,18 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
      * @param order 查询条件对象
      * @return 订单列表
      */
+    @Override
+    public List<ErpGoodsOrder> selectOrderList(ErpGoodsOrder order){
+        return baseMapper.selectOrderList(order);
+    }
+
+    /**
+     * 分页查询ERP订单（支持动态条件）
+     *
+     * @param order 查询条件对象
+     * @return 订单列表
+     */
+    @Override
     public List<ErpGoodsOrder> selectPageList(ErpGoodsOrder order){
         order.setPageNum((order.getPageNum()-1)*order.getPageSize());
         return baseMapper.selectPageList(order);

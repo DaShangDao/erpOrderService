@@ -57,6 +57,11 @@ public class ErpGoodsOrderController  {
         return erpGoodsOrder;
     }
 
+    @GetMapping("/getList")
+    public  List<ErpGoodsOrder> getList(ErpGoodsOrder erpGoodsOrder){
+        return erpGoodsOrderService.selectOrderList(erpGoodsOrder);
+    }
+
     /**
      * 查询平台订单列表
      * @param erpGoodsOrder
@@ -325,6 +330,9 @@ public class ErpGoodsOrderController  {
             String json = jsonObject.toString();
             result = DllInitializer.executePddOrderSynchronization(PddUtil.CLIENT_ID,PddUtil.CLIENT_SECRET,shop.getToken(),companyName,json);
         } else if(shop.getShopType().equals("2")){
+            if (companyName.equals("韵达快递")){
+                companyName = "韵达速递";
+            }
             // 孔夫子 同步订单快递单号
             result = DllInitializer.executeKongfzOrderSynchronization(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
                     companyName,Integer.parseInt(erpGoodsOrder.getOrderSn()),"","",orderNo,"","");

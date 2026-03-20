@@ -288,6 +288,11 @@ public class ErpGoodsOrder {
     private String erpAssAddress;
 
     /**
+     * ERP商品id
+     */
+    private String erpGoodsId;
+
+    /**
      * 分页查询属性
      */
     //第几页

@@ -50,6 +50,13 @@ public interface ErpGoodsOrderMapper {
 
 
     /**
+     * 查询列表
+     * @param order
+     * @return
+     */
+    List<ErpGoodsOrder> selectOrderList(@Param("order") ErpGoodsOrder order);
+
+    /**
      * 分页查询ERP订单（支持动态条件）
      *
      * @param order 查询条件对象

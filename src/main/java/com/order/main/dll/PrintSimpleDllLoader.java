@@ -1,5 +1,6 @@
 package com.order.main.dll;
 
+import cn.hutool.core.lang.func.Func;
 import com.sun.jna.Function;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
@@ -18,8 +19,14 @@ public class PrintSimpleDllLoader {
 
     // 韵达电子面单下单
     private static Function ydCreateBmOrderFunc;
-
+    // 韵达更新电子面单
+    private static Function ydUpdateBmOrderFunc;
+    // 获取pdf文件
     private static Function ydBmGetPdfInfoFunc;
+    // 电子面单取消
+    private static Function ydCancelBmOrderFunc;
+    // 电子面单余量查询接口
+    private static Function ydSearchCountFunc;
 
     private static Function freeCStringFunc;
 
@@ -52,18 +59,25 @@ public class PrintSimpleDllLoader {
 
         // 加载库文件
         nativeLibrary = NativeLibrary.getInstance(libraryFile.getAbsolutePath());
-
         // 韵达电子面单下单
         ydCreateBmOrderFunc = nativeLibrary.getFunction("YdCreateBmOrder");
-
+        // 韵达电子面单更新
+        ydUpdateBmOrderFunc = nativeLibrary.getFunction("YdUpdateBmOrder");
         // 韵达电子面单打印
         ydBmGetPdfInfoFunc = nativeLibrary.getFunction("YdBmGetPdfInfo");
+        // 电子面单取消
+        ydCancelBmOrderFunc = nativeLibrary.getFunction("YdCancelBmOrder");
+        // 电子面单余量查询接口
+        ydSearchCountFunc = nativeLibrary.getFunction("YdSearchCount");
 
         // 释放c串内存
         freeCStringFunc = nativeLibrary.getFunction("FreeCString");
 
         if (ydCreateBmOrderFunc == null) throw new Exception("无法找到 ydCreateBmOrderFunc 函数");
+        if (ydUpdateBmOrderFunc == null) throw new Exception("无法找到 ydUpdateBmOrderFunc 函数");
         if (ydBmGetPdfInfoFunc == null) throw new Exception("无法找到 YdBmGetPdfInfoFunc 函数");
+        if (ydCancelBmOrderFunc == null) throw new Exception("无法找到 ydCancelBmOrderFunc 函数");
+        if (ydSearchCountFunc == null) throw new Exception("无法找到 ydSearchCountFunc 函数");
         if (freeCStringFunc == null) throw new Exception("无法找到 FreeCString 函数");
 
         System.out.println("expressDeliveryOrder Native 库加载成功: " + libraryPath);
@@ -165,6 +179,26 @@ public class PrintSimpleDllLoader {
     }
 
     /**
+     * 韵达电子面单更新
+     * requestJSON  更新订单参数JSON字符串
+     * appKey       请求发起方应用密钥
+     * appSecret    签名密钥
+     */
+    public static String ydUpdateBmOrder(String requestJSON,String appKey,String appSecret) {
+        try {
+            String cleanedRequestJSON = ensureUtf8(requestJSON);
+            String cleanedAppKey = ensureUtf8(appKey);
+            String cleanedAppSecret = ensureUtf8(appSecret);
+
+            Object result = ydUpdateBmOrderFunc.invoke(Pointer.class,
+                    new Object[]{cleanedRequestJSON, cleanedAppKey, cleanedAppSecret});
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
      * 韵达电子面单打印
      * requestJSON  打印参数JSON字符串
      * appKey       请求发起方应用密钥
@@ -176,6 +210,45 @@ public class PrintSimpleDllLoader {
             String cleanedAppKey = ensureUtf8(appKey);
             String cleanedAppSecret = ensureUtf8(appSecret);
             Object result = ydBmGetPdfInfoFunc.invoke(Pointer.class,
+                    new Object[]{cleanedRequestJSON, cleanedAppKey, cleanedAppSecret});
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 韵达电子面单取消
+     * requestJSON  打印参数JSON字符串
+     * appKey       请求发起方应用密钥
+     * appSecret    签名密钥
+     */
+    public static String ydCancelBmOrder(String requestJSON,String appKey,String appSecret) {
+        try {
+            String cleanedRequestJSON = ensureUtf8(requestJSON);
+            String cleanedAppKey = ensureUtf8(appKey);
+            String cleanedAppSecret = ensureUtf8(appSecret);
+            Object result = ydCancelBmOrderFunc.invoke(Pointer.class,
+                    new Object[]{cleanedRequestJSON, cleanedAppKey, cleanedAppSecret});
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+
+    /**
+     * 电子面单余量查询接口
+     * requestJSON  打印参数JSON字符串
+     * appKey       请求发起方应用密钥
+     * appSecret    签名密钥
+     */
+    public static String ydSearchCount(String requestJSON,String appKey,String appSecret) {
+        try {
+            String cleanedRequestJSON = ensureUtf8(requestJSON);
+            String cleanedAppKey = ensureUtf8(appKey);
+            String cleanedAppSecret = ensureUtf8(appSecret);
+            Object result = ydSearchCountFunc.invoke(Pointer.class,
                     new Object[]{cleanedRequestJSON, cleanedAppKey, cleanedAppSecret});
             return ptrToString((Pointer) result);
         } catch (Exception e) {

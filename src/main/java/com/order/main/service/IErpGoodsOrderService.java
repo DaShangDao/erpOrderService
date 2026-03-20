@@ -131,6 +131,14 @@ public interface IErpGoodsOrderService {
     ErpGoodsOrder selectBoOrderNoAndGoodsId(String orderNo,String goodsId);
 
     /**
+     * 查询ERP订单（支持动态条件）
+     *
+     * @param order 查询条件对象
+     * @return 订单列表
+     */
+    List<ErpGoodsOrder> selectOrderList(ErpGoodsOrder order);
+
+    /**
      * 分页查询ERP订单（支持动态条件）
      *
      * @param order 查询条件对象

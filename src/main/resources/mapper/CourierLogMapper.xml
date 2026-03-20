@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.CourierLogMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.CourierLog">
+        <id property="id" column="id"/>
+        <result property="erpOrderId" column="erp_order_id"/>
+        <result property="orderSn" column="order_sn"/>
+        <result property="partnerId" column="partner_id"/>
+        <result property="secret" column="secret"/>
+        <result property="sender" column="sender"/>
+        <result property="receiver" column="receiver"/>
+        <result property="items" column="items"/>
+        <result property="orderSerialNo" column="order_serial_no"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, erp_order_id, order_sn,mail_no, partner_id, secret,
+        sender, receiver, items, order_serial_no,type
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM courier_log
+        WHERE id = #{id}
+    </select>
+
+    <select id="getListByErpOrderId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM courier_log
+        WHERE erp_order_id = #{erpOrderId}
+    </select>
+
+
+    <!-- 分页查询列表 -->
+    <select id="selectPageList" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM courier_log
+        <where>
+            <if test="erpOrderId != null">
+                AND erp_order_id = #{erpOrderId}
+            </if>
+            <if test="orderSn != null and orderSn != ''">
+                AND order_sn LIKE CONCAT('%', #{orderSn}, '%')
+            </if>
+            <if test="partnerId != null and partnerId != ''">
+                AND partner_id = #{partnerId}
+            </if>
+            <if test="orderSerialNo != null and orderSerialNo != ''">
+                AND order_serial_no = #{orderSerialNo}
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{pageNum}, #{pageSize}
+    </select>
+
+    <!-- 查询总记录数 -->
+    <select id="count" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM courier_log
+        <where>
+            <if test="erpOrderId != null">
+                AND erp_order_id = #{erpOrderId}
+            </if>
+            <if test="orderSn != null and orderSn != ''">
+                AND order_sn LIKE CONCAT('%', #{orderSn}, '%')
+            </if>
+            <if test="partnerId != null and partnerId != ''">
+                AND partner_id = #{partnerId}
+            </if>
+            <if test="orderSerialNo != null and orderSerialNo != ''">
+                AND order_serial_no = #{orderSerialNo}
+            </if>
+        </where>
+    </select>
+
+    <!-- 条件查询列表 -->
+    <select id="selectList" parameterType="com.order.main.entity.CourierLog" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM courier_log
+        <where>
+            <if test="id != null">
+                AND id = #{id}
+            </if>
+            <if test="erpOrderId != null">
+                AND erp_order_id = #{erpOrderId}
+            </if>
+            <if test="orderSn != null and orderSn != ''">
+                AND order_sn LIKE CONCAT('%', #{orderSn}, '%')
+            </if>
+            <if test="partnerId != null and partnerId != ''">
+                AND partner_id = #{partnerId}
+            </if>
+            <if test="orderSerialNo != null and orderSerialNo != ''">
+                AND order_serial_no = #{orderSerialNo}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <!-- 新增 -->
+    <insert id="insert" parameterType="com.order.main.entity.CourierLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO courier_log (
+            erp_order_id,
+            order_sn,
+            partner_id,
+            secret,
+            sender,
+            receiver,
+            items,
+            order_serial_no,
+            type,
+            create_by,
+            create_at,
+            mail_no
+        ) VALUES (
+             #{erpOrderId},
+             #{orderSn},
+             #{partnerId},
+             #{secret},
+             #{sender},
+             #{receiver},
+             #{items},
+             #{orderSerialNo},
+             #{type},
+             #{createBy},
+             #{createAt},
+             #{mailNo}
+         )
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.order.main.entity.CourierLog">
+        UPDATE courier_log
+        <set>
+            <if test="erpOrderId != null">
+                erp_order_id = #{erpOrderId},
+            </if>
+            <if test="orderSn != null and orderSn != ''">
+                order_sn = #{orderSn},
+            </if>
+            <if test="partnerId != null and partnerId != ''">
+                partner_id = #{partnerId},
+            </if>
+            <if test="secret != null and secret != ''">
+                secret = #{secret},
+            </if>
+            <if test="sender != null and sender != ''">
+                sender = #{sender},
+            </if>
+            <if test="receiver != null and receiver != ''">
+                receiver = #{receiver},
+            </if>
+            <if test="items != null and items != ''">
+                items = #{items},
+            </if>
+            <if test="orderSerialNo != null and orderSerialNo != ''">
+                order_serial_no = #{orderSerialNo},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除 -->
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM courier_log
+        WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByMailNo">
+        DELETE FROM courier_log
+        WHERE mail_no = #{mailNo}
+    </delete>
+
+    <!-- 批量删除 -->
+    <delete id="deleteBatch" parameterType="java.util.List">
+        DELETE FROM courier_log
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

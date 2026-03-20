@@ -44,6 +44,11 @@ public class DllInitializer {
             PddSimpleDllLoader.loadDLL(); // 新增
             pddInitialized = true; // 新增
             System.out.println("拼多多 DLL 库加载成功"); // 新增
+
+            System.out.println("正在加载 打单 DLL库");
+            PrintSimpleDllLoader.loadDLL();
+            printInitialized = true;
+            System.out.println("打单 DLL 库加载成功");
         } catch (Exception e) {
             System.err.println("Native 库加载失败: " + e.getMessage());
             throw new RuntimeException("Native 库加载失败", e);
@@ -315,6 +320,20 @@ public class DllInitializer {
     }
 
     /**
+     * 电子面单更新
+     * @param requestJSON
+     * @param appKey
+     * @param appSecret
+     * @return
+     */
+    public static String ydUpdateBmOrder(String requestJSON,String appKey,String appSecret) {
+        if (!printInitialized) {
+            throw new IllegalStateException("打单 DLL库未初始化");
+        }
+        return PrintSimpleDllLoader.ydUpdateBmOrder(requestJSON,appKey,appSecret);
+    }
+
+    /**
      * 韵达电子面单打印
      * requestJSON  打印参数JSON字符串
      * appKey       请求发起方应用密钥
@@ -325,5 +344,31 @@ public class DllInitializer {
             throw new IllegalStateException("打单 DLL库未初始化");
         }
         return PrintSimpleDllLoader.ydBmGetPdfInfo(requestJSON,appKey,appSecret);
+    }
+
+    /**
+     * 韵达电子面单取消
+     * requestJSON  打印参数JSON字符串
+     * appKey       请求发起方应用密钥
+     * appSecret    签名密钥
+     */
+    public static String ydCancelBmOrder(String requestJSON,String appKey,String appSecret) {
+        if (!printInitialized) {
+            throw new IllegalStateException("打单 DLL库未初始化");
+        }
+        return PrintSimpleDllLoader.ydCancelBmOrder(requestJSON,appKey,appSecret);
+    }
+
+    /**
+     * 电子面单余量查询接口
+     * requestJSON  打印参数JSON字符串
+     * appKey       请求发起方应用密钥
+     * appSecret    签名密钥
+     */
+    public static String ydSearchCount(String requestJSON,String appKey,String appSecret) {
+        if (!printInitialized) {
+            throw new IllegalStateException("打单 DLL库未初始化");
+        }
+        return PrintSimpleDllLoader.ydSearchCount(requestJSON,appKey,appSecret);
     }
 }
