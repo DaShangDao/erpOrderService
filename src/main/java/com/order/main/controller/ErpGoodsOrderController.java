@@ -3,21 +3,25 @@ package com.order.main.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.order.main.dll.DllInitializer;
+import com.order.main.dll.PddSimpleDllLoader;
 import com.order.main.dto.XyOrderDto;
 import com.order.main.entity.*;
 import com.order.main.service.*;
 import com.order.main.service.impl.RedisService;
 import com.order.main.util.*;
 import com.pdd.pop.sdk.common.util.JsonUtil;
-import com.pdd.pop.sdk.common.util.StringUtils;
 import com.pdd.pop.sdk.message.model.Message;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.aop.ThrowsAdvice;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.validation.annotation.Validated;
 
+import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLOutput;
 import java.util.*;
 
@@ -619,47 +623,33 @@ public class ErpGoodsOrderController  {
         return erpGoodsOrderService.orderAmountDistribution(id.toString());
     }
 
-//    @GetMapping("/totalCount/{id}")
-//    public Integer TotalOrder(@PathVariable Long id){
-//        if (id == 1) {
-//            return erpGoodsOrderService.monthOrderAll();
-//        }
-//        List<String> shopIdList = shopMapper.getShopIdByCreateBy(id);
-//
-//        Integer count = 0;
-//
-//        for (String shopId : shopIdList) {
-//            count += erpGoodsOrderService.monthOrderById(shopId);
-//        }
-//
-//        return count;
-//    }
-//
-//    @GetMapping("/todaySale/{id}")
-//    public BigDecimal todaySale(@PathVariable Long id) {
-//        System.out.println("开始统计");
-//        if (id == 1) {
-//            return erpGoodsOrderService.todaySaleAll();
-//        }
-//        List<String> shopIdList = shopMapper.getShopIdByCreateBy(id);
-//
-//        return shopIdList.stream()
-//                .map(erpGoodsOrderService::todaySale)
-//                .filter(Objects::nonNull)  // 过滤掉null值
-//                .reduce(BigDecimal.ZERO, BigDecimal::add);  // 累加所有销售额
-//    }
-//
-//    @GetMapping("/totalSale/{id}")
-//    public BigDecimal totalSale(@PathVariable Long id) {
-//        System.out.println("开始统计");
-//        if (id == 1) {
-//            return erpGoodsOrderService.monthSaleAll();
-//        }
-//        List<String> shopIdList = shopMapper.getShopIdByCreateBy(id);
-//
-//        return shopIdList.stream()
-//                .map(erpGoodsOrderService::monthSale)
-//                .filter(Objects::nonNull)  // 过滤掉null值
-//                .reduce(BigDecimal.ZERO, BigDecimal::add);  // 累加所有销售额
-//    }
+
+    /**
+     * 处理自营商品操作日志数据
+     */
+    @GetMapping("/handleShopStockLog")
+    public String handleShopStockLog(String jsonList){
+        try {
+             jsonList = URLDecoder.decode(jsonList, StandardCharsets.UTF_8.toString());
+        } catch (UnsupportedEncodingException e) {
+            System.out.println("解析数据失败");
+        }
+        List stockChangeLogList = JSONObject.parseArray(jsonList);
+        for (Object stockChangeLog : stockChangeLogList){
+            Map stockChangeLogMap = (Map) stockChangeLog;
+            String aboutId = stockChangeLogMap.get("aboutId") == null ? "" : stockChangeLogMap.get("aboutId").toString();
+            if (StringUtils.isNotEmpty(aboutId)){
+                ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(aboutId));
+                stockChangeLogMap.put("remark","店铺名称："+erpGoodsOrder.getShopErpName()+";订单编号："+erpGoodsOrder.getOrderSn());
+            }else{
+                stockChangeLogMap.put("remark","");
+            }
+        }
+        return JsonUtil.transferToJson(stockChangeLogList);
+    }
+
+    @GetMapping("/test")
+    public void test(String shopId,String wpCode){
+
+    }
 }

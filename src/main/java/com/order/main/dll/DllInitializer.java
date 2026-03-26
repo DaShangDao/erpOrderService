@@ -1,5 +1,8 @@
 package com.order.main.dll;
 
+import com.order.main.config.NativeLibConfig;
+import com.order.main.util.OrderUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -9,6 +12,11 @@ import java.util.ArrayList;
 
 @Component
 public class DllInitializer {
+
+
+    @Autowired
+    private NativeLibConfig nativeLibConfig;
+
     private static boolean initialized = false;
     private static boolean xyInitialized = false;
     private static boolean kfzInitialized = false;
@@ -16,13 +24,22 @@ public class DllInitializer {
     private static boolean printInitialized = false;
     private static int defaultExcelManagerHandle = 0;
 
-    private static String xyConfigPath = "/www/wwwroot/config/config.ini";
-    //private static String xyConfigPath = "D:/zhishu/test/config.ini";
+    private static String xyConfigPath = "";
 
 
     @PostConstruct
     public void init() {
         try {
+            // 重要：先设置配置，再加载 DLL
+            xyConfigPath = nativeLibConfig.getXyConfig();
+            System.out.println("设置 Native 库配置: " + nativeLibConfig);
+            KfzSimpleDllLoader.setNativeLibConfig(nativeLibConfig);
+            PddSimpleDllLoader.setNativeLibConfig(nativeLibConfig);
+            PrintSimpleDllLoader.setNativeLibConfig(nativeLibConfig);
+            SimpleDllLoader.setNativeLibConfig(nativeLibConfig);
+            XySimpleDllLoader.setNativeLibConfig(nativeLibConfig);
+            OrderUtils.setNativeLibConfig(nativeLibConfig);
+
             System.out.println("正在加载 Excel Dll库...");
             SimpleDllLoader.loadDLL();
             // 创建默认的Excel管理器

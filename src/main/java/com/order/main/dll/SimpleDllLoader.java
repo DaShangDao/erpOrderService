@@ -1,5 +1,6 @@
 package com.order.main.dll;
 
+import com.order.main.config.NativeLibConfig;
 import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.sun.jna.Function;
 import com.sun.jna.Library;
@@ -23,15 +24,18 @@ import java.util.HashMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.sun.jna.ptr.PointerByReference;
+import lombok.Setter;
 
 public class SimpleDllLoader {
 
     private static NativeLibrary nativeLibrary;
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    // 外部库文件路径
-    private static final String EXTERNAL_LIB_PATH = "/www/wwwroot/config/excel.so";
-    // private static final String EXTERNAL_LIB_PATH = "D:/zhishu/dll/excel.dll";
+    @Setter
+    private static NativeLibConfig nativeLibConfig;
+
+
+
 
     // 定义Go DLL接口
     public interface ExcelDLL extends Library {
@@ -359,7 +363,7 @@ public class SimpleDllLoader {
      */
     private static String getLibraryPath() throws IOException {
         // 优先使用外部路径
-        String externalPath = EXTERNAL_LIB_PATH;
+        String externalPath = nativeLibConfig.getSimple();
         File externalFile = new File(externalPath);
 
         if (externalFile.exists()) {

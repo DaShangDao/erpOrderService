@@ -49,15 +49,37 @@ forest:
   connect-timeout: 3000        # 连接超时时间，单位为毫秒
   read-timeout: 3000           # 数据读取超时时间，单位为毫秒
 
-dll:
-#  excelDll: "/www/wwwroot/config/excel.so"
-#  xyDll: "/www/wwwroot/config/batchCreat.so"
-#  dllLog: "/www/wwwroot/erpOrderService/log/"
-#  xyDllIni: "/www/wwwroot/config/xyDllConfig/config.ini"
-  excelDll: "D:/zhishu/dll/excel.dll"
-  xyDll: "D:/zhishu/dll/batchCreat.dll"
-  dllLog: "D:/zhishu/dll/"
-  xyDllIni: "D:/zhishu/test/config.ini"
+# Native 库路径配置
+native:
+  lib:
+    # 孔夫子库路径
+    kfz: "D:/zhishu/dll/kongfz.dll"
+    # 拼多多库路径
+    pdd: "D:/zhishu/dll/pdd.dll"
+    # 打单库路径
+    printSimple: "D:/zhishu/dll/expressDeliveryOrder.dll"
+    # excel库路径
+    simple: "D:/zhishu/dll/excel.dll"
+    #闲鱼库路径
+    xy: "D:/zhishu/dll/xy.dll"
+    xyConfig: "D:/zhishu/test/config.ini"
+    orderLog: "D:/zhishu/dll/"
+
+## Native 库路径配置
+#native:
+#  lib:
+#    # 孔夫子库路径
+#    kfz: "/www/wwwroot/config/kongfz.so"
+#    # 拼多多库路径
+#    pdd: "/www/wwwroot/config/pdd.so"
+#    # 打单库路径
+#    printSimple: "/www/wwwroot/config/expressDeliveryOrder.so"
+#    # excel库路径
+#    simple: "/www/wwwroot/config/excel.so"
+#    #闲鱼库路径
+#    xy: "/www/wwwroot/config/xy.so"
+#    xyConfig: "/www/wwwroot/config/config.ini"
+#    orderLog: "/www/orderLog/"
 
 
 # 定时任务配置

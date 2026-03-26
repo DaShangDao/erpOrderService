@@ -823,11 +823,11 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         if (goodsCheckRejectVo.getRejectComment().contains("类目")){
             shopGoodsPublishedClient.uodateCatId("https://api.buzhiyushu.cn", "1", goodsCheckRejectVo.getMallId(), goodsCheckRejectVo.getGoodsId().toString());
         }
-        try {
-            shopGoodsPublishedClient.delShopGoodsPublished("https://api.buzhiyushu.cn", "1", goodsCheckRejectVo.getMallId(), goodsCheckRejectVo.getGoodsId().toString(),goodsCheckRejectVo.getRejectComment());
-        } catch (Exception e) {
-            throw new RuntimeException("接收到pdd商品审核驳回消息删除发布商品失败:" + e);
-        }
+//        try {
+//            shopGoodsPublishedClient.delShopGoodsPublished("https://api.buzhiyushu.cn", "1", goodsCheckRejectVo.getMallId(), goodsCheckRejectVo.getGoodsId().toString(),goodsCheckRejectVo.getRejectComment());
+//        } catch (Exception e) {
+//            throw new RuntimeException("接收到pdd商品审核驳回消息删除发布商品失败:" + e);
+//        }
     }
 
     /**
@@ -835,24 +835,22 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
      */
     @Override
     public void messageSetRedis(Message message){
-        if (message.getMallID() == 783762954 || message.getMallID() == 922420730){
-            System.out.println("商品操作消息:"+ message);
-            String type = message.getType();
-            Shop shop = shopService.selectShopByMallId(message.getMallID()+"");
-            if (shop != null){
-                Map map = new HashMap();
-                map.put("type",type);
-                map.put("mallId",message.getMallID().toString());
-                Map contentMap = JsonUtil.transferToObj(message.getContent(),Map.class);
-                map.put("goodsId",contentMap.get("goods_id").toString());
-                if (type.equals("pdd_goods_GoodsCheckReject")){
-                    // 商品驳回存储原因和时间
-                    map.put("goodsCommitId",contentMap.get("goods_commit_id") == null ? "" : contentMap.get("goods_commit_id").toString());
-                    map.put("rejectComment",contentMap.get("reject_comment") == null ? "" : contentMap.get("reject_comment").toString());
-                    map.put("rejectTime",contentMap.get("reject_time") == null ? "" : contentMap.get("reject_time").toString());
-                }
-                redisService.listSetOrAppendAsJson(shop.getId().toString(),map);
+        System.out.println("商品操作消息:"+ message);
+        String type = message.getType();
+        Shop shop = shopService.selectShopByMallId(message.getMallID()+"");
+        if (shop != null){
+            Map map = new HashMap();
+            map.put("type",type);
+            map.put("mallId",message.getMallID().toString());
+            Map contentMap = JsonUtil.transferToObj(message.getContent(),Map.class);
+            map.put("goodsId",contentMap.get("goods_id").toString());
+            if (type.equals("pdd_goods_GoodsCheckReject")){
+                // 商品驳回存储原因和时间
+                map.put("goodsCommitId",contentMap.get("goods_commit_id") == null ? "" : contentMap.get("goods_commit_id").toString());
+                map.put("rejectComment",contentMap.get("reject_comment") == null ? "" : contentMap.get("reject_comment").toString());
+                map.put("rejectTime",contentMap.get("reject_time") == null ? "" : contentMap.get("reject_time").toString());
             }
+            redisService.listSetOrAppendAsJson(shop.getId().toString(),map);
         }
     }
 

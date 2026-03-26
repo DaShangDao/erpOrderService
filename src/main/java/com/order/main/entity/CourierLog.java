@@ -78,6 +78,11 @@ public class CourierLog {
     private Long createAt;
 
     /**
+     * 备注
+     */
+    private String remark;
+
+    /**
      * 分页参数
      */
     private int pageNum;

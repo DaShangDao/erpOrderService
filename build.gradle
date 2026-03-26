@@ -33,7 +33,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-aop'
 	// 使用Lombok
 	implementation 'org.projectlombok:lombok'
-	annotationProcessor 'org.projectlombok:lombok'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    annotationProcessor 'org.projectlombok:lombok'
 	implementation group: 'com.dtflys.forest', name: 'forest-spring-boot-starter', version: '1.6.4'
 	implementation 'com.google.guava:guava:32.1.3-jre'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'

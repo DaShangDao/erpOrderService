@@ -4,7 +4,9 @@ import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.pdd.pop.sdk.common.util.StringUtils;
 import com.pdd.pop.sdk.http.PopClient;
 import com.pdd.pop.sdk.http.PopHttpClient;
+import com.pdd.pop.sdk.http.api.pop.request.PddCloudprintStdtemplatesGetRequest;
 import com.pdd.pop.sdk.http.api.pop.request.PddOpenDecryptBatchRequest;
+import com.pdd.pop.sdk.http.api.pop.response.PddCloudprintStdtemplatesGetResponse;
 import com.pdd.pop.sdk.http.api.pop.response.PddOpenDecryptBatchResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -61,5 +63,38 @@ public final class PddUtil {
         }else{
             return new ArrayList<>();
         }
+    }
+
+    /**
+     * 获取拼多多标准打印模板
+     * @param wpCode
+     * @return
+     */
+    public static String getCloudprintStdtemplates(String wpCode){
+        PopClient client = new PopHttpClient(CLIENT_ID, CLIENT_SECRET);
+        PddCloudprintStdtemplatesGetRequest request = new PddCloudprintStdtemplatesGetRequest();
+        request.setWpCode(wpCode);
+        PddCloudprintStdtemplatesGetResponse response = null;
+        try {
+             response = client.syncInvoke(request);
+
+           PddCloudprintStdtemplatesGetResponse.InnerPddCloudprintStdtemplatesGetResponse innerPddCloudprintStdtemplatesGetResponse =  response.getPddCloudprintStdtemplatesGetResponse();
+           PddCloudprintStdtemplatesGetResponse.InnerPddCloudprintStdtemplatesGetResponseResult result = innerPddCloudprintStdtemplatesGetResponse.getResult();
+            List<PddCloudprintStdtemplatesGetResponse.InnerPddCloudprintStdtemplatesGetResponseResultDatasItem> datas = result.getDatas();
+            for (PddCloudprintStdtemplatesGetResponse.InnerPddCloudprintStdtemplatesGetResponseResultDatasItem datasItem : datas){
+                if (datasItem.getWpCode().equals(wpCode)){
+                    List<PddCloudprintStdtemplatesGetResponse.InnerPddCloudprintStdtemplatesGetResponseResultDatasItemStandardTemplatesItem> standardTemplates = datasItem.getStandardTemplates();
+                    for (PddCloudprintStdtemplatesGetResponse.InnerPddCloudprintStdtemplatesGetResponseResultDatasItemStandardTemplatesItem standardTemplate : standardTemplates){
+                        if (standardTemplate.getStandardTemplateName().equals("快递一联单")){
+                            return standardTemplate.getStandardTemplateUrl();
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        return "";
     }
 }

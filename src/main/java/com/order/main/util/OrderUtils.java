@@ -1,6 +1,8 @@
 package com.order.main.util;
 
+import com.order.main.config.NativeLibConfig;
 import com.order.main.dll.DllInitializer;
+import lombok.Setter;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -11,6 +13,9 @@ public class OrderUtils {
 
     // private static final String ORDER_EXCEL_LOG_PATH = "D:/zhishu/dll/";
     private static final String ORDER_EXCEL_LOG_PATH = "/www/orderLog/";
+
+    @Setter
+    private static NativeLibConfig nativeLibConfig;
 
     /**
      * 订单状态转换

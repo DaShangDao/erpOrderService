@@ -1,8 +1,10 @@
 package com.order.main.dll;
 
+import com.order.main.config.NativeLibConfig;
 import com.sun.jna.Function;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
+import lombok.Setter;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -37,9 +39,11 @@ public class XySimpleDllLoader {
 
     private static Function executeGetGoodsDetailFunc;
 
-    // 外部库文件路径
-    private static final String EXTERNAL_LIB_PATH = "/www/wwwroot/config/xy.so";
-    // private static final String EXTERNAL_LIB_PATH = "D:/zhishu/dll/xy.dll";
+
+    @Setter
+    private static NativeLibConfig nativeLibConfig;
+
+
 
     public static void loadDLL() throws Exception {
         String libraryPath = getLibraryPath();
@@ -220,7 +224,7 @@ public class XySimpleDllLoader {
      */
     private static String getLibraryPath() throws IOException {
         // 优先使用外部路径
-        String externalPath = EXTERNAL_LIB_PATH;
+        String externalPath = nativeLibConfig.getXy();
         File externalFile = new File(externalPath);
 
         if (externalFile.exists()) {

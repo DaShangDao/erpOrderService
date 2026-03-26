@@ -1,8 +1,10 @@
 package com.order.main.dll;
 
+import com.order.main.config.NativeLibConfig;
 import com.sun.jna.Function;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
+import lombok.Setter;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -14,7 +16,12 @@ import java.nio.file.Files;
 public class KfzSimpleDllLoader {
 
     private static NativeLibrary nativeLibrary;
-
+    /**
+     * -- SETTER --
+     *  初始化配置
+     */
+    @Setter
+    private static NativeLibConfig nativeLibConfig;
     // 获取孔夫子订单列表
     private static Function kongfzOrderListFunc;
     // 查询孔夫子单个订单
@@ -24,9 +31,7 @@ public class KfzSimpleDllLoader {
 
     private static Function freeCStringFunc;
 
-    // 外部库文件路径
-    private static final String EXTERNAL_LIB_PATH = "/www/wwwroot/config/kongfz.so";
-    //private static final String EXTERNAL_LIB_PATH = "D:/zhishu/dll/kongfz.dll";
+
 
     public static void loadDLL() throws Exception {
         String libraryPath = getLibraryPath();
@@ -77,7 +82,7 @@ public class KfzSimpleDllLoader {
      */
     private static String getLibraryPath() throws IOException {
         // 优先使用外部路径
-        String externalPath = EXTERNAL_LIB_PATH;
+        String externalPath = nativeLibConfig.getKfz();
         File externalFile = new File(externalPath);
 
         if (externalFile.exists()) {

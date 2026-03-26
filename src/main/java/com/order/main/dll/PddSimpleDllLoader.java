@@ -1,8 +1,10 @@
 package com.order.main.dll;
 
+import com.order.main.config.NativeLibConfig;
 import com.sun.jna.Function;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
+import lombok.Setter;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -15,17 +17,25 @@ public class PddSimpleDllLoader {
 
     private static NativeLibrary nativeLibrary;
 
+    @Setter
+    private static NativeLibConfig nativeLibConfig;
     // 拼多多订单同步
     private static Function pddOrderSynchronizationFunc;
-
     // 查询订单列表
     private static Function pddOrderBasicListGetFunc;
+    // 查询面单服务订购及面单使用情况
+    private static Function pddWaybillSearchFunc;
+    // 电子面单云打印
+    private static Function pddWaybillGetFunc;
+    // 电子面单取号
+    private static Function pddFdsWaybillGetFunc;
+    // 商家取消获取的电子面单号
+    private static Function pddWaybillCancelFunc;
 
     private static Function freeCStringFunc;
 
-    // 外部库文件路径
-    private static final String EXTERNAL_LIB_PATH = "/www/wwwroot/config/pdd.so";
-    //private static final String EXTERNAL_LIB_PATH = "D:/zhishu/dll/pdd.dll";
+
+
 
     public static void loadDLL() throws Exception {
         String libraryPath = getLibraryPath();
@@ -59,11 +69,26 @@ public class PddSimpleDllLoader {
         // 查询订单列表
         pddOrderBasicListGetFunc = nativeLibrary.getFunction("PddOrderBasicListGet");
 
+        // 查询面单服务订购及面单使用情况
+        pddWaybillSearchFunc = nativeLibrary.getFunction("PddWaybillSearch");
+
+        // 电子面单云打印
+        pddWaybillGetFunc = nativeLibrary.getFunction("PddWaybillGet");
+
+        // 电子面单取号
+        pddFdsWaybillGetFunc = nativeLibrary.getFunction("PddFdsWaybillGet");
+
+        // 商家取消获取的电子面单号
+        pddWaybillCancelFunc = nativeLibrary.getFunction("PddWaybillCancel");
+
         // 释放c串内存
         freeCStringFunc = nativeLibrary.getFunction("FreeCString");
 
         if (pddOrderSynchronizationFunc == null) throw new Exception("无法找到 PddOrderSynchronization 函数");
         if (pddOrderBasicListGetFunc == null) throw new Exception("无法找到 PddOrderBasicListGet 函数");
+        if (pddWaybillSearchFunc == null) throw new Exception("无法找到 PddWaybillSearch 函数");
+        if (pddWaybillGetFunc == null) throw new Exception("无法找到 PddWaybillGet 函数");
+        if (pddFdsWaybillGetFunc == null) throw new Exception("无法找到 PddFdsWaybillGet 函数");
         if (freeCStringFunc == null) throw new Exception("无法找到 FreeCString 函数");
 
         System.out.println("PDD Native 库加载成功: " + libraryPath);
@@ -74,7 +99,7 @@ public class PddSimpleDllLoader {
      */
     private static String getLibraryPath() throws IOException {
         // 优先使用外部路径
-        String externalPath = EXTERNAL_LIB_PATH;
+        String externalPath = nativeLibConfig.getPdd();
         File externalFile = new File(externalPath);
 
         if (externalFile.exists()) {
@@ -191,6 +216,42 @@ public class PddSimpleDllLoader {
             return "Error: " + e.getMessage();
         }
     }
+
+    /**
+     * 拼多多dll接口调用
+     * @param api           接口类型
+     * @param clientId
+     * @param clientSecret
+     * @param accessToken
+     * @param json
+     * @return
+     */
+    public static String executePddApi(String api,String clientId, String clientSecret, String accessToken,String json){
+        try {
+            String cleanedClientId = ensureUtf8(clientId);
+            String cleanedClientSecret = ensureUtf8(clientSecret);
+            String cleanedAccessToken = ensureUtf8(accessToken);
+            String cleanedJson = ensureUtf8(json);
+            Object result = null;
+            if (api.equals("PddWaybillSearch")){
+                result = pddWaybillSearchFunc.invoke(Pointer.class,
+                        new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
+            }else if (api.equals("PddWaybillGet")){
+                result = pddWaybillGetFunc.invoke(Pointer.class,
+                        new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
+            }else if (api.equals("PddFdsWaybillGet")){
+                result = pddFdsWaybillGetFunc.invoke(Pointer.class,
+                        new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
+            }else if (api.equals("PddWaybillCancel")){
+                result = pddWaybillCancelFunc.invoke(Pointer.class,
+                        new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
+            }
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
 
     /**
      * 确保字符串使用UTF-8编码

@@ -1,9 +1,11 @@
 package com.order.main.dll;
 
 import cn.hutool.core.lang.func.Func;
+import com.order.main.config.NativeLibConfig;
 import com.sun.jna.Function;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
+import lombok.Setter;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -30,9 +32,9 @@ public class PrintSimpleDllLoader {
 
     private static Function freeCStringFunc;
 
-    // 外部库文件路径
-    private static final String EXTERNAL_LIB_PATH = "/www/wwwroot/config/expressDeliveryOrder.so";
-    //private static final String EXTERNAL_LIB_PATH = "D:/zhishu/dll/expressDeliveryOrder.dll";
+    @Setter
+    private static NativeLibConfig nativeLibConfig;
+
 
     public static void loadDLL() throws Exception {
         String libraryPath = getLibraryPath();
@@ -88,7 +90,7 @@ public class PrintSimpleDllLoader {
      */
     private static String getLibraryPath() throws IOException {
         // 优先使用外部路径
-        String externalPath = EXTERNAL_LIB_PATH;
+        String externalPath = nativeLibConfig.getPrintSimple();
         File externalFile = new File(externalPath);
 
         if (externalFile.exists()) {
