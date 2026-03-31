@@ -51,10 +51,7 @@ public class PrintController {
     public Map createOrder(String orderId,String partnerId,String secret,String type,String cusArea,String deliveryMode,String orderSn){
         // 返回值对象定义
         Map result = new HashMap();
-
-
         ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
-
         erpGoodsOrder.setOrderStatus(2L);
         if (deliveryMode.equals("1")){
             // 订单全部商品打印
@@ -130,7 +127,7 @@ public class PrintController {
             // 收件人姓名
             receiver.put("name",erpGoodsOrder.getReceiverName());
             // 详细地址 必须添加省市区并以半角逗号隔开
-            receiver.put("address",erpGoodsOrder.getProvince()+","+erpGoodsOrder.getCity()+","+erpGoodsOrder.getTown());
+            receiver.put("address",erpGoodsOrder.getProvince()+","+erpGoodsOrder.getCity()+","+erpGoodsOrder.getCountry()+","+erpGoodsOrder.getTown());
             // 手机号
             receiver.put("mobile",erpGoodsOrder.getMobile());
             order.put("receiver",receiver);

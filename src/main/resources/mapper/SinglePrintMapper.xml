@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.SinglePrintMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.SinglePrint">
+        <id property="id" column="id"/>
+        <result property="mailNo" column="mail_no"/>
+        <result property="senderName" column="sender_name"/>
+        <result property="senderPhone" column="sender_phone"/>
+        <result property="senderAddress" column="sender_address"/>
+        <result property="receiverName" column="receiver_name"/>
+        <result property="receiverPhone" column="receiver_phone"/>
+        <result property="receiverAddress" column="receiver_address"/>
+        <result property="itemName" column="item_name"/>
+        <result property="itemNum" column="item_num"/>
+        <result property="itemRemark" column="item_remark"/>
+        <result property="fastMailId" column="fast_mail_id"/>
+        <result property="fastMailText" column="fast_mail_text"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createAt" column="create_at"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, mail_no, sender_name, sender_phone, sender_address,
+        receiver_name, receiver_phone, receiver_address,
+        item_name, item_num, item_remark,
+        fast_mail_id, fast_mail_text,
+        create_by, create_at, remark,status,order_no
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM t_single_print
+        WHERE id = #{id}
+    </select>
+
+    <!-- 根据快递单号查询 -->
+    <select id="selectByMailNo" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM t_single_print
+        WHERE mail_no = #{mailNo}
+    </select>
+
+    <!-- 分页查询列表 -->
+    <select id="selectPageList" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM t_single_print
+        <where>
+            <if test="mailNo != null and mailNo != ''">
+                AND mail_no LIKE CONCAT('%', #{mailNo}, '%')
+            </if>
+            <if test="senderName != null and senderName != ''">
+                AND sender_name LIKE CONCAT('%', #{senderName}, '%')
+            </if>
+            <if test="senderPhone != null and senderPhone != ''">
+                AND sender_phone = #{senderPhone}
+            </if>
+            <if test="receiverName != null and receiverName != ''">
+                AND receiver_name LIKE CONCAT('%', #{receiverName}, '%')
+            </if>
+            <if test="receiverPhone != null and receiverPhone != ''">
+                AND receiver_phone = #{receiverPhone}
+            </if>
+            <if test="itemName != null and itemName != ''">
+                AND item_name LIKE CONCAT('%', #{itemName}, '%')
+            </if>
+            <if test="fastMailId != null">
+                AND fast_mail_id = #{fastMailId}
+            </if>
+            <if test="createBy != null">
+                AND create_by = #{createBy}
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{pageNum}, #{pageSize}
+    </select>
+
+    <!-- 查询总记录数 -->
+    <select id="count" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM t_single_print
+        <where>
+            <if test="mailNo != null and mailNo != ''">
+                AND mail_no LIKE CONCAT('%', #{mailNo}, '%')
+            </if>
+            <if test="senderName != null and senderName != ''">
+                AND sender_name LIKE CONCAT('%', #{senderName}, '%')
+            </if>
+            <if test="senderPhone != null and senderPhone != ''">
+                AND sender_phone = #{senderPhone}
+            </if>
+            <if test="receiverName != null and receiverName != ''">
+                AND receiver_name LIKE CONCAT('%', #{receiverName}, '%')
+            </if>
+            <if test="receiverPhone != null and receiverPhone != ''">
+                AND receiver_phone = #{receiverPhone}
+            </if>
+            <if test="itemName != null and itemName != ''">
+                AND item_name LIKE CONCAT('%', #{itemName}, '%')
+            </if>
+            <if test="fastMailId != null">
+                AND fast_mail_id = #{fastMailId}
+            </if>
+            <if test="createBy != null">
+                AND create_by = #{createBy}
+            </if>
+        </where>
+    </select>
+
+    <!-- 条件查询列表 -->
+    <select id="selectList" parameterType="com.order.main.entity.SinglePrint" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM t_single_print
+        <where>
+            <if test="id != null">
+                AND id = #{id}
+            </if>
+            <if test="mailNo != null and mailNo != ''">
+                AND mail_no = #{mailNo}
+            </if>
+            <if test="senderName != null and senderName != ''">
+                AND sender_name LIKE CONCAT('%', #{senderName}, '%')
+            </if>
+            <if test="fastMailId != null">
+                AND fast_mail_id = #{fastMailId}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <!-- 新增 -->
+    <insert id="insert" parameterType="com.order.main.entity.SinglePrint" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_single_print (
+            mail_no,
+            sender_name,
+            sender_phone,
+            sender_address,
+            receiver_name,
+            receiver_phone,
+            receiver_address,
+            item_name,
+            item_num,
+            item_remark,
+            fast_mail_id,
+            fast_mail_text,
+            create_by,
+            create_at,
+            remark,
+            status,
+            order_no
+        ) VALUES (
+                     #{mailNo},
+                     #{senderName},
+                     #{senderPhone},
+                     #{senderAddress},
+                     #{receiverName},
+                     #{receiverPhone},
+                     #{receiverAddress},
+                     #{itemName},
+                     #{itemNum},
+                     #{itemRemark},
+                     #{fastMailId},
+                     #{fastMailText},
+                     #{createBy},
+                     #{createAt},
+                     #{remark},
+                     #{status},
+                    #{orderNo}
+                 )
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.order.main.entity.SinglePrint">
+        UPDATE t_single_print
+        <set>
+            <if test="mailNo != null and mailNo != ''">
+                mail_no = #{mailNo},
+            </if>
+            <if test="senderName != null and senderName != ''">
+                sender_name = #{senderName},
+            </if>
+            <if test="senderPhone != null and senderPhone != ''">
+                sender_phone = #{senderPhone},
+            </if>
+            <if test="senderAddress != null and senderAddress != ''">
+                sender_address = #{senderAddress},
+            </if>
+            <if test="receiverName != null and receiverName != ''">
+                receiver_name = #{receiverName},
+            </if>
+            <if test="receiverPhone != null and receiverPhone != ''">
+                receiver_phone = #{receiverPhone},
+            </if>
+            <if test="receiverAddress != null and receiverAddress != ''">
+                receiver_address = #{receiverAddress},
+            </if>
+            <if test="itemName != null and itemName != ''">
+                item_name = #{itemName},
+            </if>
+            <if test="itemNum != null">
+                item_num = #{itemNum},
+            </if>
+            <if test="itemRemark != null">
+                item_remark = #{itemRemark},
+            </if>
+            <if test="fastMailId != null">
+                fast_mail_id = #{fastMailId},
+            </if>
+            <if test="fastMailText != null">
+                fast_mail_text = #{fastMailText},
+            </if>
+            <if test="createBy != null">
+                create_by = #{createBy},
+            </if>
+            <if test="createAt != null">
+                create_at = #{createAt},
+            </if>
+            <if test="remark != null">
+                remark = #{remark},
+            </if>
+            <if test="status != null">
+                status = #{status}
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除 -->
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM t_single_print
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 根据快递单号删除 -->
+    <delete id="deleteByMailNo" parameterType="java.lang.String">
+        DELETE FROM t_single_print
+        WHERE mail_no = #{mailNo}
+    </delete>
+
+    <!-- 批量删除 -->
+    <delete id="deleteBatch" parameterType="java.util.List">
+        DELETE FROM t_single_print
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

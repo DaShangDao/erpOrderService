@@ -835,7 +835,6 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
      */
     @Override
     public void messageSetRedis(Message message){
-        System.out.println("商品操作消息:"+ message);
         String type = message.getType();
         Shop shop = shopService.selectShopByMallId(message.getMallID()+"");
         if (shop != null){
