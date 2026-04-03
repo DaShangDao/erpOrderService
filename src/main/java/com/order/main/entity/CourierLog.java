@@ -83,6 +83,11 @@ public class CourierLog {
     private String remark;
 
     /**
+     * 快递类型
+     */
+    private String mailType;
+
+    /**
      * 分页参数
      */
     private int pageNum;

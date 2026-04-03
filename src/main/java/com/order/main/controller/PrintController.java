@@ -5,20 +5,15 @@ import com.dtflys.forest.annotation.PostRequest;
 import com.order.main.dll.DllInitializer;
 import com.order.main.dll.PddSimpleDllLoader;
 import com.order.main.dto.GoodsDto;
-import com.order.main.entity.CourierLog;
-import com.order.main.entity.ErpGoodsOrder;
-import com.order.main.entity.OrderExternalGoods;
-import com.order.main.entity.Shop;
-import com.order.main.service.ICourierLogService;
-import com.order.main.service.IErpGoodsOrderService;
-import com.order.main.service.IOrderExternalGoodsService;
-import com.order.main.service.IZhishuShopGoodsService;
+import com.order.main.entity.*;
+import com.order.main.service.*;
 import com.order.main.util.PddUtil;
 import com.order.main.util.PrintUtils;
 import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.pdd.pop.sdk.common.util.StringUtils;
 import com.pdd.pop.sdk.http.api.pop.request.PddOpenDecryptBatchRequest;
 import lombok.RequiredArgsConstructor;
+import org.apache.http.impl.EnglishReasonPhraseCatalog;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,6 +35,7 @@ public class PrintController {
     private final IOrderExternalGoodsService orderExternalGoodsService;
     private final IZhishuShopGoodsService zhishuShopGoodsService;
     private final ICourierLogService courierLogService;
+    private final ISinglePrintService singlePrintService;
 
     /**
      * 创建运单
@@ -102,7 +98,9 @@ public class PrintController {
         String deliveryCity = logisticsMap.get("delivery_city").toString();
         // 发货区
         String deliveryArea = logisticsMap.get("delivery_area").toString();
-        if (type.equals("yunda")){
+        // 快递类型
+        type = type.equals("yunda") ? "YUNDA" : type;
+        if (type.equals("YUNDA")){
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("appid", "004064");
             jsonObject.put("partner_id",partnerId);
@@ -170,12 +168,13 @@ public class PrintController {
                 List dataList = (List) resMap.get("data");
                 Map data = (Map) dataList.get(0);
 
+                String mailNo = data.get("mail_no") == null ? data.get("mailno").toString() : data.get("mail_no").toString();
                 for (ErpGoodsOrder ego : erpGoodsOrderList){
                     // 日志对象定义
                     CourierLog courierLog = new CourierLog();
                     courierLog.setErpOrderId(ego.getId());
                     courierLog.setOrderSn(ego.getOrderSn());
-                    courierLog.setMailNo(data.get("mail_no") == null ? data.get("mailno").toString() : data.get("mail_no").toString());
+                    courierLog.setMailNo(mailNo);
                     courierLog.setPartnerId(partnerId);
                     courierLog.setSecret(secret);
                     courierLog.setOrderSerialNo(order.get("order_serial_no").toString());
@@ -186,7 +185,12 @@ public class PrintController {
                     courierLog.setCreateBy(ego.getCreatedBy());
                     long currentTime = System.currentTimeMillis() / 1000;
                     courierLog.setCreateAt(currentTime);
+                    courierLog.setMailType(type);
                     courierLogService.save(courierLog);
+
+                    // 回填快递单号
+                    ego.setTrackingNumber(mailNo);
+                    erpGoodsOrderService.update(ego);
                 }
 
                 result.put("code","200");
@@ -379,11 +383,10 @@ public class PrintController {
                     result.put("code","200");
                 }
                 result.put("msg",data.get("msg").toString());
-                return result;
+            }else{
+                result.put("code","500");
+                result.put("msg",resMap.get("message").toString());
             }
-            result.put("code","500");
-            result.put("msg",resMap.get("message").toString());
-            return result;
         }else{
             // 拼多多代打单取消
             Map fastMailVo = JsonUtil.transferToObj(courierLog.getRemark(),Map.class);
@@ -405,6 +408,16 @@ public class PrintController {
             }else {
                 result.put("code","500");
                 result.put("msg",resMap.get("message").toString());
+            }
+        }
+
+        if (result.get("code").equals("200")){
+            ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
+            erpGoodsOrder.setTrackingNumber(courierLog.getMailNo());
+            List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectOrderList(erpGoodsOrder);
+            for (ErpGoodsOrder ego : erpGoodsOrderList){
+                ego.setTrackingNumber("");
+                erpGoodsOrderService.update(ego);
             }
         }
         return result;
@@ -634,9 +647,72 @@ public class PrintController {
             long currentTime = System.currentTimeMillis() / 1000;
             courierLog.setCreateAt(currentTime);
             courierLog.setRemark(map.get("fastMailVo").toString());
+            courierLog.setMailType(wpCode);
             courierLogService.save(courierLog);
+
+            ego.setTrackingNumber(waybillCode);
+            erpGoodsOrderService.update(ego);
         }
         module.put("erpGoodsOrderList",erpGoodsOrderList);
         return module;
+    }
+
+
+    @GetMapping("/printView")
+    public Map printView(String erpOrderId){
+        Map result = new HashMap();
+        List<CourierLog> courierLogList = courierLogService.getListByErpOrderId(Long.parseLong(erpOrderId));
+
+        if (courierLogList.isEmpty()){
+            result.put("code","500");
+            result.put("msg","未获取到发货记录");
+            return result;
+        }
+        CourierLog courierLog = courierLogList.get(0);
+
+
+        ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
+        // 订单全部商品打印
+        erpGoodsOrder.setOrderSn(courierLog.getOrderSn());
+        List<ErpGoodsOrder>  erpGoodsOrderList = erpGoodsOrderService.selectOrderList(erpGoodsOrder);
+
+        String remark = courierLog.getRemark();
+
+        Map fastMailVo = new HashMap();
+        if (StringUtils.isEmpty(remark)){
+            fastMailVo.put("fastMailType","1");
+            fastMailVo.put("partnerId",courierLog.getPartnerId());
+            fastMailVo.put("secret",courierLog.getSecret());
+        }else{
+            fastMailVo = JsonUtil.transferToObj(remark,Map.class);
+        }
+
+        List itemList = new ArrayList();
+
+        for (ErpGoodsOrder ego : erpGoodsOrderList){
+            Map itemMap = JsonUtil.transferToObj(ego.getItemList(),Map.class);
+
+            OrderExternalGoods orderExternalGoods = orderExternalGoodsService.selectByOrderId(ego.getId());
+            if (orderExternalGoods == null){
+                result.put("code","500");
+                result.put("msg","未获取到下发商品记录");
+                return result;
+            }
+            ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectById(Long.parseLong(orderExternalGoods.getGoodsId().toString()));
+            if (zhishuShopGoods == null){
+                result.put("code","500");
+                result.put("msg","未获取自营商品信息");
+                return result;
+            }
+            Map item = new HashMap();
+            item.put("itemName",itemMap.get("goodsName").toString());
+            item.put("itemNum",itemMap.get("goodsCount").toString());
+            item.put("isbn",zhishuShopGoods.getIsbn());
+            item.put("artNo",zhishuShopGoods.getArtNo());
+            item.put("originalArtNo",zhishuShopGoods.getOriginalArtNo());
+            itemList.add(item);
+        }
+
+        return singlePrintService.printView(fastMailVo,courierLog.getMailNo(),courierLog.getOrderSn(),itemList);
     }
 }

@@ -3,6 +3,7 @@ package com.order.main.service;
 import com.order.main.entity.SinglePrint;
 
 import java.util.List;
+import java.util.Map;
 
 public interface ISinglePrintService {
 
@@ -59,4 +60,9 @@ public interface ISinglePrintService {
      * 批量删除
      */
     boolean deleteBatch(List<Long> ids);
+
+    /**
+     * 打印
+     */
+    Map printView(Map fastMailVo,String mailNo,String orderNo,List itemList);
 }

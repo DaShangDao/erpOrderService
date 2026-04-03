@@ -31,6 +31,8 @@ public class PddSimpleDllLoader {
     private static Function pddFdsWaybillGetFunc;
     // 商家取消获取的电子面单号
     private static Function pddWaybillCancelFunc;
+    // 通过面单号查询面单信息
+    private static Function pddWaybillQueryByWaybillcodeFunc;
 
     private static Function freeCStringFunc;
 
@@ -80,6 +82,9 @@ public class PddSimpleDllLoader {
 
         // 商家取消获取的电子面单号
         pddWaybillCancelFunc = nativeLibrary.getFunction("PddWaybillCancel");
+
+        // 通过面单号查询面单信息
+        pddWaybillQueryByWaybillcodeFunc = nativeLibrary.getFunction("PddWaybillQueryByWaybillcode");
 
         // 释放c串内存
         freeCStringFunc = nativeLibrary.getFunction("FreeCString");
@@ -244,6 +249,9 @@ public class PddSimpleDllLoader {
                         new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
             }else if (api.equals("PddWaybillCancel")){
                 result = pddWaybillCancelFunc.invoke(Pointer.class,
+                        new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
+            }else if (api.equals("PddWaybillQueryByWaybillcode")){
+                result = pddWaybillQueryByWaybillcodeFunc.invoke(Pointer.class,
                         new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
             }
             return ptrToString((Pointer) result);

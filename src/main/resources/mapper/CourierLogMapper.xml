@@ -18,7 +18,7 @@
 
     <sql id="Base_Column_List">
         id, erp_order_id, order_sn,mail_no, partner_id, secret,
-        sender, receiver, items, order_serial_no,type,remark
+        sender, receiver, items, order_serial_no,type,remark,mail_type
     </sql>
 
     <!-- 根据ID查询 -->
@@ -120,7 +120,8 @@
             create_by,
             create_at,
             mail_no,
-            remark
+            remark,
+            mail_type
         ) VALUES (
              #{erpOrderId},
              #{orderSn},
@@ -134,7 +135,8 @@
              #{createBy},
              #{createAt},
              #{mailNo},
-             #{remark}
+             #{remark},
+             #{mailType}
          )
     </insert>
 

@@ -15,10 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Validated
 @RequiredArgsConstructor
@@ -291,56 +288,14 @@ public class SinglePrintController {
 
     @GetMapping("/printOne")
     public Map printOne(String id){
-        // 返回值对象定义
-        Map result = new HashMap();
         SinglePrint singlePrint = singlePrintService.getById(Long.parseLong(id));
         Map fastMailVo = JsonUtil.transferToObj(singlePrint.getFastMailText(),Map.class);
-        // 快递账号类型  1 网点  2 拼多多
-        String fastMailType = fastMailVo.get("fastMailType").toString();
-
-        if (fastMailType.equals("1")){
-            // 网点打印
-            Map params = new HashMap();
-            //也是app-key
-            params.put("appid","004064");
-            params.put("partner_id",fastMailVo.get("partnerId").toString());
-            params.put("secret",fastMailVo.get("secret").toString());
-            List<Map> orders = new ArrayList();
-            Map order = new HashMap();
-            /**
-             * 运单号
-             */
-            order.put("mailno", singlePrint.getMailNo());
-            orders.add(order);
-            params.put("orders",orders);
-            String jsonData = JsonUtil.transferToJson(params);
-            String res = DllInitializer.ydBmGetPdfInfo(jsonData, "004064", "eed7ae222b8541deae79cdfc318b7aa8");
-            Map resMap = JsonUtil.transferToObj(res,Map.class);
-            if (resMap.get("code").equals("0000") && resMap.get("message").equals("请求成功")){
-                List dataList = (List) resMap.get("data");
-                Map data = (Map) dataList.get(0);
-                result.put("code","200");
-                result.put("msg","获取快递订单成功");
-                result.put("pdfInfo",data.get("pdfInfo").toString());
-                result.put("mailNo",singlePrint.getMailNo());
-                result.put("fastMailType",fastMailType);
-                List list = new ArrayList();
-                Map goodsMap = new HashMap();
-                goodsMap.put("goodsName",singlePrint.getItemName());
-                goodsMap.put("goodsCount",singlePrint.getItemNum());
-                list.add(goodsMap);
-                result.put("dataList",list);
-                return result;
-            }
-            result.put("code","500");
-            result.put("msg",resMap.get("message").toString());
-            return result;
-        }else if(fastMailType.equals("2")){
-            // 拼多多打印
-
-        }
-
-        return new HashMap();
+        List itemList = new ArrayList();
+        Map item = new HashMap();
+        item.put("itemName",singlePrint.getItemName());
+        item.put("itemNum",singlePrint.getItemNum());
+        itemList.add(item);
+        return singlePrintService.printView(fastMailVo,singlePrint.getMailNo(),singlePrint.getOrderNo(),itemList);
     }
 
 

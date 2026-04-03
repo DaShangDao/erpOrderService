@@ -47,6 +47,7 @@ public class ErpGoodsOrderController  {
     private final IOrderExternalGoodsService orderExternalGoodsService;
     private final IStockChangeLogService stockChangeLogService;
     private final IRunningTaskService runningTaskService;
+    private final ICourierLogService courierLogService;
 
     @Autowired
     private TokenUtils tokenUtils;
@@ -318,8 +319,23 @@ public class ErpGoodsOrderController  {
      * @param erpOrderId  erp订单id
      */
     @PostMapping("/orderCompanyOrder")
-    public void orderCompanyOrder(String companyName,String orderNo,String erpOrderId){
-        System.out.println("订单回填,参数："+companyName+"-"+orderNo+"-"+erpOrderId);
+    public void orderCompanyOrder(String sysDictDataVoListStr,String orderNo,String erpOrderId,String code){
+
+        String companyName = "";
+        if(StringUtils.isEmpty(code)){
+            List<CourierLog> courierLogList =  courierLogService.getListByErpOrderId(Long.parseLong(erpOrderId));
+            code = courierLogList.get(0).getMailType();
+        }else{
+            code = code.equals("yunda") ? "YUNDA" : code;
+        }
+        List sysDictDataVoList = JsonUtil.transferToObj(sysDictDataVoListStr,List.class);
+        for (Object sysDictDataVo : sysDictDataVoList){
+            Map sysDictDataVoMap = (Map) sysDictDataVo;
+            if(code.equals(sysDictDataVoMap.get("dictValue"))){
+                companyName = sysDictDataVoMap.get("dictLabel").toString();
+            }
+        }
+
         // 获取订单信息
         ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpOrderId));
         // 获取店铺信息
