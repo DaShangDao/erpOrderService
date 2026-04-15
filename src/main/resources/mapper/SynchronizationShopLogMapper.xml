@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.SynchronizationShopLogMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.SynchronizationShopLog">
+        <id property="id" column="id"/>
+        <result property="goodsId" column="goods_id"/>
+        <result property="goodsCreateBy" column="goods_create_by"/>
+        <result property="erpOrderId" column="erp_order_id"/>
+        <result property="orderSn" column="order_sn"/>
+        <result property="shopId" column="shop_id"/>
+        <result property="shopName" column="shop_name"/>
+        <result property="shopCreateBy" column="shop_create_by"/>
+        <result property="inventory" column="inventory"/>
+        <result property="inventoryOld" column="inventory_old"/>
+        <result property="platformId" column="platform_id"/>
+        <result property="code" column="code"/>
+        <result property="msg" column="msg"/>
+        <result property="createAt" column="create_at"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, goods_id, goods_create_by, erp_order_id,
+        shop_id, shop_name, shop_create_by, inventory, inventory_old,
+        platform_id, code, msg, create_at,update_type,shop_type
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM synchronization_shop_log
+        WHERE id = #{id}
+    </select>
+
+    <!-- 根据商品ID查询 -->
+    <select id="getListByGoodsId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM synchronization_shop_log
+        WHERE goods_id = #{goodsId}
+        ORDER BY create_at DESC
+    </select>
+
+    <!-- 根据店铺ID查询 -->
+    <select id="getListByShopId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM synchronization_shop_log
+        WHERE shop_id = #{shopId}
+        ORDER BY create_at DESC
+    </select>
+
+    <!-- 根据ERP订单ID查询 -->
+    <select id="getListByErpOrderId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM synchronization_shop_log
+        WHERE erp_order_id = #{erpOrderId}
+        ORDER BY create_at DESC
+    </select>
+
+    <!-- 分页查询列表（先分组后分页）- 性能优化版 -->
+    <select id="selectPageList" resultMap="BaseResultMap">
+        SELECT t.id,t.goods_id,t.goods_create_by,t.erp_order_id,t.create_at,t.order_sn,t.shop_num
+        FROM (
+            SELECT
+            MAX(l.id) as id,
+            l.goods_id,
+            MAX(l.goods_create_by) as goods_create_by,
+            l.erp_order_id,
+            MAX(l.create_at) as create_at,
+            MAX(g.order_sn) as order_sn,
+            COUNT(DISTINCT l.shop_id) as shop_num
+            FROM synchronization_shop_log l
+            LEFT JOIN erp_goods_order g ON l.erp_order_id = g.id
+            WHERE 1=1
+            <if test="goodsId != null">
+                AND l.goods_id = #{goodsId}
+            </if>
+            <if test="goodsCreateBy != null">
+                AND l.goods_create_by = #{goodsCreateBy}
+            </if>
+            <if test="erpOrderId != null">
+                AND l.erp_order_id = #{erpOrderId}
+            </if>
+            <if test="orderSn != null and orderSn != ''">
+                AND g.order_sn LIKE CONCAT('%', #{orderSn}, '%')
+            </if>
+            <if test="shopId != null">
+                AND l.shop_id = #{shopId}
+            </if>
+            <if test="shopName != null and shopName != ''">
+                AND l.shop_name LIKE CONCAT('%', #{shopName}, '%')
+            </if>
+            <if test="shopCreateBy != null">
+                AND l.shop_create_by = #{shopCreateBy}
+            </if>
+            <if test="platformId != null">
+                AND l.platform_id = #{platformId}
+            </if>
+            <if test="code != null and code != ''">
+                AND l.code = #{code}
+            </if>
+            <if test="userId != null">
+                AND (l.shop_create_by = #{userId} OR l.goods_create_by = #{userId})
+            </if>
+            GROUP BY l.erp_order_id, l.goods_id
+            ORDER BY MAX(l.create_at) DESC
+            LIMIT #{pageNum}, #{pageSize}
+        ) t
+        ORDER BY t.create_at DESC
+    </select>
+
+
+    <!-- 查询分组后的总记录数（也需要关联表） -->
+    <select id="count" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM (
+        SELECT 1
+        FROM synchronization_shop_log l
+        LEFT JOIN erp_goods_order g ON l.erp_order_id = g.id
+        <where>
+            <if test="goodsId != null">
+                AND l.goods_id = #{goodsId}
+            </if>
+            <if test="goodsCreateBy != null">
+                AND l.goods_create_by = #{goodsCreateBy}
+            </if>
+            <if test="erpOrderId != null">
+                AND l.erp_order_id = #{erpOrderId}
+            </if>
+            <if test="orderSn != null and orderSn != ''">
+                AND g.order_sn LIKE CONCAT('%', #{orderSn}, '%')
+            </if>
+            <if test="shopId != null">
+                AND l.shop_id = #{shopId}
+            </if>
+            <if test="shopName != null and shopName != ''">
+                AND l.shop_name LIKE CONCAT('%', #{shopName}, '%')
+            </if>
+            <if test="shopCreateBy != null">
+                AND l.shop_create_by = #{shopCreateBy}
+            </if>
+            <if test="platformId != null">
+                AND l.platform_id = #{platformId}
+            </if>
+            <if test="code != null and code != ''">
+                AND l.code = #{code}
+            </if>
+        </where>
+        GROUP BY l.erp_order_id, l.goods_id
+        ) AS grouped_result
+    </select>
+
+    <!-- 条件查询列表 -->
+    <select id="selectList" parameterType="com.order.main.entity.SynchronizationShopLog" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM synchronization_shop_log
+        <where>
+            <if test="id != null">
+                AND id = #{id}
+            </if>
+            <if test="goodsId != null">
+                AND goods_id = #{goodsId}
+            </if>
+            <if test="goodsCreateBy != null">
+                AND goods_create_by = #{goodsCreateBy}
+            </if>
+            <if test="erpOrderId != null">
+                AND erp_order_id = #{erpOrderId}
+            </if>
+            <if test="orderSn != null and orderSn != ''">
+                AND order_sn LIKE CONCAT('%', #{orderSn}, '%')
+            </if>
+            <if test="shopId != null">
+                AND shop_id = #{shopId}
+            </if>
+            <if test="shopName != null and shopName != ''">
+                AND shop_name LIKE CONCAT('%', #{shopName}, '%')
+            </if>
+            <if test="shopCreateBy != null">
+                AND shop_create_by = #{shopCreateBy}
+            </if>
+            <if test="platformId != null">
+                AND platform_id = #{platformId}
+            </if>
+            <if test="code != null and code != ''">
+                AND code = #{code}
+            </if>
+        </where>
+        ORDER BY create_at DESC
+    </select>
+
+    <!-- 新增 -->
+    <insert id="insert" parameterType="com.order.main.entity.SynchronizationShopLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO synchronization_shop_log (
+            goods_id, goods_create_by, erp_order_id, order_sn,
+            shop_id, shop_name, shop_create_by, inventory, inventory_old,
+            platform_id, code, msg, create_at,update_type,shop_type
+        ) VALUES (
+                     #{goodsId}, #{goodsCreateBy}, #{erpOrderId}, #{orderSn},
+                     #{shopId}, #{shopName}, #{shopCreateBy}, #{inventory}, #{inventoryOld},
+                     #{platformId}, #{code}, #{msg}, #{createAt},#{updateType},#{shopType}
+                 )
+    </insert>
+
+    <!-- 批量新增 -->
+    <insert id="insertBatch" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO synchronization_shop_log (
+        goods_id, goods_create_by, erp_order_id,
+        shop_id, shop_name, shop_create_by, inventory, inventory_old,
+        platform_id, code, msg, create_at,update_type,shop_type
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.goodsId}, #{item.goodsCreateBy}, #{item.erpOrderId},
+            #{item.shopId}, #{item.shopName}, #{item.shopCreateBy}, #{item.inventory}, #{item.inventoryOld},
+            #{item.platformId}, #{item.code}, #{item.msg}, #{item.createAt},#{item.updateType},#{item.shopType}
+            )
+        </foreach>
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.order.main.entity.SynchronizationShopLog">
+        UPDATE synchronization_shop_log
+        <set>
+            <if test="goodsId != null">
+                goods_id = #{goodsId},
+            </if>
+            <if test="goodsCreateBy != null">
+                goods_create_by = #{goodsCreateBy},
+            </if>
+            <if test="erpOrderId != null">
+                erp_order_id = #{erpOrderId},
+            </if>
+            <if test="shopId != null">
+                shop_id = #{shopId},
+            </if>
+            <if test="shopName != null and shopName != ''">
+                shop_name = #{shopName},
+            </if>
+            <if test="shopCreateBy != null">
+                shop_create_by = #{shopCreateBy},
+            </if>
+            <if test="inventory != null">
+                inventory = #{inventory},
+            </if>
+            <if test="inventoryOld != null">
+                inventory_old = #{inventoryOld},
+            </if>
+            <if test="platformId != null">
+                platform_id = #{platformId},
+            </if>
+            <if test="code != null and code != ''">
+                code = #{code},
+            </if>
+            <if test="msg != null and msg != ''">
+                msg = #{msg},
+            </if>
+            <if test="createAt != null">
+                create_at = #{createAt}
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除 -->
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM synchronization_shop_log
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 批量删除 -->
+    <delete id="deleteBatch" parameterType="java.util.List">
+        DELETE FROM synchronization_shop_log
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

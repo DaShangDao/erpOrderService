@@ -196,6 +196,16 @@ public class OrderExternalGoodsDto {
     private Long shippingAt;
 
     /**
+     * 收件人名称
+     */
+    private String receiverName;
+
+    /**
+     * 收件人电话
+     */
+    private String mobile;
+
+    /**
      * 收件地城市
      */
     private String city;

@@ -164,12 +164,12 @@ public class SinglePrintServiceImpl implements ISinglePrintService {
                     list.add(goodsMap);
                 }
                 waybillCloudPrintResponse.put("dataList", list);
+                waybillCloudPrintResponse.put("accessToken",remarkData.get("token").toString());
                 result.put("code", "200");
                 result.put("msg", "获取快递订单成功");
                 result.put("data", waybillCloudPrintResponse);
                 result.put("mailNo", mailNo);
                 result.put("fastMailType", fastMailType);
-
                 return result;
             } catch (Exception e) {
                 result.put("code", "500");

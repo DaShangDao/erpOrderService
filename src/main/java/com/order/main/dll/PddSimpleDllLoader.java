@@ -34,58 +34,59 @@ public class PddSimpleDllLoader {
     // 通过面单号查询面单信息
     private static Function pddWaybillQueryByWaybillcodeFunc;
 
+    /**
+     * 云打印相关接口
+     */
+    // 云打印验证码
+    private static Function pddCloudPrintVerifyCodeFunc;
+    // 云打印机绑定
+    private static Function pddCloudPrinterBindFunc;
+    // 云打印
+    private static Function pddCloudPrintFunc;
+
     private static Function freeCStringFunc;
-
-
 
 
     public static void loadDLL() throws Exception {
         String libraryPath = getLibraryPath();
         System.out.println("正在加载 PDD native 库: " + libraryPath);
-
         File libraryFile = new File(libraryPath);
-
         // 验证库文件是否存在
         if (!libraryFile.exists()) {
             throw new FileNotFoundException("PDD Native 库文件不存在: " + libraryPath);
         }
-
         // 验证文件大小
         System.out.println("PDD 库文件大小: " + libraryFile.length() + " bytes");
         if (libraryFile.length() == 0) {
             throw new IOException("PDD 库文件为空: " + libraryPath);
         }
-
         // 在 Linux 系统上设置执行权限
         if (!System.getProperty("os.name").toLowerCase().contains("win")) {
             boolean success = libraryFile.setExecutable(true);
             System.out.println("设置 PDD 库执行权限: " + (success ? "成功" : "失败"));
         }
-
         // 加载库文件
         nativeLibrary = NativeLibrary.getInstance(libraryFile.getAbsolutePath());
-
         // 拼多多订单同步
         pddOrderSynchronizationFunc = nativeLibrary.getFunction("PddOrderSynchronization");
-
         // 查询订单列表
         pddOrderBasicListGetFunc = nativeLibrary.getFunction("PddOrderBasicListGet");
-
         // 查询面单服务订购及面单使用情况
         pddWaybillSearchFunc = nativeLibrary.getFunction("PddWaybillSearch");
-
         // 电子面单云打印
         pddWaybillGetFunc = nativeLibrary.getFunction("PddWaybillGet");
-
         // 电子面单取号
         pddFdsWaybillGetFunc = nativeLibrary.getFunction("PddFdsWaybillGet");
-
         // 商家取消获取的电子面单号
         pddWaybillCancelFunc = nativeLibrary.getFunction("PddWaybillCancel");
-
         // 通过面单号查询面单信息
         pddWaybillQueryByWaybillcodeFunc = nativeLibrary.getFunction("PddWaybillQueryByWaybillcode");
-
+        // 云打印验证码
+        pddCloudPrintVerifyCodeFunc = nativeLibrary.getFunction("PddCloudPrintVerifyCode");
+        // 云打印机绑定
+        pddCloudPrinterBindFunc = nativeLibrary.getFunction("PddCloudPrinterBind");
+        // 云打印
+        pddCloudPrintFunc =  nativeLibrary.getFunction("PddCloudPrint");
         // 释放c串内存
         freeCStringFunc = nativeLibrary.getFunction("FreeCString");
 
@@ -252,6 +253,15 @@ public class PddSimpleDllLoader {
                         new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
             }else if (api.equals("PddWaybillQueryByWaybillcode")){
                 result = pddWaybillQueryByWaybillcodeFunc.invoke(Pointer.class,
+                        new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
+            }else if (api.equals("PddCloudPrintVerifyCode")){
+                result = pddCloudPrintVerifyCodeFunc.invoke(Pointer.class,
+                        new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
+            }else if (api.equals("PddCloudPrinterBind")){
+                result = pddCloudPrinterBindFunc.invoke(Pointer.class,
+                        new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
+            }else if (api.equals("PddCloudPrint")){
+                result = pddCloudPrintFunc.invoke(Pointer.class,
                         new Object[]{cleanedClientId, cleanedClientSecret, cleanedAccessToken,cleanedJson});
             }
             return ptrToString((Pointer) result);

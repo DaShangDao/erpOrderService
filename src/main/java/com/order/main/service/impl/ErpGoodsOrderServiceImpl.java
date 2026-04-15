@@ -61,6 +61,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     private final ShopGoodsPublishedClient shopGoodsPublishedClient;
     private final RedisService redisService;
     private final IRunningTaskService runningTaskService;
+    private final ISynchronizationShopLogService synchronizationShopLogService;
 
     @Autowired
     private TokenUtils tokenUtils;
@@ -527,10 +528,14 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     List<Long> orderStatusList = OrderUtils.kfzGetOrderStatus(order.get("orderStatus").toString());
                     // 获取订单状态
                     Long orderStatus = orderStatusList.get(0);
+                    // 获取售后状态
+                    Long afterSalesStatus = orderStatusList.get(1);
 
                     if (orderStatus == 1){
                         callBackData = "订单号："+orderSn+";订单状态：待付款;跳过";
-                    }else {
+                    }else if(afterSalesStatus == 10){
+                        callBackData = "订单号："+orderSn+";售后状态：退款完成;跳过";
+                    } else {
                         List items = (List) order.get("items");
 
                         for (int j = 0; j < items.size(); j++){
@@ -1465,7 +1470,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
             }
 
             // 获取总费用  仓库卖价 + 运费 ，手续费通过分销接口获取
-            BigDecimal totalPrice= new BigDecimal(zhishuShopGoods.getPrice()).add(zhishuShopGoods.getShippingCost());
+            BigDecimal totalPrice= new BigDecimal(zhishuShopGoods.getPrice()).add(zhishuShopGoods.getShippingCost()).setScale(0, RoundingMode.DOWN);;
             // 获取用户余额信息
             SysUser sysUser = userService.selectUserOne(Long.parseLong(shop.getCreateBy()));
             System.out.println("金额："+sysUser.getBalance()+";总费用："+(totalPrice.add(zhishuShopGoods.getServiceCharge()))+";校验结果："+(sysUser.getBalance().compareTo(totalPrice.add(zhishuShopGoods.getServiceCharge())) >= 0));
@@ -1543,7 +1548,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                         // erp商品id
                         orderExternalGoods.setGoodsId(Long.parseLong(zhishuShopGoods.getId()));
                         // 商品价格
-                        orderExternalGoods.setPayPrice(Long.parseLong(new BigDecimal(zhishuShopGoods.getPrice()).add(zhishuShopGoods.getShippingCost()).toString()));
+                        orderExternalGoods.setPayPrice(Long.parseLong(new BigDecimal(zhishuShopGoods.getPrice()).add(zhishuShopGoods.getShippingCost()).setScale(0, RoundingMode.DOWN).toString()));
                         // 需要支付的手续费
                         orderExternalGoods.setServiceCharge(Long.parseLong(zhishuShopGoods.getServiceCharge().toString()));
                         // 创建人
@@ -1738,6 +1743,8 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
      */
     @Override
     public String synchronizeStock(String shopGoodsId,int inventory,int oldInventory,String createBy,String type,Long erpOrderId){
+
+        ZhishuShopGoods zsg = zhishuShopGoodsService.selectById(Long.parseLong(shopGoodsId));
         // 创建商品对象
         ZhishuShopGoods zhishuShopGoods = new ZhishuShopGoods();
         // id
@@ -1760,9 +1767,43 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                 // 记录日志
                 log += "无已发布记录";
             }else{
+                List<SynchronizationShopLog> synchronizationShopLogsList = new ArrayList<>();
                 // 循环已发布商品记录，将所有已发布商品进行库存同步
                 for (ShopGoodsPublished sgp : shopGoodsPublishedList){
-                    // 创建迪纳普对象
+                    // 创建库存同步日志对象
+                    SynchronizationShopLog synchronizationShopLog = new SynchronizationShopLog();
+                    // erp商品id
+                    synchronizationShopLog.setGoodsId(Long.parseLong(sgp.getShopGoodsId()));
+                    // 商品的创建人
+                    synchronizationShopLog.setGoodsCreateBy(zsg.getUserId());
+                    // erp订单id
+                    synchronizationShopLog.setErpOrderId(erpOrderId);
+                    // 店铺id
+                    synchronizationShopLog.setShopId(Long.parseLong(sgp.getShopId()));
+                    // 店铺名称
+                    synchronizationShopLog.setShopName(sgp.getShopName());
+                    // 店铺类型
+                    synchronizationShopLog.setShopType(sgp.getShopType());
+                    // 店铺的创建人
+                    synchronizationShopLog.setShopCreateBy(Long.parseLong(sgp.getShopCreateBy()));
+                    // 更新后库存
+                    synchronizationShopLog.setInventory(inventory);
+                    // 更新前库存
+                    synchronizationShopLog.setInventoryOld(oldInventory);
+                    // 三方平台id
+                    synchronizationShopLog.setPlatformId(Long.parseLong(sgp.getPlatformId()));
+                    if (oldInventory > inventory){
+                        // 扣减库存
+                        synchronizationShopLog.setUpdateType("扣减库存");
+                    }else if (oldInventory < inventory){
+                        // 增加库存
+                        synchronizationShopLog.setUpdateType("增加库存");
+                    }else if(oldInventory == inventory){
+                        // 同步库存
+                        synchronizationShopLog.setUpdateType("同步库存");
+                    }
+
+                    // 创建店铺对象
                     Shop editShop = new Shop();
                     // 店铺id
                     editShop.setId(Long.parseLong(sgp.getShopId()));
@@ -1772,21 +1813,42 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     editShop.setMallId(Long.parseLong(sgp.getMallId()));
                     // token
                     editShop.setToken(sgp.getToken());
+                    // 返回值定义
+                    Map resultMap = new HashMap();
                     if(sgp.getShopType().equals("1")){
                         // 调用拼多多修改库存
-                        editStockService.pddEditStock(editShop,sgp.getPlatformId(),inventory+"");
+                        resultMap = editStockService.pddEditStock(editShop,sgp.getPlatformId(),inventory+"");
                         log += "拼多多店铺："+sgp.getShopName() +":成功;";
                     } else if (sgp.getShopType().equals("2")){
                         // 调用孔夫子修改库存
-                        editStockService.kfzEditStock(sgp.getToken(),sgp.getPlatformId(),inventory+"");
+                        resultMap = editStockService.kfzEditStock(sgp.getToken(),sgp.getPlatformId(),inventory+"");
                         log += "孔夫子店铺："+sgp.getShopName() +":成功;";
                     } else if (sgp.getShopType().equals("5")){
                         editShop.setShopKey(sgp.getShopKey());
                         // 调用闲鱼修改库存
-                        editStockService.xyEditStock(editShop,sgp.getPlatformId(),inventory+"");
+                        resultMap = editStockService.xyEditStock(editShop,sgp.getPlatformId(),inventory+"");
                         log += "闲鱼店铺："+sgp.getShopName() +":成功;";
                     }
+                    // 状态码
+                    synchronizationShopLog.setCode(resultMap.get("code").toString());
+                    // 日志
+                    String msg = resultMap.get("msg").toString();
+                    if(msg.contains("http")){
+                        msg = "接口调用异常，请联系管理员";
+                    }
+                    synchronizationShopLog.setMsg(msg);
+                    // 创建时间
+                    long currentTime = System.currentTimeMillis() / 1000;
+                    synchronizationShopLog.setCreateAt(currentTime);
+                    synchronizationShopLogsList.add(synchronizationShopLog);
                 }
+                try{
+                    // 执行批量添加
+                    synchronizationShopLogService.saveBatch(synchronizationShopLogsList);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+
                 // 修改订单下发状态为已下发
                 if(type.equals("2")){
                     // 创建erp订单对象

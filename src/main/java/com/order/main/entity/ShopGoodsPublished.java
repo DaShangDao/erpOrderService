@@ -77,4 +77,6 @@ public class ShopGoodsPublished {
     private String token;
     //店铺名称
     private String shopName;
+    //店铺的创建人
+    private String shopCreateBy;
 }

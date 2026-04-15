@@ -198,14 +198,9 @@ public class ErpGoodsOrderController  {
         Shop shop = shopService.queryById(erpGoodsOrder.getShopErpId());
         // 获取商品信息
         ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectById(Long.parseLong(goodsId));
-        //库存
-        int inventory = -1;
-        if(shop.getShopType().equals("5")){
-            //咸鱼：获取参数
-            Map map =  JsonUtil.transferToObj(erpGoodsOrder.getItemList(),Map.class);
-            //下单数量
-            inventory = map.get("goodsCount") == null ? 0 : Integer.parseInt(map.get("goodsCount").toString());
-        }
+        Map map =  JsonUtil.transferToObj(erpGoodsOrder.getItemList(),Map.class);
+        //下单数量
+        int inventory = map.get("goodsCount") == null ? 0 : Integer.parseInt(map.get("goodsCount").toString());
         // 设置对象
         WarehouseSettings warehouseSettingsBo = new WarehouseSettings();
         // 分页第几页
@@ -333,6 +328,7 @@ public class ErpGoodsOrderController  {
             Map sysDictDataVoMap = (Map) sysDictDataVo;
             if(code.equals(sysDictDataVoMap.get("dictValue"))){
                 companyName = sysDictDataVoMap.get("dictLabel").toString();
+                break;
             }
         }
 

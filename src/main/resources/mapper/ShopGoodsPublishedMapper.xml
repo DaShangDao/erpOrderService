@@ -21,7 +21,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
 
     <select id="selectByShopGoodsId" resultType="com.order.main.entity.ShopGoodsPublished">
-        select p.id,p.shop_id,p.platform_id,s.id,s.mall_id,s.shop_key,shop_type,s.token,g.isbn,g.art_no,g.price,g.inventory,s.shop_name from t_shop_goods_published p
+        select p.id,p.shop_id,p.shop_goods_id,p.platform_id,s.id,s.mall_id,s.shop_key,shop_type,s.token,g.isbn,g.art_no,g.price,g.inventory,s.shop_name,s.create_by as shop_create_by from t_shop_goods_published p
         left join t_shop s on p.shop_id = s.id
         left join zhishu_shop_goods g on p.shop_goods_id = g.id
         where p.shop_goods_id = #{shopGoodsId}

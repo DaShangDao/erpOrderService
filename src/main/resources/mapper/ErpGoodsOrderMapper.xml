@@ -182,14 +182,22 @@
     <select id="selectOrderList" resultMap="ErpGoodsOrderResult">
         <include refid="selectErpGoodsOrderVo"/>
         <include refid="dynamicWhere"/>
-        order by created_at desc
+        order by
+        CASE
+        WHEN LENGTH(e.created_at) = 10 THEN e.created_at * 1000
+        ELSE e.created_at
+        END DESC
     </select>
 
     <!-- 分页查询 -->
     <select id="selectPageList" resultMap="ErpGoodsOrderResult">
         <include refid="selectErpGoodsOrderVo"/>
         <include refid="dynamicWhere"/>
-        order by created_at desc
+        order by
+        CASE
+        WHEN LENGTH(e.created_at) = 10 THEN e.created_at * 1000
+        ELSE e.created_at
+        END DESC
         limit #{order.pageNum}, #{order.pageSize}
     </select>
 

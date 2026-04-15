@@ -248,6 +248,7 @@ public class SinglePrintController {
             // 使用者ID
             tradeOrderInfoDto.put("user_id",remarkData.get("mallId").toString());
             tradeOrderInfoDtos.add(tradeOrderInfoDto);
+            paramWaybillCloudPrintApplyNewRequest.put("need_encrypt",true);
             paramWaybillCloudPrintApplyNewRequest.put("sender",sender);
             paramWaybillCloudPrintApplyNewRequest.put("trade_order_info_dtos",tradeOrderInfoDtos);
             paramWaybillCloudPrintApplyNewRequest.put("wp_code",wpCode);

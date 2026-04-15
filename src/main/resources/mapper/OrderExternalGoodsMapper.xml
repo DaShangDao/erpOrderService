@@ -42,7 +42,7 @@
             e.order_status, e.shipping_id, e.shipping_at, e.city, e.city_id, e.province, e.province_id, e.country,
             e.country_id, e.town, e.town_id, e.tracking_number, e.remark, e.remark_tag, e.remark_tag_name,
             e.receive_at, e.after_sales_status, e.updated_at, e.is_show, e.shop_md5_prefix,e.is_issue,e.erp_after_sales_status,
-            e.erp_ass_create_at,e.erp_ass_reason,e.erp_ass_remark,e.erp_ass_address
+            e.erp_ass_create_at,e.erp_ass_reason,e.erp_ass_remark,e.erp_ass_address,e.receiver_name,e.mobile
         FROM `order_external_goods` o
         left join erp_goods_order e on e.id = o.order_id
         where
@@ -90,13 +90,12 @@
             and e.after_sales_status = #{afterSalesStatus}
         </if>
 
-
-
         <if test="itemList != null and itemList != ''">
             and e.item_list ->> '$.outerGoodsId' like concat('%', #{itemList}, '%')
         </if>
 
-        order by o.created_at desc
+        order by
+        CASE WHEN LENGTH(o.created_at) = 10 THEN o.created_at * 1000 ELSE o.created_at END DESC
         limit #{pageNum}, #{pageSize}
     </select>
 
@@ -152,7 +151,8 @@
             <if test="createdAt != null">and created_at = #{createdAt}</if>
             <if test="isDistribution != null and isDistribution != ''">and is_distribution = #{isDistribution}</if>
         </where>
-        order by created_at desc
+        order by
+        CASE WHEN LENGTH(created_at) = 10 THEN created_at * 1000 ELSE created_at END DESC
     </select>
 
     <!-- 新增 -->
