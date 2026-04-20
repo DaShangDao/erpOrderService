@@ -1338,8 +1338,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                 // 如果未查询到已发布记录并且是孔网订单，则根据货号查询
                 log += "根据货号查询："+goodsDto.getOuterGoodsId()+";";
                 try{
-                    ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectByArtNo(goodsDto.getOuterGoodsId());
-                    if (zhishuShopGoods != null){
+                    List<ZhishuShopGoods> zhishuShopGoodsList = zhishuShopGoodsService.selectByArtNo(goodsDto.getOuterGoodsId());
+                    if (!zhishuShopGoodsList.isEmpty()){
+                        ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsList.get(0);
                         shopGoodsPublished = new ShopGoodsPublished();
                         shopGoodsPublished.setIsbn(zhishuShopGoods.getIsbn());
                         shopGoodsPublished.setInventory(Integer.parseInt(zhishuShopGoods.getInventory().toString()));

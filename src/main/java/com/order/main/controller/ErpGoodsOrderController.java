@@ -138,15 +138,15 @@ public class ErpGoodsOrderController  {
                 isbn = artNo;
             }else{
                 // 根据货号查询
-                ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectByArtNo(artNo);
-                if (zhishuShopGoods == null){
+                List<ZhishuShopGoods> zhishuShopGoodsList = zhishuShopGoodsService.selectByArtNo(artNo);
+                if (zhishuShopGoodsList.isEmpty()){
                     ShopGoodsPublished shopGoodsPublished = shopGoodsPublishedService.selectByShopIdAndPlatformId(shop.getId().toString(), map.get("goodsId").toString());
                     if (shopGoodsPublished != null){
                         isbn = shopGoodsPublished.getIsbn();
                     }
                 }else{
                     // isbn
-                    isbn = zhishuShopGoods.getIsbn();
+                    isbn = zhishuShopGoodsList.get(0).getIsbn();
                 }
 
             }

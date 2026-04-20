@@ -40,7 +40,7 @@ public interface ZhishuShopGoodsMapper  {
      * @param artNo
      * @return
      */
-    ZhishuShopGoods selectByArtNo(String artNo);
+    List<ZhishuShopGoods> selectByArtNo(String artNo);
 
     /**
      * 修改库存

@@ -68,7 +68,7 @@ public class ZhishuShopGoodsServiceImpl implements IZhishuShopGoodsService {
      */
     @Override
     @DS("slave")
-    public ZhishuShopGoods selectByArtNo(String artNo){
+    public List<ZhishuShopGoods> selectByArtNo(String artNo){
         return baseMapper.selectByArtNo(artNo);
     }
 

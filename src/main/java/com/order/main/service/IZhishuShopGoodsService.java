@@ -39,7 +39,7 @@ public interface IZhishuShopGoodsService {
      * @param artNo 货号
      * @return
      */
-    ZhishuShopGoods selectByArtNo(String artNo);
+    List<ZhishuShopGoods> selectByArtNo(String artNo);
 
     /**
      * 修改库存
