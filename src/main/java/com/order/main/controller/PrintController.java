@@ -4,9 +4,11 @@ import com.alibaba.fastjson.JSONObject;
 import com.dtflys.forest.annotation.PostRequest;
 import com.order.main.dll.DllInitializer;
 import com.order.main.dll.PddSimpleDllLoader;
+import com.order.main.dll.PrintSimpleDllLoader;
 import com.order.main.dto.GoodsDto;
 import com.order.main.entity.*;
 import com.order.main.service.*;
+import com.order.main.util.DateUtils;
 import com.order.main.util.PddUtil;
 import com.order.main.util.PrintUtils;
 import com.pdd.pop.sdk.common.util.JsonUtil;
@@ -36,6 +38,7 @@ public class PrintController {
     private final IZhishuShopGoodsService zhishuShopGoodsService;
     private final ICourierLogService courierLogService;
     private final ISinglePrintService singlePrintService;
+    private final IZtoPrintService ztoPrintService;
 
     /**
      * 创建运单
@@ -203,6 +206,9 @@ public class PrintController {
             result.put("code","500");
             result.put("msg",resMap.get("data"));
             return result;
+        }else if(type.equals("ZTO")){
+            String res = ztoPrintService.createOrder(partnerId,secret,erpGoodsOrderList,logisticsMap);
+            System.out.println(res);
         }
         result.put("code","500");
         result.put("msg","类型："+type+"不存在");
@@ -452,6 +458,31 @@ public class PrintController {
         }
         result.put("code","500");
         result.put("msg",resMap.get("message").toString());
+        return result;
+    }
+
+    /**
+     * 查询单子面单余额
+     * @param expressDeliveryType   快递类型
+     * @param account               账号
+     * @param password              密码
+     * @param json                  接口参数
+     * @return
+     */
+    @GetMapping("/faceSheetBalance")
+    public Map faceSheetBalance(String expressDeliveryType,String account,String password,String json){
+        Map dataMap = JsonUtil.transferToObj(json,Map.class);
+        String res = "";
+        if (expressDeliveryType.equals("ZTO")){
+            /**
+             * recharge         充值数量
+             * available        可用数量
+             * back             退单数量
+             * recovery         回收数量
+             */
+            res = ztoPrintService.faceSheetBalance(account,password,dataMap);
+        }
+        Map result = JsonUtil.transferToObj(res, Map.class);
         return result;
     }
 

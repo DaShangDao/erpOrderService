@@ -14,7 +14,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 AND s.isbn = #{isbn}
             </if>
             <if test="inventory != null">
-                AND s.inventory = #{inventory}
+                AND s.inventory >= #{inventory}
             </if>
             <if test="delFlag != null">
                 AND s.del_flag = #{delFlag}

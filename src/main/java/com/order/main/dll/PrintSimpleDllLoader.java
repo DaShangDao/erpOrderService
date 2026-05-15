@@ -19,16 +19,38 @@ public class PrintSimpleDllLoader {
     private static NativeLibrary nativeLibrary;
 
 
+    /**
+     * 韵达
+     */
     // 韵达电子面单下单
     private static Function ydCreateBmOrderFunc;
     // 韵达更新电子面单
     private static Function ydUpdateBmOrderFunc;
-    // 获取pdf文件
+    // 韵达获取pdf文件
     private static Function ydBmGetPdfInfoFunc;
-    // 电子面单取消
+    // 韵达电子面单取消
     private static Function ydCancelBmOrderFunc;
-    // 电子面单余量查询接口
+    // 韵达电子面单余量查询接口
     private static Function ydSearchCountFunc;
+
+    /**
+     * 中通
+     */
+    // 创建订单
+    private static Function ztoOpenCreateOrderFunc;
+    //中通快递--取消订单接口
+    private static Function ztoOpenCancelPreOrderFunc;
+    //中通快递--查询订单接口
+    private static Function ztoOpenGetOrderInfoFunc;
+    //中通快递--获取打单余额
+    private static Function ztoOpenQueryAvailableBalanceNewFunc;
+    //中通快递--请求生成面单图片/PDF
+    private static Function ztoOpenOrderPrintFunc;
+    //中通快递--绑定电子面单
+    private static Function ztoOpenBindingEaccountFunc;
+    //中通快递--网点code查询网点信息
+    private static Function ztoVipQuerySiteInfoByCodeFunc;
+
 
     private static Function freeCStringFunc;
 
@@ -61,6 +83,10 @@ public class PrintSimpleDllLoader {
 
         // 加载库文件
         nativeLibrary = NativeLibrary.getInstance(libraryFile.getAbsolutePath());
+
+        /**
+         * 韵达
+         */
         // 韵达电子面单下单
         ydCreateBmOrderFunc = nativeLibrary.getFunction("YdCreateBmOrder");
         // 韵达电子面单更新
@@ -72,14 +98,45 @@ public class PrintSimpleDllLoader {
         // 电子面单余量查询接口
         ydSearchCountFunc = nativeLibrary.getFunction("YdSearchCount");
 
+        /**
+         * 中通
+         */
+//        //中通快递--获取打单余额
+        ztoOpenQueryAvailableBalanceNewFunc = nativeLibrary.getFunction("ZtoOpenQueryAvailableBalanceNew");
+        // 创建订单
+        ztoOpenCreateOrderFunc = nativeLibrary.getFunction("ZtoOpenCreateOrder");
+        //中通快递--取消订单接口
+        ztoOpenCancelPreOrderFunc = nativeLibrary.getFunction("ZtoOpenCancelPreOrder");
+        //中通快递--查询订单接口
+        ztoOpenGetOrderInfoFunc = nativeLibrary.getFunction("ZtoOpenGetOrderInfo");
+        //中通快递--请求生成面单图片/PDF
+        ztoOpenOrderPrintFunc = nativeLibrary.getFunction("ZtoOpenOrderPrint");
+
+        ztoOpenBindingEaccountFunc = nativeLibrary.getFunction("ZtoOpenBindingEaccount");;
+
         // 释放c串内存
         freeCStringFunc = nativeLibrary.getFunction("FreeCString");
 
+        /**
+         * 韵达
+         */
         if (ydCreateBmOrderFunc == null) throw new Exception("无法找到 ydCreateBmOrderFunc 函数");
         if (ydUpdateBmOrderFunc == null) throw new Exception("无法找到 ydUpdateBmOrderFunc 函数");
         if (ydBmGetPdfInfoFunc == null) throw new Exception("无法找到 YdBmGetPdfInfoFunc 函数");
         if (ydCancelBmOrderFunc == null) throw new Exception("无法找到 ydCancelBmOrderFunc 函数");
         if (ydSearchCountFunc == null) throw new Exception("无法找到 ydSearchCountFunc 函数");
+        /**
+         * 中通
+         */
+        if (ztoOpenQueryAvailableBalanceNewFunc == null) throw new Exception("无法找到 ztoOpenQueryAvailableBalanceNewFunc 函数");
+        if (ztoOpenCreateOrderFunc == null) throw new Exception("无法找到 ztoOpenCreateOrderFunc 函数");
+        if (ztoOpenCancelPreOrderFunc == null) throw new Exception("无法找到 ztoOpenCancelPreOrderFunc 函数");
+        if (ztoOpenGetOrderInfoFunc == null) throw new Exception("无法找到 ztoOpenGetOrderInfoFunc 函数");
+        if (ztoOpenOrderPrintFunc == null) throw new Exception("无法找到 ztoOpenOrderPrintFunc 函数");
+
+        if(ztoOpenBindingEaccountFunc == null) throw new Exception("无法找到 ZtoOpenBindingEaccount 函数");
+
+
         if (freeCStringFunc == null) throw new Exception("无法找到 FreeCString 函数");
 
         System.out.println("expressDeliveryOrder Native 库加载成功: " + libraryPath);
@@ -252,6 +309,46 @@ public class PrintSimpleDllLoader {
             String cleanedAppSecret = ensureUtf8(appSecret);
             Object result = ydSearchCountFunc.invoke(Pointer.class,
                     new Object[]{cleanedRequestJSON, cleanedAppKey, cleanedAppSecret});
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 中通DLL方法
+     */
+    public static String executeZTOApi(String api,String appKey, String appSecret,String json){
+        try {
+            String cleanedAppKey = ensureUtf8(appKey);
+            String cleanedAppSecret = ensureUtf8(appSecret);
+            String cleanedJson = ensureUtf8(json);
+            Object result = null;
+            if (api.equals("ZtoOpenQueryAvailableBalanceNew")){
+                // 获取打单余额
+                result = ztoOpenQueryAvailableBalanceNewFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedAppKey,cleanedAppSecret});
+            }else if (api.equals("ZtoOpenCreateOrder")){
+                // 创建订单
+                result = ztoOpenCreateOrderFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedAppKey,cleanedAppSecret});
+            }else if (api.equals("ZtoOpenCancelPreOrder")){
+                // 取消订单接口
+                result = ztoOpenCancelPreOrderFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedAppKey,cleanedAppSecret});
+            }else if (api.equals("ZtoOpenGetOrderInfo")){
+                // 查询订单接口
+                result = ztoOpenGetOrderInfoFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedAppKey,cleanedAppSecret});
+            }else if (api.equals("ZtoOpenOrderPrint")){
+                // 请求生成面单图片/PDF
+                result = ztoOpenOrderPrintFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedAppKey,cleanedAppSecret});
+            }else if(api.equals("ZtoOpenBindingEaccount")){
+                // 绑定电子面单
+                result = ztoOpenBindingEaccountFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedAppKey,cleanedAppSecret});
+            }
             return ptrToString((Pointer) result);
         } catch (Exception e) {
             return "Error: " + e.getMessage();

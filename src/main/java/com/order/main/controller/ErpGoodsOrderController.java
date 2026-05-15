@@ -48,6 +48,7 @@ public class ErpGoodsOrderController  {
     private final IStockChangeLogService stockChangeLogService;
     private final IRunningTaskService runningTaskService;
     private final ICourierLogService courierLogService;
+    private final TShopGoodsPublishedService tShopGoodsPublishedService;
 
     @Autowired
     private TokenUtils tokenUtils;
@@ -309,7 +310,6 @@ public class ErpGoodsOrderController  {
 
     /**
      * 订单回填快递单号
-     * @param companyName 快递公司名称
      * @param orderNo       快递单号
      * @param erpOrderId  erp订单id
      */
@@ -660,8 +660,22 @@ public class ErpGoodsOrderController  {
         return JsonUtil.transferToJson(stockChangeLogList);
     }
 
-    @GetMapping("/test")
-    public void test(String shopId,String wpCode){
+    /**
+     *
+     * @param orderId               订单id
+     * @param orderSn               订单编号
+     * @param productId             商品id
+     * @param unitPrice             单价
+     * @param quantity              数量
+     * @param sales_person          店铺名称
+     * @param sales_person_id       店铺id
+     * @param about_id              店铺创建人id
+     */
+    @PostMapping("/test")
+    public void test(String orderId,String orderSn,String productId,String unitPrice,
+                     String quantity,String sales_person,
+                     String sales_person_id,String about_id,String shopType,String receiverName,String receiverPhone,String receiverAddress){
 
+        tShopGoodsPublishedService.createSalesOrder(orderId,orderSn,productId,unitPrice,quantity,sales_person,sales_person_id,about_id,shopType,receiverName,receiverPhone,receiverAddress);
     }
 }

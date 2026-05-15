@@ -3,21 +3,20 @@ package com.order.main.util;
 import com.pdd.pop.sdk.common.exception.JsonParseException;
 import com.pdd.pop.sdk.common.util.JsonUtil;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
 
 
 public class InterfaceUtils {
@@ -305,4 +304,235 @@ public class InterfaceUtils {
         return response != null ? response.getBody() : null;
     }
 
+
+
+    /**
+     * 通用带签名和认证的GET请求（支持指定签名方法）
+     *
+     * @param baseUrl            完整的基础URL（包含IP和路径，如：http://192.168.101.213:9090/api/admin/employee/list）
+     * @param queryParams        Query参数（会自动添加签名）
+     * @param authorizationToken Bearer Token（可选，传null则不添加）
+     * @param signMethod         签名方法（md5或sha256）
+     * @return 响应内容
+     */
+    public static String getWithSign(String baseUrl, Map<String, String> queryParams, String authorizationToken, String signMethod) {
+        // 复制参数，避免修改原Map
+        Map<String, String> paramsWithSign = new HashMap<>();
+        if (queryParams != null) {
+            paramsWithSign.putAll(queryParams);
+        }
+
+        // 如果签名方法未指定且参数中没有sign_method，使用默认值
+        if (signMethod != null && !paramsWithSign.containsKey("sign_method")) {
+            paramsWithSign.put("sign_method", signMethod);
+        }
+
+        // 获取实际的签名方法
+        String actualSignMethod = paramsWithSign.getOrDefault("sign_method", "md5");
+
+        // 构建待签名字符串
+        String signString = buildSignString(paramsWithSign, null);
+        System.out.println("待签名字符串: " + signString);
+
+        // 计算签名
+        String sign = calculateSign(signString, actualSignMethod);
+        System.out.println("计算签名: " + sign);
+
+        // 将签名添加到参数中
+        paramsWithSign.put("sign", sign);
+
+        // 构建完整URL
+        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl);
+        for (Map.Entry<String, String> entry : paramsWithSign.entrySet()) {
+            if (entry.getValue() != null && !entry.getValue().isEmpty()) {
+                builder.queryParam(entry.getKey(), entry.getValue());
+            }
+        }
+        String finalUrl = builder.toUriString();
+        System.out.println("请求URL: " + finalUrl);
+
+        // 创建 RestTemplate
+        RestTemplate restTemplate = createRestTemplateWithUtf8();
+
+        // 设置请求头
+        HttpHeaders headers = new HttpHeaders();
+        if (authorizationToken != null && !authorizationToken.isEmpty()) {
+            headers.set("Authorization", "Bearer " + authorizationToken);
+        }
+
+        // 发送请求
+        HttpEntity<String> requestEntity = new HttpEntity<>(null, headers);
+        ResponseEntity<String> response = restTemplate.exchange(
+                finalUrl,
+                HttpMethod.GET,
+                requestEntity,
+                String.class
+        );
+
+        return response.getBody();
+    }
+
+    /**
+     * 通用带签名和认证的POST表单请求（支持指定签名方法）
+     *
+     * @param baseUrl 完整的基础URL
+     * @param queryParams Query参数（可选）
+     * @param bodyParams Body表单参数（会自动添加签名）
+     * @param authorizationToken Bearer Token（可选）
+     * @param signMethod 签名方法（md5或sha256）
+     * @return 响应内容
+     */
+    public static String postFormWithSign(String baseUrl, Map<String, String> queryParams,
+                                          Map<String, String> bodyParams, String authorizationToken,
+                                          String signMethod) {
+        // 复制参数，避免修改原Map
+        Map<String, String> queryWithSign = new HashMap<>();
+        Map<String, String> bodyWithSign = new HashMap<>();
+
+        if (queryParams != null) {
+            queryWithSign.putAll(queryParams);
+        }
+        if (bodyParams != null) {
+            bodyWithSign.putAll(bodyParams);
+        }
+
+        // 如果签名方法未指定且参数中没有sign_method，使用默认值
+        if (signMethod != null && !bodyWithSign.containsKey("sign_method")) {
+            bodyWithSign.put("sign_method", signMethod);
+        }
+
+        // 获取实际的签名方法
+        String actualSignMethod = bodyWithSign.getOrDefault("sign_method", "md5");
+
+        // 构建待签名字符串（包含Query和Body参数）
+        String signString = buildSignString(queryWithSign, bodyWithSign);
+        System.out.println("待签名字符串: " + signString);
+
+        // 计算签名
+        String sign = calculateSign(signString, actualSignMethod);
+        System.out.println("计算签名: " + sign);
+
+        // 将签名添加到Body参数中
+        bodyWithSign.put("sign", sign);
+
+        // 构建完整URL（带Query参数）
+        String finalUrl = baseUrl;
+        if (queryWithSign != null && !queryWithSign.isEmpty()) {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl);
+            for (Map.Entry<String, String> entry : queryWithSign.entrySet()) {
+                if (entry.getValue() != null && !entry.getValue().isEmpty()) {
+                    builder.queryParam(entry.getKey(), entry.getValue());
+                }
+            }
+            finalUrl = builder.toUriString();
+        }
+        System.out.println("请求URL: " + finalUrl);
+
+        // 创建 RestTemplate
+        RestTemplate restTemplate = createRestTemplateWithUtf8();
+
+        // 构建表单数据
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        for (Map.Entry<String, String> entry : bodyWithSign.entrySet()) {
+            if (entry.getValue() != null) {
+                body.add(entry.getKey(), entry.getValue());
+            }
+        }
+
+        // 设置请求头
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED);
+        if (authorizationToken != null && !authorizationToken.isEmpty()) {
+            headers.set("Authorization", "Bearer " + authorizationToken);
+        }
+
+        // 发送请求
+        HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(body, headers);
+        ResponseEntity<String> response = restTemplate.postForEntity(finalUrl, requestEntity, String.class);
+
+        return response.getBody();
+    }
+
+    /**
+     * 构建待签名字符串（支持Query和Body参数）
+     * 参数名按ASCII排序，拼接格式：key1=value1&key2=value2，前后包裹appSecret
+     *
+     * @param queryParams Query参数
+     * @param bodyParams Body参数（表单格式）
+     * @return 待签名字符串
+     */
+    private static String buildSignString(Map<String, String> queryParams, Map<String, String> bodyParams) {
+        String appSecret = "psi_api_sign_secret";
+        Map<String, String> allParams = new HashMap<>();
+
+        // 合并Query参数（排除sign）
+        if (queryParams != null) {
+            for (Map.Entry<String, String> entry : queryParams.entrySet()) {
+                if (!"sign".equals(entry.getKey()) && entry.getValue() != null && !entry.getValue().isEmpty()) {
+                    allParams.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+
+        // 合并Body参数（排除sign）
+        if (bodyParams != null) {
+            for (Map.Entry<String, String> entry : bodyParams.entrySet()) {
+                if (!"sign".equals(entry.getKey()) && entry.getValue() != null && !entry.getValue().isEmpty()) {
+                    allParams.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+
+        // 参数名ASCII排序
+        List<String> keys = new ArrayList<>(allParams.keySet());
+        Collections.sort(keys);
+
+        // 构建参数字符串
+        StringBuilder paramPairs = new StringBuilder();
+        for (int i = 0; i < keys.size(); i++) {
+            if (i > 0) {
+                paramPairs.append("&");
+            }
+            paramPairs.append(keys.get(i)).append("=").append(allParams.get(keys.get(i)));
+        }
+
+        // 前后包裹appSecret
+        return appSecret + paramPairs.toString() + appSecret;
+    }
+
+    /**
+     * 计算签名（支持MD5和SHA256）
+     *
+     * @param signString 待签名字符串
+     * @param signMethod 签名方法（md5或sha256）
+     * @return 签名字符串（大写）
+     */
+    private static String calculateSign(String signString, String signMethod) {
+        if ("sha256".equalsIgnoreCase(signMethod)) {
+            try {
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                byte[] digest = md.digest(signString.getBytes(StandardCharsets.UTF_8));
+                StringBuilder sb = new StringBuilder();
+                for (byte b : digest) {
+                    sb.append(String.format("%02x", b));
+                }
+                return sb.toString().toUpperCase();
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("SHA-256 algorithm not found", e);
+            }
+        } else {
+            // 默认使用MD5
+            try {
+                MessageDigest md = MessageDigest.getInstance("MD5");
+                byte[] digest = md.digest(signString.getBytes(StandardCharsets.UTF_8));
+                StringBuilder sb = new StringBuilder();
+                for (byte b : digest) {
+                    sb.append(String.format("%02x", b));
+                }
+                return sb.toString().toUpperCase();
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException("MD5 algorithm not found", e);
+            }
+        }
+    }
 }

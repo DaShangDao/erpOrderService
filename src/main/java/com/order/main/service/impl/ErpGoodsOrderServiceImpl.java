@@ -4,6 +4,8 @@ import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.URLUtil;
 import com.alibaba.fastjson.JSONObject;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.order.main.dll.DllInitializer;
 import com.order.main.dto.GoodsCheckRejectVo;
 import com.order.main.dto.GoodsDto;
@@ -17,6 +19,7 @@ import com.pdd.pop.sdk.message.model.Message;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import com.order.main.mapper.ErpGoodsOrderMapper;
 import java.math.BigDecimal;
@@ -27,6 +30,8 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -45,6 +50,13 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     private int kfzPercentageInt = 0;
     //咸鱼订单手续费
     private int xyPercentageInt = 0;
+
+
+    // 在类中定义缓存（需要引入 Caffeine 依赖）
+    private final Cache<String, Long> stockRollbackCache = Caffeine.newBuilder()
+            .expireAfterWrite(5, TimeUnit.MINUTES)
+            .build();
+
 
     private final ErpGoodsOrderMapper baseMapper;
     private final IShopGoodsPublishedService shopGoodsPublishedService;
@@ -276,9 +288,13 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     erpGoodsOrder.setIsShow(0L);
                     // 是否下发订单 0 否 1 是
                     erpGoodsOrder.setIsIssue(0L);
+                    // 订单中商品sku列表对象
+                    erpGoodsOrder.setGoodsDto(goodsDto);
+                }else{
+                    goodsDto = JsonUtil.transferToObj(erpGoodsOrder.getItemList(), GoodsDto.class);
+                    erpGoodsOrder.setGoodsDto(goodsDto);
                 }
-                // 订单中商品sku列表对象
-                erpGoodsOrder.setGoodsDto(goodsDto);
+
                 // 修改用，修改前的订单状态
                 erpGoodsOrder.setOldOrderStatus(erpGoodsOrder.getOrderStatus());
                 // 订单类型转换
@@ -1019,7 +1035,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 收件地国家或地区
         erpGoodsOrder.setCountry(getStringValue(orderDetailDataMap, "area_name"));
         // 收件地区县
-        erpGoodsOrder.setTown(getStringValue(orderDetailDataMap, "town_name"));
+        String townName = getStringValue(orderDetailDataMap, "town_name");
+        String address = getStringValue(orderDetailDataMap, "address");
+        erpGoodsOrder.setTown(townName+address);
         // 收件人
         erpGoodsOrder.setReceiverName(getStringValue(orderDetailDataMap, "receiver_name"));
         // 收件人号码
@@ -1100,8 +1118,12 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
             erpGoodsOrder.setCity(getStringValue(orderDetailDataMap, "city_name"));
             // 收件地国家或地区
             erpGoodsOrder.setCountry(getStringValue(orderDetailDataMap, "area_name"));
+
+            String townName = getStringValue(orderDetailDataMap, "town_name");
+            String address = getStringValue(orderDetailDataMap, "address");
+
             // 收件地区县
-            erpGoodsOrder.setTown(getStringValue(orderDetailDataMap, "town_name"));
+            erpGoodsOrder.setTown(townName+address);
             // 收件人
             erpGoodsOrder.setReceiverName(getStringValue(orderDetailDataMap, "receiver_name"));
             // 收件人号码
@@ -1158,37 +1180,45 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         OrderExternalGoods orderExternalGoods = orderExternalGoodsService.selectByOrderIdAndIsDistribution(erpGoodsOrder.getId(),"0");
         // 如果之前的订单处于未发货状态，并且设置模板为空或者设置模板中是否自动回复库存=1时，执行库存回退操作
         if(erpGoodsOrder.getOldOrderStatus() < 3L  && erpGoodsOrder.getAfterSalesStatus() == 10L && (warehouseSettings == null || warehouseSettings.getStockRollback() == 1)){
-            // 订单下单数量
-            int quantity = Integer.parseInt(goodsDto.getGoodsCount());
-            // 关联的商品不为空并且是外部订单时。 orderExternalGoods.getType() 1 是内部订单  2是外部订单
-            if(orderExternalGoods != null && orderExternalGoods.getType() != null && orderExternalGoods.getType() == 2){
-                System.out.println("外部订单执行了回退库存操作");
-                // 获取商品信息根据erp商品id
-                ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectById(orderExternalGoods.getGoodsId());
-                // 增加后的库存
-                int inventory = Integer.parseInt(zhishuShopGoods.getInventory().toString()) + quantity;
-                // 执行修改库存以及库存同步操作
-                synchronizeStock(zhishuShopGoods.getId(),inventory,Integer.parseInt(zhishuShopGoods.getInventory().toString()),shop.getCreateBy(),"1",erpGoodsOrder.getId());
-                // 退款金额
-                BigDecimal total =  rollbackPrice( orderExternalGoods,shop);
-                log += "订单处于未发货状态，买家进行了退款。进行回退库存操作并执行了库存同步操作;原始库存：" + zhishuShopGoods.getInventory() + " 回退后库存："+inventory+";并进行了退款："+total.divide(new BigDecimal(100)).setScale(2, RoundingMode.HALF_UP) + "元";
-            }else if (orderExternalGoods != null && orderExternalGoods.getType() != null && orderExternalGoods.getType() == 1){
-                System.out.println("内部订单执行了回退库存操作");
-                // 获取已发布商品数据
-                String goodsId = "-1";
-                if(shop.getShopType().equals("5")){
-                    goodsId = goodsDto.getOuterId();        //闲鱼
-                }else if(shop.getShopType().equals("1") || shop.getShopType().equals("2")){
-                    goodsId = goodsDto.getGoodsId();        //拼多多
-                }
-                ShopGoodsPublished shopGoodsPublished = shopGoodsPublishedService.selectByShopIdAndPlatformId(shop.getId().toString(),goodsId);
-                //增加后的库存
-                int inventory = shopGoodsPublished.getInventory() + quantity;
-                //执行修改库存以及库存同步操作
-                synchronizeStock(shopGoodsPublished.getShopGoodsId(),inventory,shopGoodsPublished.getInventory(),shop.getCreateBy(),"1",erpGoodsOrder.getId());
-                log += "订单处于未发货状态，买家进行了退款。进行回退库存操作并执行了库存同步操作;原始库存：" + shopGoodsPublished.getInventory() + " 回退后库存："+inventory;
+
+            String cacheKey = erpGoodsOrder.getOrderSn() + goodsDto.getGoodsId();
+            Long lastProcessTime = stockRollbackCache.getIfPresent(cacheKey);
+
+            if (lastProcessTime != null) {
+                log += "5分钟内已处理过回退库存操作，本次跳过";
             }else{
-                log += "订单处于未下发状态，买家进行了退款";
+                // 订单下单数量
+                int quantity = Integer.parseInt(goodsDto.getGoodsCount());
+                // 关联的商品不为空并且是外部订单时。 orderExternalGoods.getType() 1 是内部订单  2是外部订单
+                if(orderExternalGoods != null && orderExternalGoods.getType() != null && orderExternalGoods.getType() == 2){
+                    System.out.println("外部订单执行了回退库存操作");
+                    // 获取商品信息根据erp商品id
+                    ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectById(orderExternalGoods.getGoodsId());
+                    // 增加后的库存
+                    int inventory = Integer.parseInt(zhishuShopGoods.getInventory().toString()) + quantity;
+                    // 执行修改库存以及库存同步操作
+                    synchronizeStock(zhishuShopGoods.getId(),inventory,Integer.parseInt(zhishuShopGoods.getInventory().toString()),shop.getCreateBy(),"1",erpGoodsOrder.getId());
+                    // 退款金额
+                    BigDecimal total =  rollbackPrice( orderExternalGoods,shop);
+                    log += "订单处于未发货状态，买家进行了退款。进行回退库存操作并执行了库存同步操作;原始库存：" + zhishuShopGoods.getInventory() + " 回退后库存："+inventory+";并进行了退款："+total.divide(new BigDecimal(100)).setScale(2, RoundingMode.HALF_UP) + "元";
+                }else if (orderExternalGoods != null && orderExternalGoods.getType() != null && orderExternalGoods.getType() == 1){
+                    System.out.println("内部订单执行了回退库存操作");
+                    // 获取已发布商品数据
+                    String goodsId = "-1";
+                    if(shop.getShopType().equals("5")){
+                        goodsId = goodsDto.getOuterId();        //闲鱼
+                    }else if(shop.getShopType().equals("1") || shop.getShopType().equals("2")){
+                        goodsId = goodsDto.getGoodsId();        //拼多多
+                    }
+                    ShopGoodsPublished shopGoodsPublished = shopGoodsPublishedService.selectByShopIdAndPlatformId(shop.getId().toString(),goodsId);
+                    //增加后的库存
+                    int inventory = shopGoodsPublished.getInventory() + quantity;
+                    //执行修改库存以及库存同步操作
+                    synchronizeStock(shopGoodsPublished.getShopGoodsId(),inventory,shopGoodsPublished.getInventory(),shop.getCreateBy(),"1",erpGoodsOrder.getId());
+                    log += "订单处于未发货状态，买家进行了退款。进行回退库存操作并执行了库存同步操作;原始库存：" + shopGoodsPublished.getInventory() + " 回退后库存："+inventory;
+                }else{
+                    log += "订单处于未下发状态，买家进行了退款";
+                }
             }
         }else if(erpGoodsOrder.getOrderStatus() == 4L && (erpGoodsOrder.getAfterSalesStatus() == 0L || erpGoodsOrder.getAfterSalesStatus() == 11L)){
             /**
@@ -1415,7 +1445,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     public String externalOrderOperation(Shop shop,ErpGoodsOrder erpGoodsOrder,ZhishuShopGoods zhishuShopGoods,int quantity,String log,WarehouseSettings warehouseSettings,Boolean manua){
         // 如果查询出来的也是自己自营书品中的则不需要进行分销
         if(Long.parseLong(shop.getCreateBy()) != zhishuShopGoods.getUserId()) {
-            if (manua){
+            if (manua && !(erpGoodsOrder.getOrderStatus() == 2L && erpGoodsOrder.getAfterSalesStatus() == 0L)){
                 log += "手动订单库存同步,不进行额外分销功能";
                 return log;
             }
