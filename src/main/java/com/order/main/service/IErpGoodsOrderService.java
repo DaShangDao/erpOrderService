@@ -106,7 +106,7 @@ public interface IErpGoodsOrderService {
      * @param createBy
      * @param type
      */
-    String synchronizeStock(String shopGoodsId,int inventory,int oldInventory,String createBy,String type,Long erpOrderId);
+    String synchronizeStock(String shopGoodsId,int inventory,int oldInventory,String createBy,String type,ErpGoodsOrder erpGoodsOrder);
 
     /**
      * 根据订单号查询订单信息

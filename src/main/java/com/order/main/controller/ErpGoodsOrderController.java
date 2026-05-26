@@ -287,8 +287,12 @@ public class ErpGoodsOrderController  {
             // 如果库存为0，则不需要进行库存同步
            log = "商品："+zhishuShopGoods.getGoodsName()+";isbn："+zhishuShopGoods.getIsbn()+";货号："+zhishuShopGoods.getArtNo()+"扣减库存为0，无需库存同步";
         }else{
+            if (erpGoodsOrder == null){
+                erpGoodsOrder = new ErpGoodsOrder();
+                erpGoodsOrder.setId(erpOrderId);
+            }
             // 库存同步
-           log = erpGoodsOrderService.synchronizeStock(shopGoodsId+"",inventory,zhishuShopGoods.getInventory().intValue(),zhishuShopGoods.getUserId()+"","2",erpOrderId);
+           log = erpGoodsOrderService.synchronizeStock(shopGoodsId+"",inventory,zhishuShopGoods.getInventory().intValue(),zhishuShopGoods.getUserId()+"","2",erpGoodsOrder);
         }
         if(erpGoodsOrder != null){
             // 校验是否能直接写入文件，若文件不存在，则返回false
@@ -662,6 +666,16 @@ public class ErpGoodsOrderController  {
 
     /**
      *
+     * @param erpOrderId               订单id
+     */
+    @PostMapping("/test")
+    public void test(String erpOrderId){
+        ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpOrderId));
+        tShopGoodsPublishedService.createSalesOrder(erpGoodsOrder);
+    }
+
+    /**
+     *
      * @param orderId               订单id
      * @param orderSn               订单编号
      * @param productId             商品id
@@ -671,8 +685,8 @@ public class ErpGoodsOrderController  {
      * @param sales_person_id       店铺id
      * @param about_id              店铺创建人id
      */
-    @PostMapping("/test")
-    public void test(String orderId,String orderSn,String productId,String unitPrice,
+    @PostMapping("/test2")
+    public void test2(String orderId,String orderSn,String productId,String unitPrice,
                      String quantity,String sales_person,
                      String sales_person_id,String about_id,String shopType,String receiverName,String receiverPhone,String receiverAddress){
 

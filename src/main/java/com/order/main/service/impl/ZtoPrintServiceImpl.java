@@ -3,7 +3,10 @@ package com.order.main.service.impl;
 import com.alibaba.fastjson.JSONObject;
 import com.order.main.dll.PrintSimpleDllLoader;
 import com.order.main.dto.GoodsDto;
+import com.order.main.entity.CourierLog;
 import com.order.main.entity.ErpGoodsOrder;
+import com.order.main.service.ICourierLogService;
+import com.order.main.service.IErpGoodsOrderService;
 import com.order.main.service.IZtoPrintService;
 import com.order.main.util.DateUtils;
 import com.pdd.pop.sdk.common.util.JsonUtil;
@@ -19,6 +22,9 @@ import java.util.Map;
 @Service
 public class ZtoPrintServiceImpl implements IZtoPrintService {
 
+
+    private final IErpGoodsOrderService erpGoodsOrderService;
+    private final ICourierLogService courierLogService;
 
     /**
      * 电子面单绑定
@@ -75,6 +81,8 @@ public class ZtoPrintServiceImpl implements IZtoPrintService {
         String deliveryCity = logisticsMap.get("delivery_city").toString();
         // 发货区
         String deliveryArea = logisticsMap.get("delivery_area").toString();
+        // 发货详细地址
+        String fullAddress = logisticsMap.get("full_address").toString();
 
         ErpGoodsOrder erpGoodsOrder = erpGoodsOrderList.get(0);
         JSONObject jsonObject = new JSONObject();
@@ -106,7 +114,7 @@ public class ZtoPrintServiceImpl implements IZtoPrintService {
         // 发件人区
         senderInfo.put("senderDistrict",deliveryArea);
         // 发件人详细地址
-        senderInfo.put("senderAddress",deliveryProvince+","+deliveryCity+","+deliveryArea);
+        senderInfo.put("senderAddress",deliveryProvince+","+deliveryCity+","+deliveryArea+","+fullAddress);
         jsonObject.put("senderInfo",senderInfo);
         // 收件人信息
         JSONObject receiveInfo = new JSONObject();
@@ -138,7 +146,42 @@ public class ZtoPrintServiceImpl implements IZtoPrintService {
             orderItems.add(orderItem);
         }
         jsonObject.put("orderItems",orderItems);
-        return PrintSimpleDllLoader.executeZTOApi("ZtoOpenCreateOrder","6721852dd4ac4e3c30ce7 ","204b67cbbb7b1960e03e101295a0ee5e",jsonObject.toString());
+        String res = PrintSimpleDllLoader.executeZTOApi("ZtoOpenCreateOrder","6721852dd4ac4e3c30ce7 ","204b67cbbb7b1960e03e101295a0ee5e",jsonObject.toString());
+        Map resMap = JsonUtil.transferToObj(res,Map.class);
+
+        if (resMap.get("message").toString().equals("成功")){
+            Map result = (Map) resMap.get("result");
+            // 发件人
+            result.put("senderInfo",senderInfo);
+            // 收件人
+            result.put("receiveInfo",receiveInfo);
+            resMap.put("result",result);
+            // 存储日志
+            for (ErpGoodsOrder ego : erpGoodsOrderList){
+                // 日志对象定义
+                CourierLog courierLog = new CourierLog();
+                courierLog.setErpOrderId(ego.getId());
+                courierLog.setOrderSn(ego.getOrderSn());
+                courierLog.setMailNo(result.get("billCode").toString());
+                courierLog.setPartnerId(accountId);
+                courierLog.setSecret(accountPassword);
+                courierLog.setOrderSerialNo(result.get("orderCode").toString());
+                courierLog.setSender(JsonUtil.transferToJson(senderInfo));
+                courierLog.setReceiver(JsonUtil.transferToJson(receiveInfo));
+                courierLog.setItems(JsonUtil.transferToJson(orderItems));
+                courierLog.setType("新增");
+                courierLog.setCreateBy(ego.getCreatedBy());
+                long currentTime = System.currentTimeMillis() / 1000;
+                courierLog.setCreateAt(currentTime);
+                courierLog.setMailType("ZTO");
+                courierLog.setRemark(res);
+                courierLogService.save(courierLog);
+                // 回填快递单号
+                ego.setTrackingNumber(result.get("billCode").toString());
+                erpGoodsOrderService.update(ego);
+            }
+        }
+        return JsonUtil.transferToJson(resMap);
     }
 
     /**

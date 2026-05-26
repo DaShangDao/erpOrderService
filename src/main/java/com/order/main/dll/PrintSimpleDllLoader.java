@@ -101,15 +101,15 @@ public class PrintSimpleDllLoader {
         /**
          * 中通
          */
-//        //中通快递--获取打单余额
+        // 中通快递--获取打单余额
         ztoOpenQueryAvailableBalanceNewFunc = nativeLibrary.getFunction("ZtoOpenQueryAvailableBalanceNew");
-        // 创建订单
+        // 中通快递--创建订单
         ztoOpenCreateOrderFunc = nativeLibrary.getFunction("ZtoOpenCreateOrder");
-        //中通快递--取消订单接口
+        // 中通快递--取消订单接口
         ztoOpenCancelPreOrderFunc = nativeLibrary.getFunction("ZtoOpenCancelPreOrder");
-        //中通快递--查询订单接口
+        // 中通快递--查询订单接口
         ztoOpenGetOrderInfoFunc = nativeLibrary.getFunction("ZtoOpenGetOrderInfo");
-        //中通快递--请求生成面单图片/PDF
+        // 中通快递--请求生成面单图片/PDF
         ztoOpenOrderPrintFunc = nativeLibrary.getFunction("ZtoOpenOrderPrint");
 
         ztoOpenBindingEaccountFunc = nativeLibrary.getFunction("ZtoOpenBindingEaccount");;
@@ -133,7 +133,6 @@ public class PrintSimpleDllLoader {
         if (ztoOpenCancelPreOrderFunc == null) throw new Exception("无法找到 ztoOpenCancelPreOrderFunc 函数");
         if (ztoOpenGetOrderInfoFunc == null) throw new Exception("无法找到 ztoOpenGetOrderInfoFunc 函数");
         if (ztoOpenOrderPrintFunc == null) throw new Exception("无法找到 ztoOpenOrderPrintFunc 函数");
-
         if(ztoOpenBindingEaccountFunc == null) throw new Exception("无法找到 ZtoOpenBindingEaccount 函数");
 
 

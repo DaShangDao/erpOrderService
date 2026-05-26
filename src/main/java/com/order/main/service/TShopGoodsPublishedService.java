@@ -30,8 +30,27 @@ public interface TShopGoodsPublishedService {
     List<TShopGoodsPublishedDto> selectByTrilateralId(Long trilateralId);
 
 
+    int deleteById(Long id);
+
     /**
      * 推送订单
+     */
+    void createSalesOrder(ErpGoodsOrder erpGoodsOrder);
+
+    /**
+     * 测试
+     * @param orderId
+     * @param orderSn
+     * @param productId
+     * @param unitPrice
+     * @param quantity
+     * @param sales_person
+     * @param sales_person_id
+     * @param about_id
+     * @param shopType
+     * @param receiverName
+     * @param receiverPhone
+     * @param receiverAddress
      */
     void createSalesOrder(String orderId,String orderSn,String productId,String unitPrice,
                           String quantity,String sales_person,

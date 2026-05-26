@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,8 +39,10 @@ public class ZtoPrintController {
      */
     @GetMapping("/bindingEaccount")
     public Map bindingEaccount(String expressDeliveryType, String account, String password, String json){
+        // 解码 URL 编码的 JSON
+        String decodedJson = URLDecoder.decode(json, StandardCharsets.UTF_8);
         // 返回值对象定义
-        Map dataMap = JsonUtil.transferToObj(json,Map.class);
+        Map dataMap = JsonUtil.transferToObj(decodedJson,Map.class);
         String res = "";
         if (expressDeliveryType.equals("ZTO")){
             // 中通
@@ -46,5 +50,20 @@ public class ZtoPrintController {
         }
         Map result = JsonUtil.transferToObj(res, Map.class);
         return result;
+    }
+
+    /**
+     * 获取打印pdf
+     * @param billCode
+     * @return
+     */
+    @GetMapping("/orderPrint")
+    public String orderPrint(String billCode){
+        return ztoPrintService.orderPrint(billCode);
+    }
+
+    @GetMapping("/getOrderInfo")
+    public String getOrderInfo(String type,String mailNo){
+        return ztoPrintService.getOrderInfo(type,mailNo);
     }
 }

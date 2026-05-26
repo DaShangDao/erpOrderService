@@ -27,4 +27,7 @@ public interface TShopGoodsPublishedMapper {
      */
     List<TShopGoodsPublishedDto> selectByTrilateralId(Long trilateralId);
 
+
+    int deleteById(Long id);
+
 }

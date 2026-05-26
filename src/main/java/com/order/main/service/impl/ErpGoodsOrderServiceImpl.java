@@ -74,6 +74,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     private final RedisService redisService;
     private final IRunningTaskService runningTaskService;
     private final ISynchronizationShopLogService synchronizationShopLogService;
+    private final TShopGoodsPublishedService tShopGoodsPublishedService;
 
     @Autowired
     private TokenUtils tokenUtils;
@@ -911,6 +912,8 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         Long ifOrderStatus = warehouseSettingsVo == null || warehouseSettingsVo.getStockSynchronizeType() == 1 ? 2L : 1L;
         // 校验订单状态是否与设置模板中库存同步设置一致并且不存在售后
         if((erpGoodsOrder.getOrderStatus() == 2L && erpGoodsOrder.getAfterSalesStatus() == 0L) || manua){
+            // 执行推送订单
+            tShopGoodsPublishedService.createSalesOrder(erpGoodsOrder);
             // 新增或已付款未发货的订单触发的操作 新增订单
             addOrderIssue(erpGoodsOrder,shop,erpGoodsOrder.getGoodsDto(),warehouseSettingsVo,manua);
         }else if (erpGoodsOrder.getOrderStatus() != 1 && erpGoodsOrder.getAfterSalesStatus() != 2){
@@ -1197,10 +1200,11 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     // 增加后的库存
                     int inventory = Integer.parseInt(zhishuShopGoods.getInventory().toString()) + quantity;
                     // 执行修改库存以及库存同步操作
-                    synchronizeStock(zhishuShopGoods.getId(),inventory,Integer.parseInt(zhishuShopGoods.getInventory().toString()),shop.getCreateBy(),"1",erpGoodsOrder.getId());
+                    String msg = synchronizeStock(zhishuShopGoods.getId(),inventory,Integer.parseInt(zhishuShopGoods.getInventory().toString()),shop.getCreateBy(),"1",erpGoodsOrder);
                     // 退款金额
                     BigDecimal total =  rollbackPrice( orderExternalGoods,shop);
                     log += "订单处于未发货状态，买家进行了退款。进行回退库存操作并执行了库存同步操作;原始库存：" + zhishuShopGoods.getInventory() + " 回退后库存："+inventory+";并进行了退款："+total.divide(new BigDecimal(100)).setScale(2, RoundingMode.HALF_UP) + "元";
+                    log += ";"+msg;
                 }else if (orderExternalGoods != null && orderExternalGoods.getType() != null && orderExternalGoods.getType() == 1){
                     System.out.println("内部订单执行了回退库存操作");
                     // 获取已发布商品数据
@@ -1214,8 +1218,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     //增加后的库存
                     int inventory = shopGoodsPublished.getInventory() + quantity;
                     //执行修改库存以及库存同步操作
-                    synchronizeStock(shopGoodsPublished.getShopGoodsId(),inventory,shopGoodsPublished.getInventory(),shop.getCreateBy(),"1",erpGoodsOrder.getId());
+                    String msg = synchronizeStock(shopGoodsPublished.getShopGoodsId(),inventory,shopGoodsPublished.getInventory(),shop.getCreateBy(),"1",erpGoodsOrder);
                     log += "订单处于未发货状态，买家进行了退款。进行回退库存操作并执行了库存同步操作;原始库存：" + shopGoodsPublished.getInventory() + " 回退后库存："+inventory;
+                    log += ";"+msg;
                 }else{
                     log += "订单处于未下发状态，买家进行了退款";
                 }
@@ -1401,7 +1406,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                         inventory = shopGoodsPublished.getInventory();
                     }
                     // 执行库存同步
-                    synchronizeStock(shopGoodsPublished.getShopGoodsId(),inventory,shopGoodsPublished.getInventory(),shop.getCreateBy(),"2",erpGoodsOrder.getId());
+                    String msg = synchronizeStock(shopGoodsPublished.getShopGoodsId(),inventory,shopGoodsPublished.getInventory(),shop.getCreateBy(),"2",erpGoodsOrder);
                     // 只有在自动拉取的时候触发匹配别人仓库的商品
                     if (!manua){
                         // 根据规则查询匹配的仓库商品进行下发
@@ -1417,6 +1422,8 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     }else{
                         log += "手动订单库存同步，自营书品库存不足,已同步各平台库存："+inventory;
                     }
+
+                    log += ";"+msg;
 
                 }
             }else{
@@ -1593,7 +1600,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                         // 关联订单与匹配成功的商品，并且扣减库存
                         int inventory = Integer.parseInt(zhishuShopGoods.getInventory().toString()) - quantity;
                         // 执行库存同步
-                        synchronizeStock(zhishuShopGoods.getId(),inventory,Integer.parseInt(zhishuShopGoods.getInventory().toString()),shop.getCreateBy(),"2",erpGoodsOrder.getId());
+                        String msg = synchronizeStock(zhishuShopGoods.getId(),inventory,Integer.parseInt(zhishuShopGoods.getInventory().toString()),shop.getCreateBy(),"2",erpGoodsOrder);
                         // 记录日志
                         log += "使用匹配的商品，已执行商品库存扣减并执行库存同步。" +
                                 "扣除费用详情："+
@@ -1601,7 +1608,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
 //                                "运费："+zhishuShopGoods.getShippingCost().divide(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP) + "元" +
 //                                "手续费："+zhishuShopGoods.getServiceCharge().divide(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP) + "元" +
                                 "共计金额：" +totalPrice.add(zhishuShopGoods.getServiceCharge()).divide(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP) + "元";
-
+                        log += ";" + msg;
                     }
                     // 修改下发状态：已下发
                     erpGoodsOrder.setIsIssue(1L);
@@ -1647,9 +1654,10 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
             // 扣减后的库存
             int inventory = Integer.parseInt(zhishuShopGoods.getInventory().toString()) - quantity;
             // 库存同步
-            synchronizeStock(zhishuShopGoods.getId(),inventory,Integer.parseInt(zhishuShopGoods.getInventory().toString()),shop.getCreateBy(),"2",erpGoodsOrder.getId());
+            String msg = synchronizeStock(zhishuShopGoods.getId(),inventory,Integer.parseInt(zhishuShopGoods.getInventory().toString()),shop.getCreateBy(),"2",erpGoodsOrder);
             // 日志
             log += "使用匹配的商品，已执行商品库存扣减并执行库存同步。货号："+zhishuShopGoods.getArtNo();
+            log += ";" + msg;
             // 修改下发状态：已下发
             erpGoodsOrder.setIsIssue(1L);
             // 执行修改操作
@@ -1773,7 +1781,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
      * @param type
      */
     @Override
-    public String synchronizeStock(String shopGoodsId,int inventory,int oldInventory,String createBy,String type,Long erpOrderId){
+    public String synchronizeStock(String shopGoodsId,int inventory,int oldInventory,String createBy,String type,ErpGoodsOrder erpGoodsOrder){
 
         ZhishuShopGoods zsg = zhishuShopGoodsService.selectById(Long.parseLong(shopGoodsId));
         // 创建商品对象
@@ -1787,7 +1795,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 操作人
         zhishuShopGoods.setUserId(Long.parseLong(createBy));
         // 更新自营商品表
-        int mark = zhishuShopGoodsService.updateInventory(zhishuShopGoods, type,erpOrderId);
+        int mark = zhishuShopGoodsService.updateInventory(zhishuShopGoods, type,erpGoodsOrder.getId());
         System.out.println("扣减自营商品库存操作已完成");
         String log = "库存同步操作记录：";
         if (mark > 0){
@@ -1808,7 +1816,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     // 商品的创建人
                     synchronizationShopLog.setGoodsCreateBy(zsg.getUserId());
                     // erp订单id
-                    synchronizationShopLog.setErpOrderId(erpOrderId);
+                    synchronizationShopLog.setErpOrderId(erpGoodsOrder.getId());
                     // 店铺id
                     synchronizationShopLog.setShopId(Long.parseLong(sgp.getShopId()));
                     // 店铺名称
@@ -1849,16 +1857,16 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     if(sgp.getShopType().equals("1")){
                         // 调用拼多多修改库存
                         resultMap = editStockService.pddEditStock(editShop,sgp.getPlatformId(),inventory+"");
-                        log += "拼多多店铺："+sgp.getShopName() +":成功;";
+                        log += "拼多多店铺："+sgp.getShopName() +":"+resultMap.get("msg")+";";
                     } else if (sgp.getShopType().equals("2")){
                         // 调用孔夫子修改库存
                         resultMap = editStockService.kfzEditStock(sgp.getToken(),sgp.getPlatformId(),inventory+"");
-                        log += "孔夫子店铺："+sgp.getShopName() +":成功;";
+                        log += "孔夫子店铺："+sgp.getShopName() +":"+resultMap.get("msg")+";";
                     } else if (sgp.getShopType().equals("5")){
                         editShop.setShopKey(sgp.getShopKey());
                         // 调用闲鱼修改库存
                         resultMap = editStockService.xyEditStock(editShop,sgp.getPlatformId(),inventory+"");
-                        log += "闲鱼店铺："+sgp.getShopName() +":成功;";
+                        log += "闲鱼店铺："+sgp.getShopName() +":"+resultMap.get("msg")+";";
                     }
                     // 状态码
                     synchronizationShopLog.setCode(resultMap.get("code").toString());
@@ -1883,18 +1891,19 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                 // 修改订单下发状态为已下发
                 if(type.equals("2")){
                     // 创建erp订单对象
-                    ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
+                    ErpGoodsOrder egd = new ErpGoodsOrder();
                     // 订单id
-                    erpGoodsOrder.setId(erpOrderId);
+                    egd.setId(erpGoodsOrder.getId());
                     // 下发状态
-                    erpGoodsOrder.setIsIssue(1L);
+                    egd.setIsIssue(1L);
                     // 修改时间
-                    erpGoodsOrder.setUpdatedAt(System.currentTimeMillis());
+                    egd.setUpdatedAt(System.currentTimeMillis());
                     // 调用修改
-                    update(erpGoodsOrder);
+                    update(egd);
                 }
             }
         }
+
         // 返回日志信息
         return log;
     }
