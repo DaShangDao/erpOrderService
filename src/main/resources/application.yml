@@ -87,5 +87,7 @@ scheduler:
   open:
     # 孔夫子订单定时器
     kfzOrder: false
+    erpOrder: false
   daily:
     kfzOrder: "0 0/1 * * * ?"
+    erpOrder: "* * * * * ?"

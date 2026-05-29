@@ -293,6 +293,11 @@ public class ErpGoodsOrder {
     private String erpGoodsId;
 
     /**
+     * 队列id
+     */
+    private String queueId;
+
+    /**
      * 分页查询属性
      */
     //第几页

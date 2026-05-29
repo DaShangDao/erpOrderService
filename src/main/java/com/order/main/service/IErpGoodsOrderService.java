@@ -108,6 +108,9 @@ public interface IErpGoodsOrderService {
      */
     String synchronizeStock(String shopGoodsId,int inventory,int oldInventory,String createBy,String type,ErpGoodsOrder erpGoodsOrder);
 
+
+
+
     /**
      * 根据订单号查询订单信息
      * @param orderNo

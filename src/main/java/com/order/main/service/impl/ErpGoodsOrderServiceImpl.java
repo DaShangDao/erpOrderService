@@ -9,6 +9,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.order.main.dll.DllInitializer;
 import com.order.main.dto.GoodsCheckRejectVo;
 import com.order.main.dto.GoodsDto;
+import com.order.main.dto.TShopGoodsPublishedDto;
 import com.order.main.entity.*;
 import com.order.main.service.*;
 import com.order.main.service.client.ShopGoodsPublishedClient;
@@ -59,7 +60,10 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
 
 
     private final ErpGoodsOrderMapper baseMapper;
+    // erp 库存同步关联表
     private final IShopGoodsPublishedService shopGoodsPublishedService;
+    // 进销存 库存同步关系表
+    private final TShopGoodsPublishedService tShopGoodsPublishedService;
     private final IZhishuShopGoodsService zhishuShopGoodsService;
     private final IEditStockService editStockService;
     private final ISysUserService userService;
@@ -74,7 +78,8 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     private final RedisService redisService;
     private final IRunningTaskService runningTaskService;
     private final ISynchronizationShopLogService synchronizationShopLogService;
-    private final TShopGoodsPublishedService tShopGoodsPublishedService;
+
+    private final IErpGoodsOrderQueueService erpGoodsOrderQueueService;
 
     @Autowired
     private TokenUtils tokenUtils;
@@ -913,7 +918,22 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 校验订单状态是否与设置模板中库存同步设置一致并且不存在售后
         if((erpGoodsOrder.getOrderStatus() == 2L && erpGoodsOrder.getAfterSalesStatus() == 0L) || manua){
             // 执行推送订单
-            tShopGoodsPublishedService.createSalesOrder(erpGoodsOrder);
+            try{
+                GoodsDto goodsDto = erpGoodsOrder.getGoodsDto();
+                List<TShopGoodsPublishedDto> tShopGoodsPublishedDtoList = tShopGoodsPublishedService.selectByTrilateralId(Long.parseLong(goodsDto.getGoodsId()));
+                if (tShopGoodsPublishedDtoList.isEmpty()){
+                    tShopGoodsPublishedDtoList = tShopGoodsPublishedService.selectByTrilateralId(Long.parseLong(goodsDto.getOuterId()));
+                }
+                if (!tShopGoodsPublishedDtoList.isEmpty()){
+                    ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                    erpGoodsOrderQueue.setErpGoodsOrderId(erpGoodsOrder.getId());
+                    erpGoodsOrderQueue.setStatus("0");
+                    erpGoodsOrderQueueService.save(erpGoodsOrderQueue);
+                }
+            }catch (Exception e){
+                System.out.println("推送销售订单失败");
+                e.printStackTrace();
+            }
             // 新增或已付款未发货的订单触发的操作 新增订单
             addOrderIssue(erpGoodsOrder,shop,erpGoodsOrder.getGoodsDto(),warehouseSettingsVo,manua);
         }else if (erpGoodsOrder.getOrderStatus() != 1 && erpGoodsOrder.getAfterSalesStatus() != 2){
@@ -1907,6 +1927,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 返回日志信息
         return log;
     }
+
+
+
 
     /**
      * 获取外部订单指定仓库的运费

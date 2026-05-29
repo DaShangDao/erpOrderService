@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.ErpGoodsOrderQueueMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.ErpGoodsOrderQueue">
+        <id property="id" column="id"/>
+        <result property="erpGoodsOrderId" column="erp_goods_order_id"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="useTime" column="use_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, erp_goods_order_id, status, create_time, use_time
+    </sql>
+
+    <!-- 根据ID查询 -->
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM t_erp_goods_order_queue
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByStatus" resultType="com.order.main.entity.ErpGoodsOrder">
+        select o.*,q.id as queue_id  FROM t_erp_goods_order_queue q
+        left join erp_goods_order o on q.erp_goods_order_id = o.id
+        where q.status = '0'
+        order by create_time desc
+        limit 1
+    </select>
+
+    <!-- 分页查询列表 -->
+    <select id="selectPageList" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM t_erp_goods_order_queue
+        <where>
+            <if test="erpGoodsOrderId != null">
+                AND erp_goods_order_id = #{erpGoodsOrderId}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="createTime != null">
+                AND create_time = #{createTime}
+            </if>
+            <if test="useTime != null">
+                AND use_time = #{useTime}
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{pageNum}, #{pageSize}
+    </select>
+
+    <!-- 查询总记录数 -->
+    <select id="count" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM t_erp_goods_order_queue
+        <where>
+            <if test="erpGoodsOrderId != null">
+                AND erp_goods_order_id = #{erpGoodsOrderId}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="createTime != null">
+                AND create_time = #{createTime}
+            </if>
+            <if test="useTime != null">
+                AND use_time = #{useTime}
+            </if>
+        </where>
+    </select>
+
+    <!-- 条件查询列表 -->
+    <select id="selectList" parameterType="com.order.main.entity.ErpGoodsOrderQueue" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM t_erp_goods_order_queue
+        <where>
+            <if test="id != null">
+                AND id = #{id}
+            </if>
+            <if test="erpGoodsOrderId != null">
+                AND erp_goods_order_id = #{erpGoodsOrderId}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="createTime != null">
+                AND create_time = #{createTime}
+            </if>
+            <if test="useTime != null">
+                AND use_time = #{useTime}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <!-- 新增（id自增） -->
+    <insert id="insert" parameterType="com.order.main.entity.ErpGoodsOrderQueue" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_erp_goods_order_queue (
+            erp_goods_order_id,
+            status,
+            create_time,
+            use_time
+        ) VALUES (
+                     #{erpGoodsOrderId},
+                     #{status},
+                     #{createTime},
+                     #{useTime}
+                 )
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.order.main.entity.ErpGoodsOrderQueue">
+        UPDATE t_erp_goods_order_queue
+        <set>
+            <if test="erpGoodsOrderId != null">
+                erp_goods_order_id = #{erpGoodsOrderId},
+            </if>
+            <if test="status != null and status != ''">
+                status = #{status},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime},
+            </if>
+            <if test="useTime != null">
+                use_time = #{useTime},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- 根据ID删除 -->
+    <delete id="deleteById" parameterType="java.lang.Long">
+        DELETE FROM t_erp_goods_order_queue
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 批量删除 -->
+    <delete id="deleteBatch" parameterType="java.util.List">
+        DELETE FROM t_erp_goods_order_queue
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

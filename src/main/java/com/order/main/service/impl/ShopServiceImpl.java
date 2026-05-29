@@ -5,6 +5,7 @@ import com.order.main.entity.Shop;
 import com.order.main.mapper.ShopMapper;
 import com.order.main.service.IShopService;
 import lombok.RequiredArgsConstructor;
+import org.apache.ibatis.annotations.Param;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -26,6 +27,17 @@ public class ShopServiceImpl implements IShopService {
     @DS("slave")
     public Shop queryById(Long id) {
         return baseMapper.selectOneById(id);
+    }
+
+    /**
+     * 批量根据店铺ID集合查询店铺信息
+     * @param ids 店铺ID集合
+     * @return 店铺列表
+     */
+    @Override
+    @DS("slave")
+    public List<Shop> selectBatchByIds(List<Long> ids){
+        return baseMapper.selectBatchByIds(ids);
     }
 
     /**

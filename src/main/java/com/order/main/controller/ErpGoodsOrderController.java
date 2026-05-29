@@ -664,6 +664,16 @@ public class ErpGoodsOrderController  {
         return JsonUtil.transferToJson(stockChangeLogList);
     }
 
+
+    /**
+     * 进销存库存同步方法
+     */
+    @PostMapping("/synchronizeStockNew")
+    public String synchronizeStockNew(String productId,String inventory,String oldInventory,String erpGoodsId){
+        return tShopGoodsPublishedService.synchronizeStockNew(productId,Integer.parseInt(inventory),Integer.parseInt(oldInventory),Long.parseLong(erpGoodsId));
+    }
+
+
     /**
      *
      * @param erpOrderId               订单id

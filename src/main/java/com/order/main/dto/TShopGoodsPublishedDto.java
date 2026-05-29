@@ -48,6 +48,17 @@ public class TShopGoodsPublishedDto {
      */
     private Long trilateralId;
 
+    /**
+     * 商品持有人id
+     */
+    private Long userId;
+
+    private int delFlag;
+
+    private Long createTime;
+
+    private Long updateTime;
+
     // ==================== 分页参数 ====================
 
     /**

@@ -3,14 +3,13 @@ package com.order.main.service.impl;
 import com.baomidou.dynamic.datasource.annotation.DS;
 import com.order.main.dto.GoodsDto;
 import com.order.main.dto.TShopGoodsPublishedDto;
-import com.order.main.entity.ErpGoodsOrder;
-import com.order.main.entity.Shop;
+import com.order.main.entity.*;
 import com.order.main.mapper.TShopGoodsPublishedMapper;
-import com.order.main.service.IShopService;
-import com.order.main.service.TShopGoodsPublishedService;
+import com.order.main.service.*;
 import com.order.main.util.InterfaceUtils;
 import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.pdd.pop.sdk.common.util.StringUtils;
+import com.sun.jna.platform.mac.SystemB;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.minidev.json.JSONUtil;
@@ -18,9 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 已发布商品信息Service实现类
@@ -31,8 +29,11 @@ import java.util.Map;
 public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedService {
 
     private final TShopGoodsPublishedMapper tShopGoodsPublishedMapper;
+    private final IEditStockService editStockService;
+    private final ISynchronizationShopLogService synchronizationShopLogService;
 
     private final IShopService shopService;
+    private final IErpGoodsOrderQueueService erpGoodsOrderQueueService;
 
     @Override
     @DS("taskDb")
@@ -59,6 +60,24 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
         return tShopGoodsPublishedMapper.selectByTrilateralId(trilateralId);
     }
 
+    /**
+     * 根据进销存商品id查询
+     * @param productId
+     * @return
+     */
+    @Override
+    @DS("taskDb")
+    public List<TShopGoodsPublishedDto> selectByProductId(Long productId){
+        return tShopGoodsPublishedMapper.selectByProductId(productId);
+    }
+
+
+    @Override
+    @DS("taskDb")
+    public int update(Long id){
+        return tShopGoodsPublishedMapper.updateShopGoodsPublished(id);
+    }
+
     @Override
     @DS("taskDb")
     public int deleteById(Long id){
@@ -78,11 +97,31 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                 goodsDto = erpGoodsOrder.getGoodsDto();
             }
             if (goodsDto != null){
-                List<TShopGoodsPublishedDto> tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsDto.getGoodsId()));
+                String goodsId = goodsDto.getGoodsId();
+                List<TShopGoodsPublishedDto> tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
+                if (tShopGoodsPublishedDtoList.isEmpty()){
+                    goodsId = goodsDto.getOuterId();
+                    tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
+                }
                 if (!tShopGoodsPublishedDtoList.isEmpty()){
+                    // 获取库存持有人
+                    TShopGoodsPublishedDto tShopGoodsPublishedDto = tShopGoodsPublishedDtoList.get(0);
+                    String userId = tShopGoodsPublishedDto.getUserId().toString();
+                    String productId = tShopGoodsPublishedDto.getProductId().toString();
+                    // 获取库存
+                    String stockRes = InterfaceUtils.getInterface("https://psi.api.buzhiyushu.cn","/api/product/getProductInventory?user_id="+userId+"&product_id="+productId);
+                    Map stockResMap = JsonUtil.transferToObj(stockRes,Map.class);
+                    Map stcokData = (Map) stockResMap.get("data");
+                    // 原始库存
+                    BigDecimal quantity = new BigDecimal(stcokData.get("quantity").toString());
+                    // 订单库存
+                    int goodsCount = Integer.parseInt(goodsDto.getGoodsCount());
+                    // 扣减后库存
+                    int inventory = quantity.subtract(new BigDecimal(goodsCount)).intValue();
+                    // 发送销售订单数量
+                    int orderRunNum = 0;
                     // 存在数据
-                    for (int i=0;i<Long.parseLong(goodsDto.getGoodsCount()) && i < tShopGoodsPublishedDtoList.size();i++){
-                        TShopGoodsPublishedDto tShopGoodsPublishedDto = tShopGoodsPublishedDtoList.get(0);
+                    for (int i=0;i < goodsCount && i < tShopGoodsPublishedDtoList.size();i++){
                         Map<String, String> requestParams = new HashMap<>();
                         // 添加签名相关参数
                         requestParams.put("app_key", "psi");
@@ -107,7 +146,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                         // 店铺id
                         requestParams.put("sales_person_id", erpGoodsOrder.getShopErpId().toString());
                         // 店铺创建id
-                        requestParams.put("about_id", erpGoodsOrder.getCreatedBy().toString());
+                        requestParams.put("about_id", userId);
                         // 店铺类型
                         requestParams.put("shop_type",erpGoodsOrder.getShopType().toString());
                         // 收货人姓名
@@ -126,17 +165,150 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                                 "md5"
                         );
                         Map resultMap = JsonUtil.transferToObj(result, Map.class);
-//                        if (resultMap.get("code").toString().equals("200")){
-//                            deleteById(tShopGoodsPublishedDto.getId());
-//                        }
+                        ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                        erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                        if (resultMap.get("code").toString().equals("200")){
+                            orderRunNum++;
+                            erpGoodsOrderQueue.setStatus("1");
+                            update(tShopGoodsPublishedDto.getId());
+                        }else{
+                            erpGoodsOrderQueue.setStatus("2");
+                        }
+                        erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
                         System.out.println(resultMap);
                     }
+                    if (orderRunNum > 0){
+                        if (inventory < 0){
+                            inventory = 0;
+                        }
+                        // 执行库存同步
+                        String log = synchronizeStockNew(productId,inventory,quantity.intValue(),erpGoodsOrder.getId());
+                        System.out.println(log);
+                    }else{
+                        System.out.println("未下发");
+                    }
+                }else{
+                    ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                    erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                    erpGoodsOrderQueue.setStatus("3");
+                    erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
                 }
             }
         }catch (Exception e){
             System.out.println("订单推送销售订单异常");
             e.printStackTrace();
         }
+    }
+
+    /**
+     * 进销存 库存同步方法
+     * @param productId         进销存商品id
+     * @param inventory         新库存
+     * @param oldInventory      原库存
+     * @param erpGoodsId        订单id
+     * @return
+     */
+    @Override
+    @DS("taskDb")
+    public String synchronizeStockNew(String productId,int inventory,int oldInventory,Long erpGoodsId){
+        String log = "库存同步操作记录：";
+        // 根据商品id获取店铺关联信息
+        List<TShopGoodsPublishedDto> shopGoodsPublishedDtoList = selectByProductId(Long.parseLong(productId));
+
+        // 如果已发布记录不存在
+        if(shopGoodsPublishedDtoList.isEmpty()){
+            // 记录日志
+            log += "无已发布记录";
+        }else{
+            // 提取所有 erpShopId 并去重，生成 Long 类型集合（用于批量查询）
+            List<Long> erpShopIdList = shopGoodsPublishedDtoList.stream()
+                    // 提取erpShopId字段
+                    .map(TShopGoodsPublishedDto::getErpShopId)
+                    // 过滤掉 null 值，避免空指针
+                    .filter(Objects::nonNull)
+                    // 去重（同一个店铺ID只保留一个）
+                    .distinct()
+                    // 转为List集合
+                    .collect(Collectors.toList());
+            List<Shop> shopList = shopService.selectBatchByIds(erpShopIdList);
+
+            List<SynchronizationShopLog> synchronizationShopLogsList = new ArrayList<>();
+            // 循环已发布商品记录，将所有已发布商品进行库存同步
+            for (TShopGoodsPublishedDto sgp : shopGoodsPublishedDtoList){
+                // 创建库存同步日志对象
+                SynchronizationShopLog synchronizationShopLog = new SynchronizationShopLog();
+                // 商品id
+                synchronizationShopLog.setGoodsId(sgp.getProductId());
+                // 商品创建人
+                synchronizationShopLog.setGoodsCreateBy(sgp.getUserId());
+                // erp订单id
+                synchronizationShopLog.setErpOrderId(erpGoodsId);
+                // 更新后库存
+                synchronizationShopLog.setInventory(inventory);
+                // 更新前库存
+                synchronizationShopLog.setInventoryOld(oldInventory);
+                // 三方平台id
+                synchronizationShopLog.setPlatformId(sgp.getTrilateralId());
+                if (oldInventory > inventory){
+                    // 扣减库存
+                    synchronizationShopLog.setUpdateType("扣减库存");
+                }else if (oldInventory < inventory){
+                    // 增加库存
+                    synchronizationShopLog.setUpdateType("增加库存");
+                }else if(oldInventory == inventory){
+                    // 同步库存
+                    synchronizationShopLog.setUpdateType("同步库存");
+                }
+                for (Shop shop : shopList){
+                    if (shop.getId().equals(sgp.getErpShopId())){
+                        // 店铺id
+                        synchronizationShopLog.setShopId(shop.getId());
+                        // 店铺名称
+                        synchronizationShopLog.setShopName(shop.getShopName());
+                        // 店铺类型
+                        synchronizationShopLog.setShopType(shop.getShopType());
+                        // 店铺创建人
+                        synchronizationShopLog.setShopCreateBy(Long.parseLong(shop.getCreateBy()));
+                        Map resultMap = new HashMap();
+                        if(shop.getShopType().equals("1")){
+                            // 调用拼多多修改库存
+                            resultMap = editStockService.pddEditStock(shop,sgp.getTrilateralId().toString(),inventory+"");
+                            log += "拼多多店铺："+shop.getShopName() +":"+resultMap.get("msg")+";";
+                        } else if (shop.getShopType().equals("2")){
+                            // 调用孔夫子修改库存
+                            resultMap = editStockService.kfzEditStock(shop.getToken(),sgp.getTrilateralId().toString(),inventory+"");
+                            log += "孔夫子店铺："+shop.getShopName() +":"+resultMap.get("msg")+";";
+                        } else if (shop.getShopType().equals("5")){
+                            // 调用闲鱼修改库存
+                            resultMap = editStockService.xyEditStock(shop,sgp.getTrilateralId().toString(),inventory+"");
+                            log += "闲鱼店铺："+shop.getShopName() +":"+resultMap.get("msg")+";";
+                        }
+                        // 状态码
+                        synchronizationShopLog.setCode(resultMap.get("code").toString());
+                        // 日志
+                        String msg = resultMap.get("msg").toString();
+                        if(msg.contains("http")){
+                            msg = "接口调用异常，请联系管理员";
+                        }
+                        synchronizationShopLog.setMsg(msg);
+                        // 创建时间
+                        long currentTime = System.currentTimeMillis() / 1000;
+                        synchronizationShopLog.setCreateAt(currentTime);
+                        synchronizationShopLogsList.add(synchronizationShopLog);
+                        break;
+                    }
+                }
+            }
+            try{
+                // 执行批量添加
+                synchronizationShopLogService.saveBatch(synchronizationShopLogsList);
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+
+        // 返回日志信息
+        return log;
     }
 
     @Override

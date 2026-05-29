@@ -1,8 +1,10 @@
 package com.order.main.service;
 
 
+import com.baomidou.dynamic.datasource.annotation.DS;
 import com.order.main.dto.TShopGoodsPublishedDto;
 import com.order.main.entity.ErpGoodsOrder;
+import com.order.main.entity.ShopGoodsPublished;
 
 import java.util.List;
 import java.util.Map;
@@ -29,8 +31,28 @@ public interface TShopGoodsPublishedService {
      */
     List<TShopGoodsPublishedDto> selectByTrilateralId(Long trilateralId);
 
+    /**
+     * 根据进销存商品id查询
+     * @param productId
+     * @return
+     */
+    List<TShopGoodsPublishedDto> selectByProductId(Long productId);
+
+    int update(Long id);
 
     int deleteById(Long id);
+
+
+    /**
+     * 进销存 库存同步方法
+     * @param productId         进销存商品id
+     * @param inventory         新库存
+     * @param oldInventory      原库存
+     * @param erpGoodsId        订单id
+     * @return
+     */
+    String synchronizeStockNew(String productId,int inventory,int oldInventory,Long erpGoodsId);
+
 
     /**
      * 推送订单

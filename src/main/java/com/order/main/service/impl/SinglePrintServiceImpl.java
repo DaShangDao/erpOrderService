@@ -93,51 +93,48 @@ public class SinglePrintServiceImpl implements ISinglePrintService {
         Map result = new HashMap();
 
         if (fastMailType.equals("1")){
-            if (fastMailVo.get("type").equals("YUNDA")){
-                // 网点打印
-                Map params = new HashMap();
-                //也是app-key
-                params.put("appid","004064");
-                params.put("partner_id",fastMailVo.get("partnerId").toString());
-                params.put("secret",fastMailVo.get("secret").toString());
-                List<Map> orders = new ArrayList();
-                Map order = new HashMap();
-                /**
-                 * 运单号
-                 */
-                order.put("mailno", mailNo);
-                orders.add(order);
-                params.put("orders",orders);
-                String jsonData = JsonUtil.transferToJson(params);
-                String res = DllInitializer.ydBmGetPdfInfo(jsonData, "004064", "eed7ae222b8541deae79cdfc318b7aa8");
-                Map resMap = JsonUtil.transferToObj(res,Map.class);
-                if (resMap.get("code").equals("0000") && resMap.get("message").equals("请求成功")){
-                    List dataList = (List) resMap.get("data");
-                    Map data = (Map) dataList.get(0);
-                    result.put("code","200");
-                    result.put("msg","获取快递订单成功");
-                    result.put("pdfInfo",data.get("pdfInfo").toString());
-                    result.put("mailNo",mailNo);
-                    result.put("fastMailType",fastMailType);
-                    List list = new ArrayList();
-                    for (Object object : itemList){
-                        Map item = (Map) object;
-                        Map goodsMap = new HashMap();
-                        goodsMap.put("goodsName",item.get("itemName").toString());
-                        goodsMap.put("goodsCount",item.get("itemNum").toString());
-                        goodsMap.put("isbn",item.get("isbn") == null ? "" : item.get("isbn").toString());
-                        goodsMap.put("artNo",item.get("artNo") == null ? "" : item.get("artNo").toString());
-                        goodsMap.put("originalArtNo",item.get("originalArtNo") == null ? "" : item.get("originalArtNo").toString());
-                        list.add(goodsMap);
-                    }
-                    result.put("dataList",list);
-                    return result;
+            // 网点打印
+            Map params = new HashMap();
+            //也是app-key
+            params.put("appid","004064");
+            params.put("partner_id",fastMailVo.get("partnerId").toString());
+            params.put("secret",fastMailVo.get("secret").toString());
+            List<Map> orders = new ArrayList();
+            Map order = new HashMap();
+            /**
+             * 运单号
+             */
+            order.put("mailno", mailNo);
+            orders.add(order);
+            params.put("orders",orders);
+            String jsonData = JsonUtil.transferToJson(params);
+            String res = DllInitializer.ydBmGetPdfInfo(jsonData, "004064", "eed7ae222b8541deae79cdfc318b7aa8");
+            Map resMap = JsonUtil.transferToObj(res,Map.class);
+            if (resMap.get("code").equals("0000") && resMap.get("message").equals("请求成功")){
+                List dataList = (List) resMap.get("data");
+                Map data = (Map) dataList.get(0);
+                result.put("code","200");
+                result.put("msg","获取快递订单成功");
+                result.put("pdfInfo",data.get("pdfInfo").toString());
+                result.put("mailNo",mailNo);
+                result.put("fastMailType",fastMailType);
+                List list = new ArrayList();
+                for (Object object : itemList){
+                    Map item = (Map) object;
+                    Map goodsMap = new HashMap();
+                    goodsMap.put("goodsName",item.get("itemName") == null ? "" : item.get("itemName").toString());
+                    goodsMap.put("goodsCount",item.get("itemNum") == null ? "" : item.get("itemNum").toString());
+                    goodsMap.put("isbn",item.get("isbn") == null ? "" : item.get("isbn").toString());
+                    goodsMap.put("artNo",item.get("artNo") == null ? "" : item.get("artNo").toString());
+                    goodsMap.put("originalArtNo",item.get("originalArtNo") == null ? "" : item.get("originalArtNo").toString());
+                    list.add(goodsMap);
                 }
-                result.put("code","500");
-                result.put("msg",resMap.get("message").toString());
+                result.put("dataList",list);
                 return result;
             }
-            return null;
+            result.put("code","500");
+            result.put("msg",resMap.get("message").toString());
+            return result;
         }else if(fastMailType.equals("2")) {
             try {
                 List<JSONObject> paramList = new ArrayList<>();

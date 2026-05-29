@@ -48,8 +48,20 @@ public class PrintSimpleDllLoader {
     private static Function ztoOpenOrderPrintFunc;
     //中通快递--绑定电子面单
     private static Function ztoOpenBindingEaccountFunc;
-    //中通快递--网点code查询网点信息
-    private static Function ztoVipQuerySiteInfoByCodeFunc;
+
+    /**
+     * 极兔
+     */
+    // 电子面单账号检验
+    private static Function jtVipCheckCusPwdFunc;
+    // 电子面单账号余额查询
+    private static Function jtEssBalanceFunc;
+    // 创建订单
+    private static Function jtV2AddOrderFunc;
+    // 查询订单
+    private static Function jtOrderGetOrdersFunc;
+    // 取消订单
+    private static Function jtOrderCancelOrderFunc;
 
 
     private static Function freeCStringFunc;
@@ -111,8 +123,22 @@ public class PrintSimpleDllLoader {
         ztoOpenGetOrderInfoFunc = nativeLibrary.getFunction("ZtoOpenGetOrderInfo");
         // 中通快递--请求生成面单图片/PDF
         ztoOpenOrderPrintFunc = nativeLibrary.getFunction("ZtoOpenOrderPrint");
-
+        // 绑定电子面单
         ztoOpenBindingEaccountFunc = nativeLibrary.getFunction("ZtoOpenBindingEaccount");;
+
+        /**
+         * 极兔
+         */
+        // 极兔快递--电子面单账号检验
+//        jtVipCheckCusPwdFunc = nativeLibrary.getFunction("JtVipCheckCusPwd");
+//        // 极兔快递--电子面单账号余额查询
+//        jtEssBalanceFunc = nativeLibrary.getFunction("JtEssBalance");
+//        // 极兔快递--创建订单
+//        jtV2AddOrderFunc = nativeLibrary.getFunction("JtV2AddOrder");
+//        // 极兔快递--查询订单
+//        jtOrderGetOrdersFunc = nativeLibrary.getFunction("JtOrderGetOrders");
+//        // 极兔快递--取消订单
+//        jtOrderCancelOrderFunc = nativeLibrary.getFunction("JtOrderCancelOrder");
 
         // 释放c串内存
         freeCStringFunc = nativeLibrary.getFunction("FreeCString");
@@ -134,6 +160,15 @@ public class PrintSimpleDllLoader {
         if (ztoOpenGetOrderInfoFunc == null) throw new Exception("无法找到 ztoOpenGetOrderInfoFunc 函数");
         if (ztoOpenOrderPrintFunc == null) throw new Exception("无法找到 ztoOpenOrderPrintFunc 函数");
         if(ztoOpenBindingEaccountFunc == null) throw new Exception("无法找到 ZtoOpenBindingEaccount 函数");
+        /**
+         * 极兔
+         */
+//        if (jtVipCheckCusPwdFunc == null) throw new Exception("无法找到 jtVipCheckCusPwdFunc 函数");
+//        if (jtEssBalanceFunc == null) throw new Exception("无法找到 JtEssBalance 函数");
+//        if (jtV2AddOrderFunc == null) throw new Exception("无法找到 JtV2AddOrder 函数");
+//        if (jtOrderGetOrdersFunc == null) throw new Exception("无法找到 JtOrderGetOrders 函数");
+//        if (jtOrderCancelOrderFunc == null) throw new Exception("无法找到 JtOrderCancelOrder 函数");
+
 
 
         if (freeCStringFunc == null) throw new Exception("无法找到 FreeCString 函数");
@@ -347,6 +382,48 @@ public class PrintSimpleDllLoader {
                 // 绑定电子面单
                 result = ztoOpenBindingEaccountFunc.invoke(Pointer.class,
                         new Object[]{cleanedJson,cleanedAppKey,cleanedAppSecret});
+            }
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+
+    /**
+     * 极兔DLL方法
+     * @param api
+     * @param apiAccount
+     * @param privateKey
+     * @param json
+     * @return
+     */
+    public static String execteJtApi(String api,String apiAccount,String privateKey,String json){
+        try {
+            String cleanedApiAccount = ensureUtf8(apiAccount);
+            String cleanedPrivateKey = ensureUtf8(privateKey);
+            String cleanedJson = ensureUtf8(json);
+            Object result = null;
+            if (api.equals("JtVipCheckCusPwd")){
+                // 电子面单账号检验
+                result = jtVipCheckCusPwdFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedApiAccount,cleanedPrivateKey});
+            }else if (api.equals("JtEssBalance")){
+                // 电子面单账号余额查询
+                result = jtEssBalanceFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedApiAccount,cleanedPrivateKey});
+            }else if (api.equals("JtV2AddOrder")){
+                // 创建订单
+                result = jtV2AddOrderFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedApiAccount,cleanedPrivateKey});
+            }else if (api.equals("JtOrderGetOrders")){
+                // 查询订单
+                result = jtOrderGetOrdersFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedApiAccount,cleanedPrivateKey});
+            }else if (api.equals("JtOrderCancelOrder")){
+                // 取消订单
+                result = jtOrderCancelOrderFunc.invoke(Pointer.class,
+                        new Object[]{cleanedJson,cleanedApiAccount,cleanedPrivateKey});
             }
             return ptrToString((Pointer) result);
         } catch (Exception e) {

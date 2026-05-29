@@ -72,6 +72,7 @@ public class PrintController {
         logisticsMap.put("delivery_province",province);
         logisticsMap.put("delivery_city",city);
         logisticsMap.put("delivery_area",area+town);
+        logisticsMap.put("full_address",province+city+area+town);
         return  printSerivce.createOrder("",partnerId,secret,type,"","1",orderSn,logisticsMap);
     }
 

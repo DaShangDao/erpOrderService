@@ -19,6 +19,13 @@ public interface ShopMapper {
 
 
     /**
+     * 批量根据店铺ID集合查询店铺信息
+     * @param ids 店铺ID集合
+     * @return 店铺列表
+     */
+    List<Shop> selectBatchByIds(@Param("ids") List<Long> ids);
+
+    /**
      * 根据店铺类型查询符合条件的店铺id
      * @param shopType
      * @return

@@ -13,11 +13,13 @@
         <result property="productId" column="product_id"/>
         <result property="warehouseId" column="warehouse_id"/>
         <result property="shopId" column="shop_id"/>
+        <result property="trilateralId" column="trilateral_id"/>
+        <result property="userId" column="user_id"/>
     </resultMap>
 
     <!-- 基础字段列表 -->
     <sql id="Base_Column_List">
-        id, erp_shop_id, shop_name, erp_shop_name, product_id, warehouse_id, shop_id,trilateral_id
+        id, erp_shop_id, shop_name, erp_shop_name, product_id, warehouse_id, shop_id,trilateral_id,user_id
     </sql>
 
 
@@ -32,12 +34,24 @@
     <select id="selectByTrilateralId" resultMap="TShopGoodsPublishedResult">
         SELECT <include refid="Base_Column_List"/>
         FROM t_shop_goods_published
-        WHERE trilateral_id = #{trilateralId}
+        WHERE trilateral_id = #{trilateralId} and del_flag = 0
+        order by id asc
+    </select>
+
+    <!-- 根据进销存商品id查询 -->
+    <select id="selectByProductId" resultMap="TShopGoodsPublishedResult">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_shop_goods_published
+        WHERE product_id = #{productId}
         order by id asc
     </select>
 
     <delete id="deleteById">
         delete FROM t_shop_goods_published where id = #{id}
     </delete>
+
+    <update id="updateShopGoodsPublished">
+        UPDATE t_shop_goods_published SET del_flag = 1,update_time = UNIX_TIMESTAMP() WHERE id = #{id}
+    </update>
 
 </mapper>

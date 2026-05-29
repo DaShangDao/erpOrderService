@@ -1,6 +1,7 @@
 package com.order.main.mapper;
 
 import com.order.main.dto.TShopGoodsPublishedDto;
+import com.order.main.entity.ShopGoodsPublished;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -27,6 +28,15 @@ public interface TShopGoodsPublishedMapper {
      */
     List<TShopGoodsPublishedDto> selectByTrilateralId(Long trilateralId);
 
+
+    /**
+     * 根据进销存商品id查询
+     * @param productId
+     * @return
+     */
+    List<TShopGoodsPublishedDto> selectByProductId(Long productId);
+
+    int updateShopGoodsPublished(Long id);
 
     int deleteById(Long id);
 

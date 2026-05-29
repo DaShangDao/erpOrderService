@@ -58,7 +58,7 @@ public class SinglePrintController {
     /**
      * 新增
      */
-    @PostMapping("/ addSinglePrint")
+    @PostMapping("/addSinglePrint")
     public Map addSinglePrint(@RequestParam Map map) {
         // 返回值对象定义
         Map result = new HashMap();
