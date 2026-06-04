@@ -3,11 +3,10 @@ package com.order.main.service.impl;
 import com.alibaba.fastjson.JSONObject;
 import com.order.main.dll.DllInitializer;
 import com.order.main.dto.GoodsDto;
-import com.order.main.entity.CourierLog;
-import com.order.main.entity.ErpGoodsOrder;
-import com.order.main.entity.OrderExternalGoods;
+import com.order.main.entity.*;
 import com.order.main.service.*;
 import com.pdd.pop.sdk.common.util.JsonUtil;
+import com.pdd.pop.sdk.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +23,8 @@ public class PrintSerivceImpl implements IPrintSerivce {
     private final IZhishuShopGoodsService zhishuShopGoodsService;
     private final ICourierLogService courierLogService;
     private final IZtoPrintService ztoPrintService;
+    private final IEmsPrintService emsPrintService;
+    private final IExpressDeliveryOrderService expressDeliveryOrderService;
 
 
     /**
@@ -222,6 +223,188 @@ public class PrintSerivceImpl implements IPrintSerivce {
         result.put("msg","类型："+type+"不存在");
         return result;
     }
+
+
+    @Override
+    public Map createOrderNew(Map map){
+        Map resultMap = new HashMap<>();
+        // 1 全部打印  0 单个打印
+        String deliveryMode = map.get("deliveryMode").toString();
+        // 快递类型
+        String type = map.get("type").toString();
+        // 返回值对象定义
+        Map result = new HashMap();
+        ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
+        erpGoodsOrder.setOrderStatus(2L);
+        if (deliveryMode.equals("1")){
+            // 订单号
+            String orderSn = map.get("orderSn") == null ? "" : map.get("orderSn").toString();
+            // 订单全部商品打印
+            erpGoodsOrder.setOrderSn(orderSn);
+        }else {
+            // 订单id
+            String orderId = map.get("orderId") == null ? "" : map.get("orderId").toString();
+            // 订单单独商品打印
+            erpGoodsOrder.setId(Long.parseLong(orderId));
+        }
+        List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectOrderList(erpGoodsOrder);
+        if (erpGoodsOrderList.isEmpty()){
+            result.put("code","500");
+            result.put("msg","订单不存在");
+            return result;
+        }
+        // 获取发货地信息
+        Map logisticsMap = map.get("logisticsMap") == null ? null : (Map) map.get("logisticsMap");
+
+        // 发货地对象
+        if (logisticsMap == null){
+            Iterator<ErpGoodsOrder> iterator = erpGoodsOrderList.iterator();
+            while (iterator.hasNext()) {
+                ErpGoodsOrder ego = iterator.next();
+                // 获取订单的商品
+                OrderExternalGoods orderExternalGoods = orderExternalGoodsService.selectByOrderId(ego.getId());
+                if (orderExternalGoods == null) {
+                    iterator.remove(); // 安全删除
+                }else if (null == logisticsMap){
+                    logisticsMap = zhishuShopGoodsService.selectLogisticsByGoodsId(orderExternalGoods.getGoodsId().toString());
+                }
+            }
+            if (erpGoodsOrderList.isEmpty()){
+                result.put("code","500");
+                result.put("msg","订单未获取到指定商品信息");
+                return result;
+            }
+        }
+        // 获取快递账号信息
+        Map fastMailMap = JsonUtil.transferToObj(map.get("fastMailMap").toString(),Map.class);
+        // 账号/编码
+        String partnerId = fastMailMap.get("partnerId").toString();
+        // 联调密码
+        String secret = fastMailMap.get("secret") == null ? "" : fastMailMap.get("secret").toString();
+        // 备注
+        String remark = fastMailMap.get("remark") == null ? "" : fastMailMap.get("remark").toString();
+
+        // 获取订单信息
+        erpGoodsOrder = erpGoodsOrderList.get(0);
+        // 寄件人信息
+        Sender sender = new Sender();
+        // 联系人/发货人
+        sender.setName(logisticsMap.get("contact").toString());
+        // 联系电话
+        sender.setPhone(logisticsMap.get("phone_number").toString());
+        // 座机
+        sender.setMobile(logisticsMap.get("phone_number").toString());
+        // 省
+        sender.setProv(logisticsMap.get("delivery_province").toString());
+        // 市
+        sender.setCity(logisticsMap.get("delivery_city").toString());
+        // 区
+        sender.setCounty(logisticsMap.get("delivery_area").toString());
+        // 详细地址
+        sender.setAddress(logisticsMap.get("full_address").toString());
+        // 收件人信息
+        Receiver receiver = new Receiver();
+        // 收件人姓名
+        receiver.setName(erpGoodsOrder.getReceiverName());
+        // 联系电话
+        receiver.setPhone(erpGoodsOrder.getMobile());
+        // 座机
+        receiver.setMobile(erpGoodsOrder.getMobile());
+        // 省
+        receiver.setProv(erpGoodsOrder.getProvince());
+        // 市
+        receiver.setCity(erpGoodsOrder.getCity());
+        // 区
+        receiver.setCounty(erpGoodsOrder.getCountry());
+        // 详细地址
+        receiver.setAddress(erpGoodsOrder.getTown());
+        // 商品信息
+        List<Item> itemList = new ArrayList<>();
+        for (ErpGoodsOrder ego : erpGoodsOrderList){
+            // 商品信息
+            GoodsDto goodsDto = JsonUtil.transferToObj(ego.getItemList(),GoodsDto.class);
+            Item item = new Item();
+            // 商品名称
+            item.setName(goodsDto.getGoodsName());
+            // 商品数量
+            item.setNum(goodsDto.getGoodsCount());
+
+            // 获取货号信息
+            OrderExternalGoods orderExternalGoods = orderExternalGoodsService.selectByOrderId(ego.getId());
+            if (orderExternalGoods != null){
+                // 查询商品信息
+                ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectById(Long.parseLong(orderExternalGoods.getGoodsId().toString()));
+                if (zhishuShopGoods != null){
+                    item.setIsbn(zhishuShopGoods.getIsbn());
+                    item.setArtNo(zhishuShopGoods.getArtNo());
+                    item.setOriginalArtNo(zhishuShopGoods.getOriginalArtNo());
+                }
+            }
+            itemList.add(item);
+        }
+        // 订单对象信息
+        ExpressDeliveryOrder expressDeliveryOrder = new ExpressDeliveryOrder();
+        expressDeliveryOrder.setErpOrderId(erpGoodsOrder.getId().toString());
+        expressDeliveryOrder.setLogisticsOrderNo(erpGoodsOrder.getOrderSn());
+        expressDeliveryOrder.setSenderStr(JsonUtil.transferToJson(sender));
+        expressDeliveryOrder.setReceiverStr(JsonUtil.transferToJson(receiver));
+        expressDeliveryOrder.setItemStr(JsonUtil.transferToJson(itemList));
+        expressDeliveryOrder.setType(type);
+        expressDeliveryOrder.setFastMailStr(map.get("fastMailMap").toString());
+        if (type.equals("YZXB")){
+            // 邮政
+            String resData = emsPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,partnerId,secret,remark);
+            // 转义
+            Map resDataMap = JsonUtil.transferToObj(resData,Map.class);
+            if (resDataMap.get("retCode").toString().equals("00000")){
+                // 创建成功
+                Map retBody = JsonUtil.transferToObj(resDataMap.get("retBody").toString(),Map.class);
+                // 快递号
+                expressDeliveryOrder.setWaybillNo(retBody.get("waybillNo").toString());
+                // 大头笔编码
+                expressDeliveryOrder.setMarkDestinationCode(retBody.get("markDestinationCode").toString());
+                // 大头笔名称
+                expressDeliveryOrder.setMarkDestinationName(retBody.get("markDestinationName").toString());
+                // 集包地编码
+                expressDeliveryOrder.setPackageCode(retBody.get("packageCode").toString());
+                // 集包地名称
+                expressDeliveryOrder.setPackageCodeName(retBody.get("packageCodeName").toString());
+                // 1 创建成功  2 已回收
+                expressDeliveryOrder.setStatus("1");
+                // 新增数据库
+                expressDeliveryOrderService.save(expressDeliveryOrder);
+
+
+                resultMap.put("code","200");
+                resultMap.put("msg","创建成功");
+                // 订单信息
+                resultMap.put("expressDeliveryOrder",expressDeliveryOrder);
+            }else{
+                resultMap.put("code","500");
+                resultMap.put("msg","创建失败："+resDataMap.get("retMsg").toString());
+            }
+        }else{
+            resultMap.put("code","500");
+            resultMap.put("msg","异常快递类型"+type);
+        }
+        // 如果快递号不为空 则代表创建成功
+        if (!StringUtils.isEmpty(expressDeliveryOrder.getWaybillNo()) && resultMap.get("code").equals("200")){
+            // 回填快递单号
+            backfill(erpGoodsOrderList,expressDeliveryOrder.getWaybillNo());
+        }
+
+        return resultMap;
+    }
+
+    // 回填快递单号
+    public void backfill(List<ErpGoodsOrder> erpGoodsOrderList,String waybillNo){
+        for (ErpGoodsOrder ego : erpGoodsOrderList){
+            // 回填快递单号
+            ego.setTrackingNumber(waybillNo);
+            erpGoodsOrderService.update(ego);
+        }
+    }
+
 
     @Override
     public Map cancelBmOrder(String partnerId, String secret, String orderSn,String mailNo){

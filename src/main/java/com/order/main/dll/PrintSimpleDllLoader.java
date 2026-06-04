@@ -63,6 +63,11 @@ public class PrintSimpleDllLoader {
     // 取消订单
     private static Function jtOrderCancelOrderFunc;
 
+    /**
+     * 邮政
+     */
+    private static Function emsAmpApiOpenFunc;
+
 
     private static Function freeCStringFunc;
 
@@ -140,6 +145,11 @@ public class PrintSimpleDllLoader {
 //        // 极兔快递--取消订单
 //        jtOrderCancelOrderFunc = nativeLibrary.getFunction("JtOrderCancelOrder");
 
+        /**
+         * 邮政
+         */
+        emsAmpApiOpenFunc = nativeLibrary.getFunction("EmsAmpApiOpen");
+
         // 释放c串内存
         freeCStringFunc = nativeLibrary.getFunction("FreeCString");
 
@@ -169,6 +179,10 @@ public class PrintSimpleDllLoader {
 //        if (jtOrderGetOrdersFunc == null) throw new Exception("无法找到 JtOrderGetOrders 函数");
 //        if (jtOrderCancelOrderFunc == null) throw new Exception("无法找到 JtOrderCancelOrder 函数");
 
+        /**
+         * 邮政
+         */
+        if (emsAmpApiOpenFunc == null) throw new Exception("无法找到 EmsAmpApiOpen 函数");
 
 
         if (freeCStringFunc == null) throw new Exception("无法找到 FreeCString 函数");
@@ -425,6 +439,31 @@ public class PrintSimpleDllLoader {
                 result = jtOrderCancelOrderFunc.invoke(Pointer.class,
                         new Object[]{cleanedJson,cleanedApiAccount,cleanedPrivateKey});
             }
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     *
+     * @param apiCode           接口代码
+     * @param senderNo          生产协议客户号
+     * @param authorization     授权码
+     * @param secretKey         密钥
+     * @param json              业务参数
+     * @return
+     */
+    public  static String exceteEms(String apiCode,String senderNo,String authorization,String secretKey,String json){
+        try {
+            String cleanedApiCode = ensureUtf8(apiCode);
+            String cleanedApiSenderNo = ensureUtf8(senderNo);
+            String cleanedApiAuthorization = ensureUtf8(authorization);
+            String cleanedApiSecretKey = ensureUtf8(secretKey);
+            String cleanedJson = ensureUtf8(json);
+            // 电子面单账号检验
+            Object result = emsAmpApiOpenFunc.invoke(Pointer.class,
+                    new Object[]{cleanedApiCode,cleanedApiSenderNo,cleanedApiAuthorization,cleanedApiSecretKey,cleanedJson});
             return ptrToString((Pointer) result);
         } catch (Exception e) {
             return "Error: " + e.getMessage();

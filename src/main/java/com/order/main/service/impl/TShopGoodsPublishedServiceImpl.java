@@ -7,6 +7,7 @@ import com.order.main.entity.*;
 import com.order.main.mapper.TShopGoodsPublishedMapper;
 import com.order.main.service.*;
 import com.order.main.util.InterfaceUtils;
+import com.order.main.util.MaskUtils;
 import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.pdd.pop.sdk.common.util.StringUtils;
 import com.sun.jna.platform.mac.SystemB;
@@ -150,11 +151,11 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                         // 店铺类型
                         requestParams.put("shop_type",erpGoodsOrder.getShopType().toString());
                         // 收货人姓名
-                        requestParams.put("receiver_name",erpGoodsOrder.getReceiverName());
+                        requestParams.put("receiver_name", MaskUtils.maskName(erpGoodsOrder.getReceiverName()));
                         // 收货人电话
-                        requestParams.put("receiver_phone",erpGoodsOrder.getMobile());
+                        requestParams.put("receiver_phone",MaskUtils.maskPhone(erpGoodsOrder.getMobile()));
                         // 收货地址
-                        requestParams.put("receiver_address",erpGoodsOrder.getProvince()+"-"+erpGoodsOrder.getCity()+"-"+erpGoodsOrder.getCountry()+"-"+erpGoodsOrder.getTown());
+                        requestParams.put("receiver_address",erpGoodsOrder.getProvince()+"-"+erpGoodsOrder.getCity()+"-"+erpGoodsOrder.getCountry()+"-"+MaskUtils.maskTown(erpGoodsOrder.getTown()));
                         // 调用远程接口
                         System.out.println("推送订单数据："+JsonUtil.transferToJson(requestParams));
                         String result = InterfaceUtils.postFormWithSign(

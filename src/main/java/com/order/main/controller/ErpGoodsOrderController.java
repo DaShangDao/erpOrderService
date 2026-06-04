@@ -4,6 +4,7 @@ package com.order.main.controller;
 import com.alibaba.fastjson.JSONObject;
 import com.order.main.dll.DllInitializer;
 import com.order.main.dll.PddSimpleDllLoader;
+import com.order.main.dll.PrintSimpleDllLoader;
 import com.order.main.dto.XyOrderDto;
 import com.order.main.entity.*;
 import com.order.main.service.*;
@@ -684,22 +685,18 @@ public class ErpGoodsOrderController  {
         tShopGoodsPublishedService.createSalesOrder(erpGoodsOrder);
     }
 
+
     /**
      *
-     * @param orderId               订单id
-     * @param orderSn               订单编号
-     * @param productId             商品id
-     * @param unitPrice             单价
-     * @param quantity              数量
-     * @param sales_person          店铺名称
-     * @param sales_person_id       店铺id
-     * @param about_id              店铺创建人id
+     * @param apiCode           接口代码
+     * @param senderNo          生产协议客户号
+     * @param authorization     授权码
+     * @param secretKey         密钥
+     * @param json              业务参数
+     * @return
      */
     @PostMapping("/test2")
-    public void test2(String orderId,String orderSn,String productId,String unitPrice,
-                     String quantity,String sales_person,
-                     String sales_person_id,String about_id,String shopType,String receiverName,String receiverPhone,String receiverAddress){
-
-        tShopGoodsPublishedService.createSalesOrder(orderId,orderSn,productId,unitPrice,quantity,sales_person,sales_person_id,about_id,shopType,receiverName,receiverPhone,receiverAddress);
+    public String test2(String apiCode,String senderNo,String authorization,String secretKey,String json){
+        return PrintSimpleDllLoader.exceteEms(apiCode,senderNo,authorization,secretKey,json);
     }
 }

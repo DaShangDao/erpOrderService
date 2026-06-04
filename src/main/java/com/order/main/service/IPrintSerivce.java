@@ -19,6 +19,13 @@ public interface IPrintSerivce {
 
 
     /**
+     * 新创建订单
+     * @param map
+     * @return
+     */
+    Map createOrderNew(Map map);
+
+    /**
      * 快递单号取消
      * @param partnerId
      * @param secret

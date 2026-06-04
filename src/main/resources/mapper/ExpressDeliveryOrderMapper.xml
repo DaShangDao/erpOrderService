@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.ExpressDeliveryOrderMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.ExpressDeliveryOrder">
+        <id property="erpOrderId" column="erp_order_id"/>
+        <result property="logisticsOrderNo" column="logistics_order_no"/>
+        <result property="waybillNo" column="waybill_no"/>
+        <result property="markDestinationCode" column="mark_destination_code"/>
+        <result property="markDestinationName" column="mark_destination_name"/>
+        <result property="packageCode" column="package_code"/>
+        <result property="packageCodeName" column="package_code_name"/>
+        <result property="moStr" column="mo_str"/>
+        <result property="senderStr" column="sender_str"/>
+        <result property="receiverStr" column="receiver_str"/>
+        <result property="itemStr" column="item_str"/>
+        <result property="status" column="status"/>
+        <result property="type" column="type"/>
+        <result property="fastMailStr" column="fast_mail_str"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,erp_order_id, logistics_order_no, waybill_no, mark_destination_code,
+        mark_destination_name, package_code, package_code_name, mo_str,
+        sender_str, receiver_str, item_str, status,type,fast_mail_str
+    </sql>
+
+    <!-- 根据业务订单号查询 -->
+    <select id="selectByErpOrderId" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM express_delivery_order
+        WHERE erp_order_id = #{erpOrderId}
+    </select>
+
+    <!-- 根据快递单号查询 -->
+    <select id="selectByWaybillNo" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM express_delivery_order
+        WHERE waybill_no = #{waybillNo}
+    </select>
+
+    <!-- 分页查询列表 -->
+    <select id="selectPageList" parameterType="com.order.main.entity.ExpressDeliveryOrder" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM express_delivery_order
+        <where>
+            <if test="erpOrderId != null and erpOrderId != ''">
+                AND erp_order_id = #{erpOrderId}
+            </if>
+            <if test="logisticsOrderNo != null and logisticsOrderNo != ''">
+                AND logistics_order_no = #{logisticsOrderNo}
+            </if>
+            <if test="waybillNo != null and waybillNo != ''">
+                AND waybill_no = #{waybillNo}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY erp_order_id DESC
+        LIMIT #{pageNum}, #{pageSize}
+    </select>
+
+    <!-- 查询总记录数 -->
+    <select id="count" parameterType="com.order.main.entity.ExpressDeliveryOrder" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM express_delivery_order
+        <where>
+            <if test="erpOrderId != null and erpOrderId != ''">
+                AND erp_order_id = #{erpOrderId}
+            </if>
+            <if test="logisticsOrderNo != null and logisticsOrderNo != ''">
+                AND logistics_order_no = #{logisticsOrderNo}
+            </if>
+            <if test="waybillNo != null and waybillNo != ''">
+                AND waybill_no = #{waybillNo}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!-- 条件查询列表 -->
+    <select id="selectList" parameterType="com.order.main.entity.ExpressDeliveryOrder" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM express_delivery_order
+        <where>
+            <if test="erpOrderId != null and erpOrderId != ''">
+                AND erp_order_id = #{erpOrderId}
+            </if>
+            <if test="logisticsOrderNo != null and logisticsOrderNo != ''">
+                AND logistics_order_no = #{logisticsOrderNo}
+            </if>
+            <if test="waybillNo != null and waybillNo != ''">
+                AND waybill_no = #{waybillNo}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY erp_order_id DESC
+    </select>
+
+    <!-- 新增 -->
+    <insert id="insert" parameterType="com.order.main.entity.ExpressDeliveryOrder">
+        INSERT INTO express_delivery_order (
+            erp_order_id,
+            logistics_order_no,
+            waybill_no,
+            mark_destination_code,
+            mark_destination_name,
+            package_code,
+            package_code_name,
+            mo_str,
+            sender_str,
+            receiver_str,
+            item_str,
+            status,
+            type,
+            fast_mail_str
+        ) VALUES (
+                     #{erpOrderId},
+                     #{logisticsOrderNo},
+                     #{waybillNo},
+                     #{markDestinationCode},
+                     #{markDestinationName},
+                     #{packageCode},
+                     #{packageCodeName},
+                     #{moStr},
+                     #{senderStr},
+                     #{receiverStr},
+                     #{itemStr},
+                     #{status},
+                     #{type},
+                     #{fastMailStr}
+                 )
+    </insert>
+
+    <!-- 更新 -->
+    <update id="update" parameterType="com.order.main.entity.ExpressDeliveryOrder">
+        UPDATE express_delivery_order
+        <set>
+            <if test="logisticsOrderNo != null and logisticsOrderNo != ''">
+                logistics_order_no = #{logisticsOrderNo},
+            </if>
+            <if test="waybillNo != null and waybillNo != ''">
+                waybill_no = #{waybillNo},
+            </if>
+            <if test="markDestinationCode != null and markDestinationCode != ''">
+                mark_destination_code = #{markDestinationCode},
+            </if>
+            <if test="markDestinationName != null and markDestinationName != ''">
+                mark_destination_name = #{markDestinationName},
+            </if>
+            <if test="packageCode != null and packageCode != ''">
+                package_code = #{packageCode},
+            </if>
+            <if test="packageCodeName != null and packageCodeName != ''">
+                package_code_name = #{packageCodeName},
+            </if>
+            <if test="moStr != null and moStr != ''">
+                mo_str = #{moStr},
+            </if>
+            <if test="senderStr != null and senderStr != ''">
+                sender_str = #{senderStr},
+            </if>
+            <if test="receiverStr != null and receiverStr != ''">
+                receiver_str = #{receiverStr},
+            </if>
+            <if test="itemStr != null and itemStr != ''">
+                item_str = #{itemStr},
+            </if>
+            <if test="status != null and status != ''">
+                status = #{status},
+            </if>
+        </set>
+        WHERE erp_order_id = #{erpOrderId}
+    </update>
+
+    <!-- 根据业务订单号删除 -->
+    <delete id="deleteByErpOrderId" parameterType="java.lang.String">
+        DELETE FROM express_delivery_order
+        WHERE erp_order_id = #{erpOrderId}
+    </delete>
+
+    <!-- 批量删除 -->
+    <delete id="deleteBatch" parameterType="java.util.List">
+        DELETE FROM express_delivery_order
+        WHERE erp_order_id IN
+        <foreach collection="erpOrderIds" item="erpOrderId" open="(" separator="," close=")">
+            #{erpOrderId}
+        </foreach>
+    </delete>
+
+</mapper>
