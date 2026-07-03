@@ -1,6 +1,7 @@
 package com.order.main.mapper;
 
 
+import com.baomidou.dynamic.datasource.annotation.DS;
 import com.order.main.entity.SysUser;
 import org.apache.ibatis.annotations.*;
 
@@ -9,6 +10,7 @@ import org.apache.ibatis.annotations.*;
  *
  * @author Lion Li
  */
+@DS("slave")
 @Mapper
 public interface SysUserMapper  {
 

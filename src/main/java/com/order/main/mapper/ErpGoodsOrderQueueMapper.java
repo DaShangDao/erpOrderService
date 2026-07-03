@@ -24,12 +24,12 @@ public interface ErpGoodsOrderQueueMapper {
     /**
      * 分页查询列表
      */
-    List<ErpGoodsOrderQueue> selectPageList(ErpGoodsOrderQueue queue);
+    List<ErpGoodsOrder> selectPageList(ErpGoodsOrder erpGoodsOrder);
 
     /**
      * 查询总记录数
      */
-    int count(ErpGoodsOrderQueue queue);
+    int count(ErpGoodsOrder erpGoodsOrder);
 
     /**
      * 条件查询列表

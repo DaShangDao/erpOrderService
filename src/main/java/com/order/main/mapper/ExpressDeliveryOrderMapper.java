@@ -18,7 +18,7 @@ public interface ExpressDeliveryOrderMapper {
     /**
      * 根据快递单号查询
      */
-    ExpressDeliveryOrder selectByWaybillNo(String waybillNo);
+    List<ExpressDeliveryOrder> selectByWaybillNo(String waybillNo);
 
     /**
      * 分页查询列表

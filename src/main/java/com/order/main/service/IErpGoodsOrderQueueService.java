@@ -21,12 +21,12 @@ public interface IErpGoodsOrderQueueService {
     /**
      * 分页查询队列列表
      */
-    List<ErpGoodsOrderQueue> getPageList(ErpGoodsOrderQueue queue);
+    List<ErpGoodsOrder> getPageList(ErpGoodsOrder erpGoodsOrder);
 
     /**
      * 查询总记录数（用于分页）
      */
-    int count(ErpGoodsOrderQueue queue);
+    int count(ErpGoodsOrder erpGoodsOrder);
 
     /**
      * 查询所有队列列表

@@ -6,10 +6,7 @@ import com.order.main.dll.PddSimpleDllLoader;
 import com.order.main.dll.PrintSimpleDllLoader;
 import com.order.main.dto.GoodsDto;
 import com.order.main.entity.*;
-import com.order.main.service.IEmsPrintService;
-import com.order.main.service.IExpressDeliveryOrderService;
-import com.order.main.service.ISinglePrintService;
-import com.order.main.service.IZtoPrintService;
+import com.order.main.service.*;
 import com.order.main.util.PddUtil;
 import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.pdd.pop.sdk.common.util.StringUtils;
@@ -28,6 +25,8 @@ public class SinglePrintController {
     private final ISinglePrintService singlePrintService;
     private final IZtoPrintService ztoPrintService;
     private final IEmsPrintService emsPrintService;
+    private final IJtPrintService jtPrintService;
+    private final IYtoPrintService ytoPrintService;
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
 
     /**
@@ -118,7 +117,7 @@ public class SinglePrintController {
         // 状态
         singlePrint.setStatus("1");
 
-        if (type.equals("YZXB")){
+        if (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO")){
             // 寄件人信息
             Sender sender = new Sender();
             // 名称
@@ -208,6 +207,68 @@ public class SinglePrintController {
                         result.put("msg","创建失败："+resDataMap);
                     }
                 }
+            }else if(type.equals("JTSD")){
+                // 极兔快递
+                String resData = jtPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,fastMailVo.get("partnerId").toString(),fastMailVo.get("secret").toString());
+                // 转义
+                Map resDataMap = JsonUtil.transferToObj(resData,Map.class);
+                if (resDataMap.get("code").equals("1") && resDataMap.get("msg").equals("success")){
+                    // 创建成功
+                    Map data = (Map) resDataMap.get("data");
+                    // 快递号
+                    expressDeliveryOrder.setWaybillNo(data.get("billCode").toString());
+                    // 大头笔名称
+                    expressDeliveryOrder.setMarkDestinationName(data.get("sortingCode").toString());
+                    // 集包地名称
+                    expressDeliveryOrder.setPackageCodeName(data.get("lastCenterName").toString());
+                    // 1 创建成功  2 已回收
+                    expressDeliveryOrder.setStatus("1");
+                    // 新增数据库
+                    expressDeliveryOrderService.save(expressDeliveryOrder);
+                    result.put("code","200");
+                    result.put("msg","创建成功");
+                    // 订单信息
+                    result.put("expressDeliveryOrder",expressDeliveryOrder);
+                    // 回填快递单号
+                    waybillCode = expressDeliveryOrder.getWaybillNo();
+                }else{
+                    try{
+                        result.put("code","500");
+                        result.put("msg","创建失败："+resDataMap.get("msg"));
+                    }catch (Exception e){
+                        result.put("code","500");
+                        result.put("msg","创建失败："+resDataMap);
+                    }
+                }
+            }else if(type.equals("YTO")){
+                // 圆通
+                String resData =  ytoPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,fastMailVo.get("partnerId").toString(),fastMailVo.get("secret").toString());
+                Map resDataMap = JsonUtil.transferToObj(resData,Map.class);
+                if (resDataMap.get("mailNo") != null){
+                    // 快递号
+                    expressDeliveryOrder.setWaybillNo(resDataMap.get("mailNo").toString());
+                    // 大头笔名称
+                    expressDeliveryOrder.setMarkDestinationName(resDataMap.get("shortAddress").toString());
+                    // 1 创建成功  2 已回收
+                    expressDeliveryOrder.setStatus("1");
+                    // 新增数据库
+                    expressDeliveryOrderService.save(expressDeliveryOrder);
+                    result.put("code","200");
+                    result.put("msg","创建成功");
+                    // 订单信息
+                    result.put("expressDeliveryOrder",expressDeliveryOrder);
+                    // 回填快递单号
+                    waybillCode = expressDeliveryOrder.getWaybillNo();
+                }else{
+                    try{
+                        result.put("code","500");
+                        result.put("msg","创建失败："+resDataMap.get("reaspm"));
+                    }catch (Exception e){
+                        result.put("code","500");
+                        result.put("msg","创建失败："+resDataMap);
+                    }
+                }
+                System.out.println(resData);
             }else{
                 result.put("code","500");
                 result.put("msg","异常快递类型"+type);
@@ -465,14 +526,12 @@ public class SinglePrintController {
 
     @GetMapping("/printOne")
     public Map printOne(String id){
-
         SinglePrint singlePrint = singlePrintService.getById(Long.parseLong(id));
-
-        ExpressDeliveryOrder expressDeliveryOrder = expressDeliveryOrderService.getByWaybillNo(singlePrint.getMailNo());
-        if (expressDeliveryOrder != null){
+        List<ExpressDeliveryOrder> expressDeliveryOrderList = expressDeliveryOrderService.getByWaybillNo(singlePrint.getMailNo());
+        if (!expressDeliveryOrderList.isEmpty()){
             Map resMap = new HashMap();
             resMap.put("code","200");
-            resMap.put("expressDeliveryOrder",expressDeliveryOrder);
+            resMap.put("expressDeliveryOrder",expressDeliveryOrderList.get(0));
             return resMap;
         }else{
             Map fastMailVo = JsonUtil.transferToObj(singlePrint.getFastMailText(),Map.class);
@@ -536,8 +595,9 @@ public class SinglePrintController {
         // 返回值对象定义
         Map result = new HashMap();
         SinglePrint singlePrint = singlePrintService.getById(Long.parseLong(id));
-        ExpressDeliveryOrder expressDeliveryOrder = expressDeliveryOrderService.getByWaybillNo(singlePrint.getMailNo());
-        if (expressDeliveryOrder != null){
+        List<ExpressDeliveryOrder> expressDeliveryOrderList = expressDeliveryOrderService.getByWaybillNo(singlePrint.getMailNo());
+        if (!expressDeliveryOrderList.isEmpty()){
+            ExpressDeliveryOrder expressDeliveryOrder = expressDeliveryOrderList.get(0);
             Map fastMail = JsonUtil.transferToObj(expressDeliveryOrder.getFastMailStr(),Map.class);
             if (fastMail.get("type").equals("YZXB")){
                 String dataStr = emsPrintService.cancelBmOrder(expressDeliveryOrder.getLogisticsOrderNo(),expressDeliveryOrder.getWaybillNo(),"1",fastMail.get("partnerId").toString(),fastMail.get("secret").toString(),fastMail.get("remark").toString());
@@ -552,6 +612,23 @@ public class SinglePrintController {
                     result.put("code","500");
                     result.put("msg",dataMap.get("retMsg").toString());
                 }
+            }else if(fastMail.get("type").equals("JTSD")){
+                String dataStr = jtPrintService.jtOrderCancelOrder(fastMail.get("partnerId").toString(),fastMail.get("secret").toString(),expressDeliveryOrder.getLogisticsOrderNo(),"1");
+                Map dataMap = JsonUtil.transferToObj(dataStr,Map.class);
+                if (dataMap.get("code").equals("1") && dataMap.get("msg").equals("success")){
+                    // 已回收
+                    expressDeliveryOrder.setStatus("2");
+                    expressDeliveryOrderService.update(expressDeliveryOrder);
+                    result.put("code","200");
+                    result.put("msg","回收成功");
+                }else{
+                    result.put("code","500");
+                    result.put("msg",dataMap.get("retMsg").toString());
+                }
+                System.out.println(dataMap);
+            }else if (fastMail.get("type").equals("YTO")){
+                result.put("code","500");
+                result.put("msg","圆通不支持回收单号，未发货运单无需回收");
             }
         }else{
             Map fastMailVo = JsonUtil.transferToObj(singlePrint.getFastMailText(),Map.class);

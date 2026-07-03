@@ -27,6 +27,13 @@ public class StockChangeLogServiceImpl implements IStockChangeLogService {
         return baseMapper.selectByAboutId(shopGoodsId,aboutId);
     }
 
+
+    @Override
+    @DS("slave")
+    public List<StockChangeLog> selectByAboutIdAndType(String aboutId,String type){
+        return baseMapper.selectByAboutIdAndType(aboutId,type);
+    }
+
     @Override
     @DS("slave")
     public boolean insert(StockChangeLog stockChangeLog) {

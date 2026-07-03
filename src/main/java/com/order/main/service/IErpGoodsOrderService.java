@@ -72,6 +72,13 @@ public interface IErpGoodsOrderService {
 
 
     /**
+     * 获取匹配规则
+     * @param createBy
+     * @return
+     */
+    WarehouseSettings getWarehouseSettings(Long createBy);
+
+    /**
      * 回滚费用
      */
     BigDecimal rollbackPrice(OrderExternalGoods orderExternalGoods, Shop shop);
@@ -140,6 +147,14 @@ public interface IErpGoodsOrderService {
      * @return 订单列表
      */
     List<ErpGoodsOrder> selectOrderList(ErpGoodsOrder order);
+
+
+    /**
+     * 根据ID列表查询订单
+     * @param ids ID列表
+     * @return 订单列表
+     */
+    List<ErpGoodsOrder> selectByIds(List<Long> ids);
 
     /**
      * 分页查询ERP订单（支持动态条件）

@@ -1,6 +1,7 @@
 package com.order.main.service.impl;
 
 import com.baomidou.dynamic.datasource.annotation.DS;
+import com.baomidou.dynamic.datasource.toolkit.DynamicDataSourceContextHolder;
 import com.order.main.dto.GoodsDto;
 import com.order.main.dto.TShopGoodsPublishedDto;
 import com.order.main.entity.*;
@@ -8,16 +9,20 @@ import com.order.main.mapper.TShopGoodsPublishedMapper;
 import com.order.main.service.*;
 import com.order.main.util.InterfaceUtils;
 import com.order.main.util.MaskUtils;
+import com.order.main.util.UrlUtil;
 import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.pdd.pop.sdk.common.util.StringUtils;
 import com.sun.jna.platform.mac.SystemB;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.minidev.json.JSONObject;
 import net.minidev.json.JSONUtil;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,9 +37,11 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
     private final TShopGoodsPublishedMapper tShopGoodsPublishedMapper;
     private final IEditStockService editStockService;
     private final ISynchronizationShopLogService synchronizationShopLogService;
-
     private final IShopService shopService;
     private final IErpGoodsOrderQueueService erpGoodsOrderQueueService;
+    private final ISysUserService userService;
+    private final IPsiEmployeesService psiEmployeesService;
+
 
     @Override
     @DS("taskDb")
@@ -68,8 +75,22 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
      */
     @Override
     @DS("taskDb")
-    public List<TShopGoodsPublishedDto> selectByProductId(Long productId){
-        return tShopGoodsPublishedMapper.selectByProductId(productId);
+    public List<TShopGoodsPublishedDto> selectByProductId(Long productId,Long userId){
+        return tShopGoodsPublishedMapper.selectByProductId(productId,userId);
+    }
+
+
+    /**
+     * 查询一条已被删除的数据
+     * @param productId
+     * @param userId
+     * @param trilateralId
+     * @return
+     */
+    @Override
+    @DS("taskDb")
+    public TShopGoodsPublishedDto selectDelFlag(Long productId,Long userId,Long trilateralId){
+        return tShopGoodsPublishedMapper.selectDelFlag(productId,userId,trilateralId);
     }
 
 
@@ -81,13 +102,19 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
 
     @Override
     @DS("taskDb")
+    public int updateShopGoodsPublishedRecover(Long id){
+        return tShopGoodsPublishedMapper.updateShopGoodsPublishedRecover(id);
+    }
+
+    @Override
+    @DS("taskDb")
     public int deleteById(Long id){
         return tShopGoodsPublishedMapper.deleteById(id);
     }
 
     @Override
     @DS("taskDb")
-    public void createSalesOrder(ErpGoodsOrder erpGoodsOrder) {
+    public void createSalesOrder(ErpGoodsOrder erpGoodsOrder,WarehouseSettings warehouseSettings) {
         try{
             System.out.println("【开始执行推送销售订单操作】-----------------------："+JsonUtil.transferToJson(erpGoodsOrder));
             GoodsDto goodsDto = null;
@@ -100,98 +127,19 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
             if (goodsDto != null){
                 String goodsId = goodsDto.getGoodsId();
                 List<TShopGoodsPublishedDto> tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
-                if (tShopGoodsPublishedDtoList.isEmpty()){
+                if (tShopGoodsPublishedDtoList.isEmpty() && goodsDto.getOuterId() != null){
                     goodsId = goodsDto.getOuterId();
                     tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
                 }
                 if (!tShopGoodsPublishedDtoList.isEmpty()){
                     // 获取库存持有人
                     TShopGoodsPublishedDto tShopGoodsPublishedDto = tShopGoodsPublishedDtoList.get(0);
-                    String userId = tShopGoodsPublishedDto.getUserId().toString();
-                    String productId = tShopGoodsPublishedDto.getProductId().toString();
-                    // 获取库存
-                    String stockRes = InterfaceUtils.getInterface("https://psi.api.buzhiyushu.cn","/api/product/getProductInventory?user_id="+userId+"&product_id="+productId);
-                    Map stockResMap = JsonUtil.transferToObj(stockRes,Map.class);
-                    Map stcokData = (Map) stockResMap.get("data");
-                    // 原始库存
-                    BigDecimal quantity = new BigDecimal(stcokData.get("quantity").toString());
-                    // 订单库存
-                    int goodsCount = Integer.parseInt(goodsDto.getGoodsCount());
-                    // 扣减后库存
-                    int inventory = quantity.subtract(new BigDecimal(goodsCount)).intValue();
-                    // 发送销售订单数量
-                    int orderRunNum = 0;
-                    // 存在数据
-                    for (int i=0;i < goodsCount && i < tShopGoodsPublishedDtoList.size();i++){
-                        Map<String, String> requestParams = new HashMap<>();
-                        // 添加签名相关参数
-                        requestParams.put("app_key", "psi");
-                        requestParams.put("client_id", "psi");
-                        requestParams.put("timestamp", String.valueOf(System.currentTimeMillis() / 1000));
-                        requestParams.put("sign_method", "md5");
-                        // 添加业务参数（从对象中获取）
-                        //关联订单id（平台ID）
-                        requestParams.put("association_order_id",erpGoodsOrder.getId().toString());
-                        // 订单编号
-                        requestParams.put("association_order_no", erpGoodsOrder.getOrderSn());
-                        // 来源类型 0-预留 1-erp订单
-                        requestParams.put("from_type", "1");
-                        // 商品id
-                        requestParams.put("items[0][product_id]",tShopGoodsPublishedDto.getProductId().toString());
-                        // 单价
-                        requestParams.put("items[0][unit_price]", new BigDecimal(goodsDto.getGoodsPrice()).longValue() +"");
-                        // 数量
-                        requestParams.put("items[0][quantity]","1");
-                        // 店铺名
-                        requestParams.put("sales_person", erpGoodsOrder.getShopErpName());
-                        // 店铺id
-                        requestParams.put("sales_person_id", erpGoodsOrder.getShopErpId().toString());
-                        // 店铺创建id
-                        requestParams.put("about_id", userId);
-                        // 店铺类型
-                        requestParams.put("shop_type",erpGoodsOrder.getShopType().toString());
-                        // 收货人姓名
-                        requestParams.put("receiver_name", MaskUtils.maskName(erpGoodsOrder.getReceiverName()));
-                        // 收货人电话
-                        requestParams.put("receiver_phone",MaskUtils.maskPhone(erpGoodsOrder.getMobile()));
-                        // 收货地址
-                        requestParams.put("receiver_address",erpGoodsOrder.getProvince()+"-"+erpGoodsOrder.getCity()+"-"+erpGoodsOrder.getCountry()+"-"+MaskUtils.maskTown(erpGoodsOrder.getTown()));
-                        // 调用远程接口
-                        System.out.println("推送订单数据："+JsonUtil.transferToJson(requestParams));
-                        String result = InterfaceUtils.postFormWithSign(
-                                "https://psi.api.buzhiyushu.cn/api/sales-order/create",
-                                null,
-                                requestParams,
-                                "",
-                                "md5"
-                        );
-                        Map resultMap = JsonUtil.transferToObj(result, Map.class);
-                        ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
-                        erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
-                        if (resultMap.get("code").toString().equals("200")){
-                            orderRunNum++;
-                            erpGoodsOrderQueue.setStatus("1");
-                            update(tShopGoodsPublishedDto.getId());
-                        }else{
-                            erpGoodsOrderQueue.setStatus("2");
-                        }
-                        erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
-                        System.out.println(resultMap);
-                    }
-                    if (orderRunNum > 0){
-                        if (inventory < 0){
-                            inventory = 0;
-                        }
-                        // 执行库存同步
-                        String log = synchronizeStockNew(productId,inventory,quantity.intValue(),erpGoodsOrder.getId());
-                        System.out.println(log);
-                    }else{
-                        System.out.println("未下发");
-                    }
+                    distribution(warehouseSettings,erpGoodsOrder,tShopGoodsPublishedDto);
                 }else{
                     ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
                     erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
                     erpGoodsOrderQueue.setStatus("3");
+                    erpGoodsOrderQueue.setMsg("异常:未找到发货记录");
                     erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
                 }
             }
@@ -211,10 +159,10 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
      */
     @Override
     @DS("taskDb")
-    public String synchronizeStockNew(String productId,int inventory,int oldInventory,Long erpGoodsId){
+    public String synchronizeStockNew(String productId,Long userId,int inventory,int oldInventory,Long erpGoodsId){
         String log = "库存同步操作记录：";
         // 根据商品id获取店铺关联信息
-        List<TShopGoodsPublishedDto> shopGoodsPublishedDtoList = selectByProductId(Long.parseLong(productId));
+        List<TShopGoodsPublishedDto> shopGoodsPublishedDtoList = selectByProductId(Long.parseLong(productId),userId);
 
         // 如果已发布记录不存在
         if(shopGoodsPublishedDtoList.isEmpty()){
@@ -354,7 +302,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
 
         // 调用远程接口
         String result = InterfaceUtils.postFormWithSign(
-                "https://psi.api.buzhiyushu.cn/api/sales-order/create",
+                UrlUtil.getNewWarehouse()+"/api/sales-order/create",
                 null,
                 requestParams,
                 "",
@@ -362,5 +310,676 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
         );
         Map resultMap = JsonUtil.transferToObj(result, Map.class);
         System.out.println(resultMap);
+    }
+
+
+
+    /**
+     * 分销
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void distribution(WarehouseSettings warehouseSettings, ErpGoodsOrder erpGoodsOrder, TShopGoodsPublishedDto tShopGoodsPublishedDto){
+        // 平台账号信息
+        SysUser adminUser = userService.selectUserOne(1L);
+        // 商品信息
+        GoodsDto goodsDto = erpGoodsOrder.getGoodsDto() == null ? JsonUtil.transferToObj(erpGoodsOrder.getItemList(),GoodsDto.class) : erpGoodsOrder.getGoodsDto();
+        // 下单数量
+        int goodsCount = Integer.parseInt(goodsDto.getGoodsCount());
+        // 店铺类型
+        Long shopType = erpGoodsOrder.getShopType();
+        // 获取商品id
+        String goodsId = "-1";
+        if(shopType == 5){
+            goodsId = goodsDto.getOuterId();        //闲鱼
+        }else if(shopType == 1|| shopType == 2){
+            goodsId = goodsDto.getGoodsId();        //拼多多
+        }
+        // 分销标记
+        String isdistribution = tShopGoodsPublishedDto.getIsdistribution();
+        // 商品id不为空的情况
+        if (!StringUtils.isEmpty(goodsId) &&  !goodsId.equals("-1")){
+            // 校验是否存在不匹配规则，如果不匹配则直接下发
+            Boolean matchMark = true;
+            // ISBN 优先匹配标记
+            Boolean isbnMatchMark = false;
+            // 发货地 省
+            String senderProv = "";
+            // 品相
+            String conditionCode = "";
+            if (warehouseSettings.getUserSettingsAttributeList()!= null && !warehouseSettings.getUserSettingsAttributeList().isEmpty()){
+                for(UserSettingsAttribute userSettingsAttribute : warehouseSettings.getUserSettingsAttributeList()){
+                    // 存在不匹配规则
+                    if(userSettingsAttribute.getAttributeId() == 7){
+                        matchMark = false;
+                        break;
+                    }
+                    // isbn 优先匹配
+                    if(userSettingsAttribute.getAttributeId() == 1 && userSettingsAttribute.getAttributeValue().equals("1")){
+                        isbnMatchMark = true;
+                    }else if (userSettingsAttribute.getAttributeId() == 4){
+                        // 发货地 省
+                        senderProv = userSettingsAttribute.getAttributeValue();
+                    }else if (userSettingsAttribute.getAttributeId() == 6){
+                        // 品相
+                        conditionCode = userSettingsAttribute.getAttributeValue();
+                    }
+                }
+            }else{
+                matchMark = false;
+            }
+            // 先查询指定商品信息
+            String productRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/product/full_info?user_id="+tShopGoodsPublishedDto.getUserId()+"&product_id="+tShopGoodsPublishedDto.getProductId());
+            Map productResMap = JsonUtil.transferToObj(productRes,Map.class);
+            Map psiProduct = new HashMap();
+            if (productResMap.get("code").toString().equals("200")){
+                // 获取商品对象
+                psiProduct = (Map) productResMap.get("data");
+                psiProduct.put("about_id",tShopGoodsPublishedDto.getUserId().toString());
+                // 获取ISBN
+                String isbn = psiProduct.get("barcode") == null ? "" : psiProduct.get("barcode").toString();
+                // 校验是否是无书号书籍
+                if (!isbn.startsWith("9787")){
+                    //非9787开头的就是无ISBN书籍， 如果是无书号商品，则不进行重新匹配商品，上的是谁的就下发给谁
+                    matchMark = false;
+                }
+                // 获取店铺用户余额
+                SysUser sysUser = userService.selectUserOne(erpGoodsOrder.getCreatedBy());
+                BigDecimal balance = sysUser.getBalance();  // 余额
+                /**
+                 * 获取分账配置  若未配置则走默认设置
+                 */
+                PsiEmployees psiEmployees = psiEmployeesService.selectOneByAboutIdAndPhone(sysUser.getUserId(),sysUser.getPhonenumber());
+                // 仓库方
+                PsiSplitAccountConfig psiSplitAccountConfigWarehouse = new PsiSplitAccountConfig();
+                // 分润方
+                PsiSplitAccountConfig psiSplitAccountConfigPlatform = new PsiSplitAccountConfig();
+                if (psiEmployees.getRuleValue() != null){
+                    List ruleValueList = JsonUtil.transferToObj(psiEmployees.getRuleValue(),List.class);
+
+                    for (Object ruleValue : ruleValueList){
+                        Map ruleValueMap = (Map) ruleValue;
+                        if (ruleValueMap.get("product_type").equals("仓库方")){
+                            psiSplitAccountConfigWarehouse.setProductType(ruleValueMap.get("product_type").toString());
+                            psiSplitAccountConfigWarehouse.setRatio(new BigDecimal(ruleValueMap.get("ratio").toString()));
+                            psiSplitAccountConfigWarehouse.setAddAmount(new BigDecimal(ruleValueMap.get("add_amount").toString()).multiply(new BigDecimal(100)));
+                        }else if(ruleValueMap.get("product_type").equals("分润方")){
+                            psiSplitAccountConfigPlatform.setProductType(ruleValueMap.get("product_type").toString());
+                            psiSplitAccountConfigPlatform.setRatio(new BigDecimal(ruleValueMap.get("ratio").toString()));
+                            psiSplitAccountConfigPlatform.setAddAmount(new BigDecimal(ruleValueMap.get("add_amount").toString()).multiply(new BigDecimal(100)));
+                        }
+                    }
+                }else{
+                    // 默认模板id
+                    psiEmployees.setSplitAccountConfigId(1L);
+                    psiEmployees.setRuleName("默认规则");
+                    // 未查询到则执行 默认配置 双向都收    3% + 0.1
+                    psiSplitAccountConfigWarehouse.setProductType("仓库方");
+                    psiSplitAccountConfigWarehouse.setRatio(new BigDecimal("0.03"));
+                    psiSplitAccountConfigWarehouse.setAddAmount(new BigDecimal("0.1").multiply(new BigDecimal(100)));
+                    psiSplitAccountConfigPlatform.setProductType("分润方");
+                    psiSplitAccountConfigPlatform.setRatio(new BigDecimal("0.03"));
+                    psiSplitAccountConfigPlatform.setAddAmount(new BigDecimal("0.1").multiply(new BigDecimal(100)));
+                }
+
+                for (int i=0;i<goodsCount;i++){
+                    // 是否重新匹配
+                    if (matchMark){
+                        // 若需要重新匹配商品，则需要重新查询商品
+                        String matchRes =  InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/product_book/list?page=1&page_size=100&isbn="+isbn);
+                        Map matchResMap = JsonUtil.transferToObj(matchRes,Map.class);
+                        if(matchResMap.get("code") != null && matchResMap.get("code").toString().equals("200")){
+                            Map dataMap = (Map) matchResMap.get("data");
+                            List matchGoodsList = (List) dataMap.get("list");
+                            if (matchGoodsList != null && !matchGoodsList.isEmpty()){
+                                for (Object object : matchGoodsList){
+                                    Map matchGoods = (Map) object;
+                                    // 获取匹配商品库存和运费模板
+                                    String stockRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/product/getProductInventory?user_id="+psiProduct.get("about_id")+"&product_id="+psiProduct.get("id")+"&type=1");
+                                    // 获取运费
+                                    BigDecimal cost = getCost(erpGoodsOrder,stockRes);
+                                    // 仓库价格
+                                    BigDecimal warehousePrice = new BigDecimal(matchGoods.get("sale_price").toString()).add(cost);
+                                    // 分润方  手续费  （书价（商品价格 + 运费） * 分润方百分比）  +  分润发加价
+                                    BigDecimal handlingFeePlatform = warehousePrice.multiply(psiSplitAccountConfigPlatform.getRatio()).setScale(0, RoundingMode.CEILING).add(psiSplitAccountConfigPlatform.getAddAmount());
+                                    // 总价
+                                    BigDecimal totalPrice = warehousePrice.add(handlingFeePlatform);
+                                    // 订单金额
+                                    BigDecimal orderPrice = new BigDecimal(erpGoodsOrder.getOrderTotal());
+                                    // 差价
+                                    BigDecimal differencePrice = orderPrice.subtract(totalPrice);
+                                    // 差价 大于 亏损保护的金额 或者 是自营商品
+                                    if (differencePrice.compareTo(warehouseSettings.getProfitFloor()) >= 0 || matchGoods.get("about_id").toString().equals(erpGoodsOrder.getCreatedBy().toString())){
+                                        // 校验aboutId  是否是同一个人，校验是否需要分销
+                                        if (matchGoods.get("about_id").toString().equals(erpGoodsOrder.getCreatedBy().toString())){
+                                            isdistribution = "0";
+                                        }else{
+                                            isdistribution = "1";
+                                        }
+                                        // 获取第一条数据的商品信息 赋值到商品信息对象里
+                                        // 用户id
+                                        String aboutId = matchGoods.get("about_id").toString();
+                                        // 获取商品id
+                                        String productId = matchGoods.get("self_id").toString();
+                                        // 查询商品信息
+                                        String productMatchRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/product/full_info?user_id="+aboutId+"&product_id="+productId);
+                                        // 转换格式
+                                        Map productMatchResMap = JsonUtil.transferToObj(productMatchRes,Map.class);
+                                        // 如果成功，则使用新获取的商品
+                                        if (productResMap.get("code").toString().equals("200")){
+                                            psiProduct = new HashMap();
+                                            psiProduct = (Map) productMatchResMap.get("data");
+                                            psiProduct.put("about_id",aboutId);
+                                            System.out.println("about_id_2:"+psiProduct.get("about_id"));
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // 获取库存
+                    String stockRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/product/getProductInventory?user_id="+psiProduct.get("about_id")+"&product_id="+psiProduct.get("id")+"&type=1");
+                    Map stockResMap = JsonUtil.transferToObj(stockRes,Map.class);
+                    Map stcokData = (Map) stockResMap.get("data");
+                    // 原始库存
+                    BigDecimal quantity = new BigDecimal(stcokData.get("quantity").toString());
+                    // 根据收货地获取收费
+                    psiProduct.put("cost",getCost(erpGoodsOrder,stockRes));
+                    // 仓库价格
+                    BigDecimal warehousePrice = new BigDecimal(psiProduct.get("sale_price").toString()).add(new BigDecimal(psiProduct.get("cost").toString()));
+                    // 分润方  手续费  （书价（商品价格 + 运费） * 分润方百分比）  +  分润发加价
+                    BigDecimal handlingFeePlatform = warehousePrice.multiply(psiSplitAccountConfigPlatform.getRatio()).setScale(0, RoundingMode.CEILING).add(psiSplitAccountConfigPlatform.getAddAmount());
+                    // 总价
+                    BigDecimal totalPrice = warehousePrice.add(handlingFeePlatform);
+                    // 订单金额
+                    BigDecimal orderPrice = new BigDecimal(erpGoodsOrder.getOrderTotal());
+                    // 差价
+                    BigDecimal differencePrice = orderPrice.subtract(totalPrice);
+                    if (differencePrice.compareTo(warehouseSettings.getProfitFloor()) >= 0 || psiProduct.get("about_id").equals(erpGoodsOrder.getCreatedBy().toString())){
+                        if (quantity.compareTo(BigDecimal.ZERO) > 0){
+                            // 商品价格
+                            BigDecimal salePrice = new BigDecimal(psiProduct.get("sale_price").toString());
+                            // 运费
+                            BigDecimal cost = new BigDecimal(psiProduct.get("cost").toString());
+                            // 书价
+                            BigDecimal price = salePrice.add(cost);
+                            // 校验是否是分销商品
+                            if(isdistribution.equals("1")){
+                                // 仓库方  手续费  （书价（商品价格 + 运费） * 仓库方百分比）  +  仓库方加价
+                                BigDecimal handlingFeeWarehouse = price.multiply(psiSplitAccountConfigWarehouse.getRatio()).setScale(0, RoundingMode.CEILING).add(psiSplitAccountConfigWarehouse.getAddAmount());
+                                // 校验用户余额是否充足  商品金额（书价+运费） + 手续费
+                                if (balance.compareTo(totalPrice) >= 0){
+                                    // 查询仓库用户信息
+                                    Long warehouseUserId = Long.parseLong(psiProduct.get("about_id").toString());
+                                    SysUser  warehouseUser = userService.selectUserOne(warehouseUserId);
+                                    // 金额充足 创建销售订单
+                                    Boolean bool = createSalesOrder(erpGoodsOrder,psiProduct,goodsDto);
+                                    // 库存同步
+                                    String log = synchronizeStockNew(psiProduct.get("id").toString(),warehouseUserId,quantity.subtract(new BigDecimal(1)).intValue(),quantity.intValue(),erpGoodsOrder.getId());
+                                    // 校验创建销售订单是否成功
+                                    if (bool){
+                                        // 分账日志对象
+                                        Map createSplitAccountDeductionLog = new HashMap();
+                                        // 订单号标识
+                                        createSplitAccountDeductionLog.put("business_no",erpGoodsOrder.getOrderSn() + "-" + erpGoodsOrder.getShopErpId() + "-" + goodsDto.getGoodsId());
+                                        // 分账配置id
+                                        createSplitAccountDeductionLog.put("config_id",psiEmployees.getSplitAccountConfigId());
+                                        // 分账配置名称
+                                        createSplitAccountDeductionLog.put("config_name",psiEmployees.getRuleName());
+                                        // 类型
+                                        createSplitAccountDeductionLog.put("status","0");
+                                        // 规则信息
+                                        JSONObject deductionDetails = new JSONObject();
+                                        // 订单id
+                                        deductionDetails.put("erpOrderId",erpGoodsOrder.getId());
+                                        // 分账规则 仓库方
+                                        deductionDetails.put("psiSplitAccountConfigWarehouse",psiSplitAccountConfigWarehouse);
+                                        // 分账规则 分润方
+                                        deductionDetails.put("psiSplitAccountConfigPlatform",psiSplitAccountConfigPlatform);
+                                        // 商品信息
+                                        deductionDetails.put("product",psiProduct);
+                                        System.out.println("about_id_3:"+psiProduct.get("about_id"));
+                                        // 仓库方手续费
+                                        deductionDetails.put("handlingFeeWarehouse",handlingFeeWarehouse);
+                                        // 分润方手续费
+                                        deductionDetails.put("handlingFeePlatform",handlingFeePlatform);
+                                        // 仓库信息
+                                        deductionDetails.put("warehouses",stcokData.get("warehouses"));
+                                        /**
+                                         * 用户部分
+                                         */
+                                        // 1.修改用户余额
+                                        sysUser.setBalance(balance.subtract(totalPrice));
+                                        userService.updateMoney(sysUser);
+                                        deductionDetails.put("msg","扣款金额");
+                                        deductionDetails.put("usePhone",sysUser.getPhonenumber());
+                                        deductionDetails.put("userId",sysUser.getUserId());
+                                        deductionDetails.put("handlingFee",handlingFeePlatform);
+                                        createSplitAccountDeductionLog(createSplitAccountDeductionLog,balance,"-"+totalPrice,sysUser.getBalance(),sysUser.getUserId(),deductionDetails);
+                                        // 2.修改平台账号
+                                        BigDecimal oldFreeze = adminUser.getFreeze();
+                                        adminUser.setFreeze(adminUser.getFreeze().add(handlingFeePlatform));
+                                        userService.updateMoney(adminUser);
+                                        deductionDetails.put("msg","冻结资金增加");
+                                        deductionDetails.put("usePhone",adminUser.getPhonenumber());
+                                        deductionDetails.put("userId",adminUser.getUserId());
+                                        deductionDetails.put("fromUser",sysUser.getPhonenumber());
+                                        deductionDetails.put("handlingFee","");
+                                        createSplitAccountDeductionLog(createSplitAccountDeductionLog,oldFreeze,handlingFeePlatform.toString(),adminUser.getFreeze(),0L,deductionDetails);
+                                        /**
+                                         * 仓库部分
+                                         */
+                                        // 1.先增加仓库金额
+                                        BigDecimal oldFreezeWarehouseAdd = warehouseUser.getFreeze();
+                                        warehouseUser.setFreeze(oldFreezeWarehouseAdd.add(price));
+                                        userService.updateMoney(warehouseUser);
+                                        deductionDetails.put("msg","冻结资金增加");
+                                        deductionDetails.put("usePhone",warehouseUser.getPhonenumber());
+                                        deductionDetails.put("userId",warehouseUser.getUserId());
+                                        deductionDetails.put("fromUser",sysUser.getPhonenumber());
+                                        deductionDetails.put("handlingFee","");
+                                        createSplitAccountDeductionLog(createSplitAccountDeductionLog,oldFreezeWarehouseAdd,price.toString(),warehouseUser.getFreeze(),warehouseUser.getUserId(),deductionDetails);
+                                        // 2.扣除仓库手续费
+                                        BigDecimal oldFreezeWarehouseSub = warehouseUser.getFreeze();
+                                        warehouseUser.setFreeze(oldFreezeWarehouseSub.subtract(handlingFeeWarehouse));
+                                        userService.updateMoney(warehouseUser);
+                                        deductionDetails.put("msg","冻结资金扣除手续费");
+                                        deductionDetails.put("usePhone",warehouseUser.getPhonenumber());
+                                        deductionDetails.put("userId",warehouseUser.getUserId());
+                                        deductionDetails.put("fromUser","");
+                                        deductionDetails.put("handlingFee",handlingFeeWarehouse);
+                                        createSplitAccountDeductionLog(createSplitAccountDeductionLog,oldFreezeWarehouseSub,"-"+handlingFeeWarehouse,warehouseUser.getFreeze(),warehouseUser.getUserId(),deductionDetails);
+                                        // 3.修改平台账号
+                                        BigDecimal oldFreezeAdmin = adminUser.getFreeze();
+                                        adminUser.setFreeze(oldFreezeAdmin.add(handlingFeeWarehouse));
+                                        userService.updateMoney(adminUser);
+                                        deductionDetails.put("msg","冻结资金增加");
+                                        deductionDetails.put("usePhone",adminUser.getPhonenumber());
+                                        deductionDetails.put("userId",adminUser.getUserId());
+                                        deductionDetails.put("fromUser",warehouseUser.getPhonenumber());
+                                        deductionDetails.put("handlingFee","");
+                                        createSplitAccountDeductionLog(createSplitAccountDeductionLog,oldFreezeAdmin,handlingFeeWarehouse.toString(),adminUser.getFreeze(),0L,deductionDetails);
+                                    }
+                                }else {
+                                    ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                                    erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                                    erpGoodsOrderQueue.setStatus("2");
+                                    erpGoodsOrderQueue.setMsg("失败：余额不足");
+                                    erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+                                }
+                            }else{
+                                // 不是分销商品的情况，不需要分账  直接 创建销售订单
+                                createSalesOrder(erpGoodsOrder,psiProduct,goodsDto);
+                                String log = synchronizeStockNew(psiProduct.get("id").toString(),erpGoodsOrder.getCreatedBy(),quantity.subtract(new BigDecimal(1)).intValue(),quantity.intValue(),erpGoodsOrder.getId());
+                            }
+                        }else {
+                            ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                            erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                            erpGoodsOrderQueue.setStatus("2");
+                            erpGoodsOrderQueue.setMsg("失败：下发商品库存不足");
+                            erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+                        }
+                    }else{
+                        ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                        erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                        erpGoodsOrderQueue.setStatus("2");
+                        erpGoodsOrderQueue.setMsg("亏损保护：没有符合的商品进行下发");
+                        erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+                    }
+                }
+
+                if (goodsCount == 0){
+                    ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                    erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                    erpGoodsOrderQueue.setStatus("2");
+                    erpGoodsOrderQueue.setMsg("失败：商品异常,销售数量为0；订单号："+erpGoodsOrder.getOrderSn());
+                    erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+                }
+            }else{
+                ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                erpGoodsOrderQueue.setStatus("2");
+                erpGoodsOrderQueue.setMsg("失败："+productResMap.get("msg"));
+                erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+            }
+        }else {
+            ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+            erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+            erpGoodsOrderQueue.setStatus("2");
+            erpGoodsOrderQueue.setMsg("失败：商品ID异常无法解析");
+            erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+        }
+    }
+
+    /**
+     * 获取运费
+     * @return
+     */
+    public BigDecimal getCost(ErpGoodsOrder erpGoodsOrder,String stockRes){
+        try{
+            Map stockResMap = JsonUtil.transferToObj(stockRes,Map.class);
+            Map stcokData = (Map) stockResMap.get("data");
+            List warehousesList = (List) stcokData.get("warehouses");
+            Map warehouses = (Map) warehousesList.get(0);
+            Map logistics = (Map) warehouses.get("logistics");
+            Map shippingRange = JsonUtil.transferToObj(logistics.get("shippingRange").toString(),Map.class);
+            String province = erpGoodsOrder.getProvince().replace("省","").replace("市","").replace("自治区","");
+            for(Object key : shippingRange.keySet()){
+                if(key.toString().contains(province)){
+                    //获取省份的配置
+                    List shippingCostList = (List) shippingRange.get(key);
+                    //获取首费
+                    BigDecimal headCost = new BigDecimal(shippingCostList.get(1).toString()).multiply(new BigDecimal(100));
+                    return headCost;
+                }
+            }
+            return BigDecimal.ZERO;
+        }catch (Exception e){
+            return BigDecimal.ZERO;
+        }
+    }
+
+
+    /**
+     * 推送订单
+     * @param erpGoodsOrder
+     * @param psiProduct
+     * @param goodsDto
+     * @return
+     */
+    public Boolean createSalesOrder(ErpGoodsOrder erpGoodsOrder,Map psiProduct,GoodsDto goodsDto){
+        Map<String, String> requestParams = new HashMap<>();
+        // 添加签名相关参数
+        requestParams.put("app_key", "psi");
+        requestParams.put("client_id", "psi");
+        requestParams.put("timestamp", String.valueOf(System.currentTimeMillis() / 1000));
+        requestParams.put("sign_method", "md5");
+        // 添加业务参数（从对象中获取）
+        //关联订单id（平台ID）
+        requestParams.put("association_order_id",erpGoodsOrder.getId().toString());
+        // 订单编号
+        requestParams.put("association_order_no", erpGoodsOrder.getOrderSn());
+        // 来源类型 0-预留 1-erp订单
+        requestParams.put("from_type", "1");
+        // 商品id
+        requestParams.put("items[0][product_id]",psiProduct.get("id").toString());
+        // 单价
+        if (erpGoodsOrder.getShopType() == 2){
+            requestParams.put("items[0][unit_price]", erpGoodsOrder.getOrderTotal() +"");
+        }else{
+            requestParams.put("items[0][unit_price]", new BigDecimal(goodsDto.getGoodsPrice()).longValue() +"");
+        }
+
+        // 数量
+        requestParams.put("items[0][quantity]","1");
+        // 店铺名
+        requestParams.put("sales_person", erpGoodsOrder.getShopErpName());
+        // 店铺id
+        requestParams.put("sales_person_id", erpGoodsOrder.getShopErpId().toString());
+        // 店铺创建id
+        requestParams.put("about_id", psiProduct.get("about_id").toString());
+        // 店铺类型
+        requestParams.put("shop_type",erpGoodsOrder.getShopType().toString());
+        // 收货人姓名
+        requestParams.put("receiver_name", MaskUtils.maskName(erpGoodsOrder.getReceiverName()));
+        // 收货人电话
+        requestParams.put("receiver_phone",MaskUtils.maskPhone(erpGoodsOrder.getMobile()));
+        // 收货地址
+        requestParams.put("receiver_address",erpGoodsOrder.getProvince()+"-"+erpGoodsOrder.getCity()+"-"+erpGoodsOrder.getCountry()+"-"+MaskUtils.maskTown(erpGoodsOrder.getTown()));
+
+        // 调用远程接口
+        System.out.println("推送订单数据："+JsonUtil.transferToJson(requestParams));
+        String result = InterfaceUtils.postFormWithSign(
+                UrlUtil.getNewWarehouse()+"/api/sales-order/create",
+                null,
+                requestParams,
+                "",
+                "md5"
+        );
+        System.out.println("推送订单结果："+result);
+        Map resultMap = JsonUtil.transferToObj(result, Map.class);
+        ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+        erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+        if (resultMap.get("code").toString().equals("200")){
+            erpGoodsOrderQueue.setStatus("1");
+            erpGoodsOrderQueue.setMsg("创建销售订单成功");
+            erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+            return true;
+        }else{
+            erpGoodsOrderQueue.setStatus("2");
+            erpGoodsOrderQueue.setMsg("失败："+JsonUtil.transferToJson(resultMap));
+            erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+            return false;
+        }
+    }
+
+
+    /**
+     * 订单完成事件
+     */
+    @Override
+    public void orderFinish(ErpGoodsOrder erpGoodsOrder){
+        ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+        erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+        // 获取商品信息
+        GoodsDto goodsDto = erpGoodsOrder.getGoodsDto();
+        if (goodsDto == null){
+            goodsDto = JsonUtil.transferToObj(erpGoodsOrder.getItemList(),GoodsDto.class);
+        }
+        // 查询分账日志 ，若存在 则将 冻结余额增加的日志，生成 冻结余额 → 余额 的操作
+        String res = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/split-account-deduction-log/list?business_no="+erpGoodsOrder.getOrderSn()+"-"+erpGoodsOrder.getShopErpId()+"-"+goodsDto.getGoodsId());
+        Map resData = JsonUtil.transferToObj(res,Map.class);
+        Map resDataMap = (Map) resData.get("data");
+        if (resDataMap.get("list") != null){
+            List logList = (List) resDataMap.get("list");
+            for (Object object : logList){
+                // 列表记录
+                Map splitAccountDeductionLog = (Map) object;
+                // 日志信息
+                Object deductionDetailsObj = splitAccountDeductionLog.get("deduction_details");
+                JSONObject deductionDetails = new JSONObject((Map<String, ?>) deductionDetailsObj);
+
+                if (deductionDetails.get("msg").toString().contains("冻结资金增加")){
+                    // 交互金额 单位 分
+                    BigDecimal deductionAmount = new BigDecimal(splitAccountDeductionLog.get("deduction_amount").toString()).multiply(new BigDecimal(100));
+                    // 获取操作人id
+                    String userId = splitAccountDeductionLog.get("created_by").toString();
+                    if (userId.equals("0")){
+                        userId = "1";
+                    }
+                    // 获取操作人信息
+                    SysUser user = userService.selectUserOne(Long.parseLong(userId));
+                    // 原冻结资金
+                    BigDecimal oldFreeze = user.getFreeze();
+                    // 新冻结金额
+                    user.setFreeze(oldFreeze.subtract(deductionAmount));
+                    // 执行修改
+                    userService.updateMoney(user);
+                    // 冻结资金扣减
+                    deductionDetails.put("msg","冻结资金扣减");
+                    // 金额来自  扣款不需要
+                    deductionDetails.put("fromUser","");
+                    // 生成 冻结资金扣减记录
+                    createSplitAccountDeductionLog(splitAccountDeductionLog,oldFreeze,"-"+deductionAmount,user.getFreeze(),user.getUserId(),deductionDetails);
+                    // 原余额
+                    BigDecimal oldBalance = user.getBalance();
+                    // 新余额
+                    user.setBalance(user.getBalance().add(deductionAmount));
+                    // 执行修改
+                    userService.updateMoney(user);
+                    // 金额来自  扣款不需要
+                    deductionDetails.put("fromUser",user.getPhonenumber());
+                    // 日志
+                    deductionDetails.put("msg","余额增加");
+                    // 生成 余额资金增加记录
+                    createSplitAccountDeductionLog(splitAccountDeductionLog,oldBalance,deductionAmount+"",user.getBalance(),user.getUserId(),deductionDetails);
+                }
+            }
+            erpGoodsOrderQueue.setStatus("1");
+            erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";分销成功");
+        }else{
+            erpGoodsOrderQueue.setStatus("1");
+            erpGoodsOrderQueue.setMsg("订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";非分销商品");
+        }
+        erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+    }
+
+    /**
+     * 订单退货事件
+     */
+    @Override
+    public void orderReturnh(ErpGoodsOrder erpGoodsOrder){
+        ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+        erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+        // 获取商品信息
+        GoodsDto goodsDto = erpGoodsOrder.getGoodsDto();
+        if (goodsDto == null){
+            goodsDto = JsonUtil.transferToObj(erpGoodsOrder.getItemList(),GoodsDto.class);
+        }
+        // 查询分账日志 ，若存在 则将 冻结余额增加的日志，生成 冻结余额 → 余额 的操作
+        String res = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/split-account-deduction-log/list?business_no="+erpGoodsOrder.getOrderSn()+"-"+erpGoodsOrder.getShopErpId()+"-"+goodsDto.getGoodsId());
+        Map resMap = JsonUtil.transferToObj(res,Map.class);
+        Map resData = (Map) resMap.get("data");
+        if (resData.get("list") != null){
+            List logList = (List) resData.get("list");
+            // 获取第一条日志  解析商品的aboutId;
+            Map logData = (Map) logList.get(0);
+            // 日志信息
+            Map detail = (Map) logData.get("deduction_details");
+            // 获取商品信息
+            Map product = (Map) detail.get("product");
+            // 商品的用户id
+            String aboutId = product.get("about_id").toString();
+            // 商品id
+            String productId = product.get("id").toString();
+            // 解锁库存
+            Map unlockInventoryMap = new HashMap();
+            // 订单id
+            unlockInventoryMap.put("association_order_id",erpGoodsOrder.getId());
+            // 订单号
+            unlockInventoryMap.put("association_order_no",erpGoodsOrder.getOrderSn());
+            // 用户id
+            unlockInventoryMap.put("about_id",aboutId);
+            String unlockInventoryRes = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/sales-order/unlock-inventory",unlockInventoryMap);
+            Map unlockInventoryResMap = JsonUtil.transferToObj(unlockInventoryRes,Map.class);
+            if (unlockInventoryResMap.get("code").toString().equals("200")){
+                try{
+                    for (Object object : logList){
+                        // 列表记录
+                        Map splitAccountDeductionLog = (Map) object;
+                        // 日志信息
+                        Object deductionDetailsObj = splitAccountDeductionLog.get("deduction_details");
+                        JSONObject deductionDetails = new JSONObject((Map<String, ?>) deductionDetailsObj);
+
+                        // 交互金额 单位 分
+                        BigDecimal deductionAmount = new BigDecimal(splitAccountDeductionLog.get("deduction_amount").toString()).multiply(new BigDecimal(100));
+                        // 获取操作人id
+                        String userId = splitAccountDeductionLog.get("created_by").toString();
+                        if(userId.equals("0")){
+                            // 管理员
+                            userId = "1";
+                        }
+                        // 获取操作人信息
+                        SysUser user = userService.selectUserOne(Long.parseLong(userId));
+
+                        if (deductionDetails.get("msg").toString().contains("冻结")){
+                            // 新冻结金额
+                            user.setFreeze(user.getFreeze().subtract(deductionAmount));
+                            // 修改
+                            userService.updateMoney(user);
+                        }else{
+                            // 新余额
+                            user.setBalance(user.getBalance().subtract(deductionAmount));
+                            // 修改
+                            userService.updateMoney(user);
+                        }
+                        // 修改日志记录
+                        Map updateLog = new HashMap();
+                        updateLog.put("id",splitAccountDeductionLog.get("id").toString());
+                        deductionDetails.put("msg",deductionDetails.get("msg") + "-已退款");
+                        updateLog.put("deduction_details",deductionDetails);
+                        updateLog.put("status","1");
+                        String updateLogRes = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/split-account-deduction-log/update",updateLog);
+                        Map updateLogResMap = JsonUtil.transferToObj(updateLogRes,Map.class);
+                        if (updateLogResMap.get("code").toString().equals("200")){
+                            System.out.println("更新成功");
+                        }else{
+                            System.out.println("更新失败");
+                        }
+                    }
+                    // 获取库存
+                    String stockRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/product/getProductInventory?user_id="+aboutId+"&product_id="+productId+"&type=1");
+                    Map stockResMap = JsonUtil.transferToObj(stockRes,Map.class);
+                    Map stcokData = (Map) stockResMap.get("data");
+                    // 库存
+                    BigDecimal quantity = new BigDecimal(stcokData.get("quantity").toString());
+                    try {
+                        // 手动切换到 taskDb
+                        DynamicDataSourceContextHolder.push("taskDb");
+                        // 同步库存
+                        synchronizeStockNew(productId,Long.parseLong(aboutId),quantity.intValue(),quantity.subtract(BigDecimal.ONE).intValue(),erpGoodsOrder.getId());
+                        // 根据用户id 商品id 平台id查询 已被删除的记录，给他还原
+
+                        TShopGoodsPublishedDto shopGoodsPublishedDto = null;
+                        // 根据商品id获取店铺关联信息
+                        if (erpGoodsOrder.getShopType().toString().equals("5")){
+                            shopGoodsPublishedDto = selectDelFlag(Long.parseLong(productId),Long.parseLong(aboutId),Long.parseLong(goodsDto.getOuterId()));
+                        }else{
+                            shopGoodsPublishedDto = selectDelFlag(Long.parseLong(productId),Long.parseLong(aboutId),Long.parseLong(goodsDto.getGoodsId()));
+                        }
+                        if (shopGoodsPublishedDto != null){
+                            updateShopGoodsPublishedRecover(shopGoodsPublishedDto.getId());
+                        }
+                    } finally {
+                        // 使用完后清理
+                        DynamicDataSourceContextHolder.poll();
+                    }
+                    //
+                    erpGoodsOrderQueue.setStatus("1");
+                    erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";退款回滚成功");
+                }catch (Exception e){
+                    e.printStackTrace();
+                    erpGoodsOrderQueue.setStatus("3");
+                    erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";分账/同步库存异常："+e.getMessage());
+                }
+            }else{
+                // 解锁库存失败
+                erpGoodsOrderQueue.setStatus("2");
+                erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";错误提示："+unlockInventoryResMap);
+            }
+        }else{
+            // 解锁库存失败
+            erpGoodsOrderQueue.setStatus("2");
+            erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";错误提示：未查询到分账信息");
+        }
+        erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+    }
+
+
+    /**
+     * 新增分账日志
+     * @param createSplitAccountDeductionLog
+     * @param totalAmount               分润前总金额
+     * @param deductionAmount                操作金额
+     * @param remainingAmount           操作后总金额
+     * @param createdBy                 创建人
+     * @param deductionDetails          日志
+     */
+    public void createSplitAccountDeductionLog(Map createSplitAccountDeductionLog,BigDecimal totalAmount,String deductionAmount,BigDecimal remainingAmount,Long createdBy,JSONObject deductionDetails){
+
+        if (createdBy == 1){
+            createdBy = 0L;
+        }
+        BigDecimal totalAmountNuew = BigDecimal.ZERO;
+        if (totalAmount != null){
+            totalAmountNuew = totalAmount.divide(new BigDecimal(100), 2, RoundingMode.HALF_UP);
+        }
+        createSplitAccountDeductionLog.put("total_amount",totalAmountNuew);                             // 原始总金额
+        createSplitAccountDeductionLog.put("deduction_amount",new BigDecimal(deductionAmount).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP));                  // 扣款金额
+        createSplitAccountDeductionLog.put("remaining_amount",remainingAmount.divide(new BigDecimal(100), 2, RoundingMode.HALF_UP));            // 扣减后金额
+        createSplitAccountDeductionLog.put("created_by",createdBy);         // 备注
+        createSplitAccountDeductionLog.put("deduction_details",deductionDetails.toString());
+        String res = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/split-account-deduction-log/create",createSplitAccountDeductionLog);
+        System.out.println(res);
     }
 }

@@ -15,7 +15,7 @@ public interface IExpressDeliveryOrderService {
     /**
      * 根据快递单号查询
      */
-    ExpressDeliveryOrder getByWaybillNo(String waybillNo);
+    List<ExpressDeliveryOrder> getByWaybillNo(String waybillNo);
 
     /**
      * 分页查询列表

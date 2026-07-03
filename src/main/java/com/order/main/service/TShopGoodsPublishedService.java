@@ -5,6 +5,7 @@ import com.baomidou.dynamic.datasource.annotation.DS;
 import com.order.main.dto.TShopGoodsPublishedDto;
 import com.order.main.entity.ErpGoodsOrder;
 import com.order.main.entity.ShopGoodsPublished;
+import com.order.main.entity.WarehouseSettings;
 
 import java.util.List;
 import java.util.Map;
@@ -36,9 +37,20 @@ public interface TShopGoodsPublishedService {
      * @param productId
      * @return
      */
-    List<TShopGoodsPublishedDto> selectByProductId(Long productId);
+    List<TShopGoodsPublishedDto> selectByProductId(Long productId,Long userId);
+
+    /**
+     * 查询一条已被删除的数据
+     * @param productId
+     * @param userId
+     * @param trilateralId
+     * @return
+     */
+    TShopGoodsPublishedDto selectDelFlag(Long productId,Long userId,Long trilateralId);
 
     int update(Long id);
+
+    int updateShopGoodsPublishedRecover(Long id);
 
     int deleteById(Long id);
 
@@ -51,13 +63,25 @@ public interface TShopGoodsPublishedService {
      * @param erpGoodsId        订单id
      * @return
      */
-    String synchronizeStockNew(String productId,int inventory,int oldInventory,Long erpGoodsId);
+    String synchronizeStockNew(String productId,Long userId,int inventory,int oldInventory,Long erpGoodsId);
 
 
     /**
      * 推送订单
      */
-    void createSalesOrder(ErpGoodsOrder erpGoodsOrder);
+    void createSalesOrder(ErpGoodsOrder erpGoodsOrder, WarehouseSettings warehouseSettings);
+
+
+    /**
+     * 订单完成事件
+     */
+    void orderFinish(ErpGoodsOrder erpGoodsOrder);
+
+
+    /**
+     * 订单退货事件
+     */
+    void orderReturnh(ErpGoodsOrder erpGoodsOrder);
 
     /**
      * 测试

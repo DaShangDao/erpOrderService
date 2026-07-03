@@ -59,6 +59,9 @@ public class TShopGoodsPublishedDto {
 
     private Long updateTime;
 
+    // 是否是分销商品  1 是
+    private String isdistribution;
+
     // ==================== 分页参数 ====================
 
     /**

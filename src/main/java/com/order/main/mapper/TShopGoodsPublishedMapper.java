@@ -34,9 +34,21 @@ public interface TShopGoodsPublishedMapper {
      * @param productId
      * @return
      */
-    List<TShopGoodsPublishedDto> selectByProductId(Long productId);
+    List<TShopGoodsPublishedDto> selectByProductId(Long productId,Long userId);
+
+    /**
+     * 查询一条已被删除的数据
+     * @param productId
+     * @param userId
+     * @param trilateralId
+     * @return
+     */
+    TShopGoodsPublishedDto selectDelFlag(Long productId,Long userId,Long trilateralId);
+
 
     int updateShopGoodsPublished(Long id);
+
+    int updateShopGoodsPublishedRecover(Long id);
 
     int deleteById(Long id);
 

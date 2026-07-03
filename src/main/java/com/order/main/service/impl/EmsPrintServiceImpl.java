@@ -60,7 +60,7 @@ public class EmsPrintServiceImpl implements IEmsPrintService {
         // 内件性质 1：文件 3、物品 2：信函 4、包裹
         jsonObject.put("contentsAttribute","3");
         // 业务产品分类 1.特快专递  2.快递包裹 3.到付 9.即日 10.电商标快 11.标准快递
-        jsonObject.put("bizProductNo","11");
+        jsonObject.put("bizProductNo","2");
         // 备注
         jsonObject.put("pickupNotes","");
         // 付款方式 1:寄件人 2:收件人 3:第三方 4:收件人集中付费 5:免费 6:寄/收件人 7:预付卡

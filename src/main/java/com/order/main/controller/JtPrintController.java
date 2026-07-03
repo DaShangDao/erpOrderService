@@ -1,6 +1,10 @@
 package com.order.main.controller;
 
 import com.dtflys.forest.annotation.Get;
+import com.order.main.entity.ErpGoodsOrder;
+import com.order.main.entity.Item;
+import com.order.main.entity.Receiver;
+import com.order.main.entity.Sender;
 import com.order.main.service.IJtPrintService;
 import com.order.main.service.IZtoPrintService;
 import com.pdd.pop.sdk.common.util.JsonUtil;
@@ -12,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,6 +36,13 @@ public class JtPrintController {
 
     @GetMapping("/jtVipCheckCusPwd")
     public String jtVipCheckCusPwd(String customerCode,String password){
-        return jtPrintService.JtVipCheckCusPwd(customerCode,password);
+        return jtPrintService.jtVipCheckCusPwd(customerCode,password);
     }
+
+    @GetMapping("/jtEssBalance")
+    public String jtEssBalance(String customerCode,String password){
+        return jtPrintService.jtEssBalance(customerCode,password);
+    }
+
+
 }

@@ -14,6 +14,15 @@ public interface IStockChangeLogService {
      */
     List<StockChangeLog> selectByAboutId(Long shopGoodsId,String aboutId);
 
+
+    /**
+     * 根据关联id和日志类型查询
+     * @param aboutId
+     * @param type
+     * @return
+     */
+    List<StockChangeLog> selectByAboutIdAndType(String aboutId,String type);
+
     /**
      * 插入库存变更记录
      * @param stockChangeLog 库存变更记录实体

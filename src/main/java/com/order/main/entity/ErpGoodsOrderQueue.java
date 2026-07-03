@@ -37,6 +37,16 @@ public class ErpGoodsOrderQueue {
     private Long useTime;
 
     /**
+     * 日志
+     */
+    private String msg;
+
+    /**
+     * 订单类型 0 订单创建  1 订单完成  2 订单退款
+     */
+    private String orderType;
+
+    /**
      * 分页参数
      */
     private int pageNum;

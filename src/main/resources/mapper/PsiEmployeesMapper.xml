@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.PsiEmployeesMapper">
+
+  <select id="selectOneByAboutIdAndPhone" resultType="com.order.main.entity.PsiEmployees">
+        select e.about_id,e.username,e.name,e.phone,e.from,e.last_login_at,e.last_login_ip,e.code,e.split_account_config_id,
+        c.rule_name,c.rule_value,c.status,c.description
+        from  employees e
+        left join split_account_config c on e.split_account_config_id = c.id and c.deleted_at = 0
+        where e.about_id = #{aboutId} and e.phone = #{phone} and username = #{phone}
+  </select>
+
+</mapper>

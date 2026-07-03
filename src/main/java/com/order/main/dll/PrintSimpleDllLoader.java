@@ -57,7 +57,7 @@ public class PrintSimpleDllLoader {
     // 电子面单账号余额查询
     private static Function jtEssBalanceFunc;
     // 创建订单
-    private static Function jtV2AddOrderFunc;
+    private static Function jtOrderAddOrderFunc;
     // 查询订单
     private static Function jtOrderGetOrdersFunc;
     // 取消订单
@@ -67,6 +67,16 @@ public class PrintSimpleDllLoader {
      * 邮政
      */
     private static Function emsAmpApiOpenFunc;
+
+    /**
+     * 申通
+     */
+    private static Function requestStoFunc;
+
+    /**
+     * 圆通
+     */
+    private static Function requestYtoFunc;
 
 
     private static Function freeCStringFunc;
@@ -135,20 +145,28 @@ public class PrintSimpleDllLoader {
          * 极兔
          */
         // 极兔快递--电子面单账号检验
-//        jtVipCheckCusPwdFunc = nativeLibrary.getFunction("JtVipCheckCusPwd");
-//        // 极兔快递--电子面单账号余额查询
-//        jtEssBalanceFunc = nativeLibrary.getFunction("JtEssBalance");
-//        // 极兔快递--创建订单
-//        jtV2AddOrderFunc = nativeLibrary.getFunction("JtV2AddOrder");
-//        // 极兔快递--查询订单
-//        jtOrderGetOrdersFunc = nativeLibrary.getFunction("JtOrderGetOrders");
-//        // 极兔快递--取消订单
-//        jtOrderCancelOrderFunc = nativeLibrary.getFunction("JtOrderCancelOrder");
+        jtVipCheckCusPwdFunc = nativeLibrary.getFunction("JtVipCheckCusPwd");
+        // 极兔快递--电子面单账号余额查询
+        jtEssBalanceFunc = nativeLibrary.getFunction("JtEssBalance");
+        // 极兔快递--创建订单
+        jtOrderAddOrderFunc = nativeLibrary.getFunction("JtOrderAddOrder");
+        // 极兔快递--取消订单
+        jtOrderCancelOrderFunc = nativeLibrary.getFunction("JtOrderCancelOrder");
 
         /**
          * 邮政
          */
         emsAmpApiOpenFunc = nativeLibrary.getFunction("EmsAmpApiOpen");
+
+        /**
+         * 申通
+         */
+        requestStoFunc = nativeLibrary.getFunction("RequestSto");
+
+        /**
+         * 圆通
+         */
+        requestYtoFunc = nativeLibrary.getFunction("RequestYto");
 
         // 释放c串内存
         freeCStringFunc = nativeLibrary.getFunction("FreeCString");
@@ -173,17 +191,25 @@ public class PrintSimpleDllLoader {
         /**
          * 极兔
          */
-//        if (jtVipCheckCusPwdFunc == null) throw new Exception("无法找到 jtVipCheckCusPwdFunc 函数");
-//        if (jtEssBalanceFunc == null) throw new Exception("无法找到 JtEssBalance 函数");
-//        if (jtV2AddOrderFunc == null) throw new Exception("无法找到 JtV2AddOrder 函数");
-//        if (jtOrderGetOrdersFunc == null) throw new Exception("无法找到 JtOrderGetOrders 函数");
-//        if (jtOrderCancelOrderFunc == null) throw new Exception("无法找到 JtOrderCancelOrder 函数");
+        if (jtVipCheckCusPwdFunc == null) throw new Exception("无法找到 jtVipCheckCusPwdFunc 函数");
+        if (jtEssBalanceFunc == null) throw new Exception("无法找到 JtEssBalance 函数");
+        if (jtOrderAddOrderFunc == null) throw new Exception("无法找到 jtOrderAddOrder 函数");
+        if (jtOrderCancelOrderFunc == null) throw new Exception("无法找到 JtOrderCancelOrder 函数");
 
         /**
          * 邮政
          */
         if (emsAmpApiOpenFunc == null) throw new Exception("无法找到 EmsAmpApiOpen 函数");
 
+        /**
+         * 申通
+         */
+        if (requestStoFunc == null) throw new Exception("无法找到 RequestSto 函数");
+
+        /**
+         * 圆通
+         */
+        if (requestYtoFunc == null) throw new Exception("无法找到 RequestYto 函数");
 
         if (freeCStringFunc == null) throw new Exception("无法找到 FreeCString 函数");
 
@@ -426,9 +452,9 @@ public class PrintSimpleDllLoader {
                 // 电子面单账号余额查询
                 result = jtEssBalanceFunc.invoke(Pointer.class,
                         new Object[]{cleanedJson,cleanedApiAccount,cleanedPrivateKey});
-            }else if (api.equals("JtV2AddOrder")){
+            }else if (api.equals("jtOrderAddOrder")){
                 // 创建订单
-                result = jtV2AddOrderFunc.invoke(Pointer.class,
+                result = jtOrderAddOrderFunc.invoke(Pointer.class,
                         new Object[]{cleanedJson,cleanedApiAccount,cleanedPrivateKey});
             }else if (api.equals("JtOrderGetOrders")){
                 // 查询订单
@@ -464,6 +490,57 @@ public class PrintSimpleDllLoader {
             // 电子面单账号检验
             Object result = emsAmpApiOpenFunc.invoke(Pointer.class,
                     new Object[]{cleanedApiCode,cleanedApiSenderNo,cleanedApiAuthorization,cleanedApiSecretKey,cleanedJson});
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+
+    /**
+     *
+     * @param apiName           接口代码
+     * @param appKey            生产协议客户号
+     * @param code              授权码
+     * @param secretKey         密钥
+     * @param json              业务参数
+     * @return
+     */
+    public  static String exceteSTO(String apiName,String appKey,String code,String secretKey,String toKey,String json){
+        try {
+            String cleanedApiName = ensureUtf8(apiName);
+            String cleanedAppKey = ensureUtf8(appKey);
+            String cleanedCode = ensureUtf8(code);
+            String cleanedApiSecretKey = ensureUtf8(secretKey);
+            String cleanedToKey = ensureUtf8(toKey);
+            String cleanedJson = ensureUtf8(json);
+            // 电子面单账号检验
+            Object result = requestStoFunc.invoke(Pointer.class,
+                    new Object[]{cleanedApiName,cleanedAppKey,cleanedCode,cleanedApiSecretKey,cleanedToKey,cleanedJson});
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+
+    /**
+     *
+     * @param apiName           接口代码
+     * @param customerCode      账号
+     * @param secretKey         密钥
+     * @param json              业务参数
+     * @return
+     */
+    public  static String exceteYTO(String apiName,String customerCode,String secretKey,String json){
+        try {
+            String cleanedApiName = ensureUtf8(apiName);
+            String cleanedCustomerCode = ensureUtf8(customerCode);
+            String cleanedApiSecretKey = ensureUtf8(secretKey);
+            String cleanedJson = ensureUtf8(json);
+            // 电子面单账号检验
+            Object result = requestYtoFunc.invoke(Pointer.class,
+                    new Object[]{cleanedApiName,cleanedCustomerCode,cleanedApiSecretKey,cleanedJson});
             return ptrToString((Pointer) result);
         } catch (Exception e) {
             return "Error: " + e.getMessage();

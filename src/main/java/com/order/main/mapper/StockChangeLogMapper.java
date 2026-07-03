@@ -16,6 +16,8 @@ public interface StockChangeLogMapper {
      */
     List<StockChangeLog> selectByAboutId(Long shopGoodsId,String aboutId);
 
+    List<StockChangeLog> selectByAboutIdAndType(String aboutId,String type);
+
     /**
      * 插入库存变更记录
      * @param stockChangeLog 库存变更记录实体

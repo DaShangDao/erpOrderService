@@ -22,6 +22,13 @@ public interface CourierLogMapper {
     List<CourierLog> getListByErpOrderId(Long erpOrderId);
 
     /**
+     * 根据运单查询日志
+     * @param mailNo
+     * @return
+     */
+    List<CourierLog> getListByMailNo(String mailNo);
+
+    /**
      * 分页查询列表
      */
     List<CourierLog> selectPageList(CourierLog courierLog);

@@ -35,15 +35,15 @@ public class ErpGoodsOrderQueueServiceImpl implements IErpGoodsOrderQueueService
 
     @Override
     @DS("master")
-    public List<ErpGoodsOrderQueue> getPageList(ErpGoodsOrderQueue queue) {
-        queue.setPageNum((queue.getPageNum() - 1) * queue.getPageSize());
-        return baseMapper.selectPageList(queue);
+    public List<ErpGoodsOrder> getPageList(ErpGoodsOrder erpGoodsOrder) {
+        erpGoodsOrder.setPageNum((erpGoodsOrder.getPageNum() - 1) * erpGoodsOrder.getPageSize());
+        return baseMapper.selectPageList(erpGoodsOrder);
     }
 
     @Override
     @DS("master")
-    public int count(ErpGoodsOrderQueue queue) {
-        return baseMapper.count(queue);
+    public int count(ErpGoodsOrder erpGoodsOrder) {
+        return baseMapper.count(erpGoodsOrder);
     }
 
     @Override

@@ -37,6 +37,14 @@
     </select>
 
 
+    <select id="getListByMailNo"  resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List" />
+        FROM courier_log
+        WHERE mail_no = #{mailNo}
+    </select>
+
+
     <!-- 分页查询列表 -->
     <select id="selectPageList" resultMap="BaseResultMap">
         SELECT

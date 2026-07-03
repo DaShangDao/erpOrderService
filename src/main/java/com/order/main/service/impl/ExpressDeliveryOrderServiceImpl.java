@@ -22,7 +22,7 @@ public class ExpressDeliveryOrderServiceImpl implements IExpressDeliveryOrderSer
     }
 
     @Override
-    public ExpressDeliveryOrder getByWaybillNo(String waybillNo) {
+    public List<ExpressDeliveryOrder> getByWaybillNo(String waybillNo) {
         return baseMapper.selectByWaybillNo(waybillNo);
     }
 

@@ -298,6 +298,31 @@ public class ErpGoodsOrder {
     private String queueId;
 
     /**
+     * 订单类型
+     */
+    private String orderType;
+
+    /**
+     * 0 未推送  1 成功 2 失败 3 异常
+     */
+    private String status;
+
+    /**
+     * 日志
+     */
+    private String msg;
+
+    /**
+     * 创建时间
+     */
+    private String queueCreateTime;
+
+    /**
+     * 修改时间
+     */
+    private String useTime;
+
+    /**
      * 分页查询属性
      */
     //第几页
@@ -309,5 +334,11 @@ public class ErpGoodsOrder {
     private Long startTime;
     // 结束时间
     private Long endTime;
+
+    // queue用 查询条件
+    private String startCreateTime;
+    private String endCreateTime;
+    private String startUseTime;
+    private String endUseTime;
 
 }

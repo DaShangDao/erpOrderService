@@ -50,6 +50,9 @@ public class ErpGoodsOrderController  {
     private final IRunningTaskService runningTaskService;
     private final ICourierLogService courierLogService;
     private final TShopGoodsPublishedService tShopGoodsPublishedService;
+    private final IExpressDeliveryOrderService expressDeliveryOrderService;
+
+
 
     @Autowired
     private TokenUtils tokenUtils;
@@ -67,6 +70,19 @@ public class ErpGoodsOrderController  {
     @GetMapping("/getList")
     public  List<ErpGoodsOrder> getList(ErpGoodsOrder erpGoodsOrder){
         return erpGoodsOrderService.selectOrderList(erpGoodsOrder);
+    }
+
+    @GetMapping("/getListByIds")
+    @CrossOrigin(origins = "*")  // 允许所有来源访问
+    public List<ErpGoodsOrder> getListByIds(String ids){
+        List<Long> idsList = new ArrayList<>();
+        if (ids != null && !ids.isEmpty()) {
+            String[] idArray = ids.split(",");
+            for (String id : idArray) {
+                idsList.add(Long.parseLong(id.trim()));
+            }
+        }
+        return erpGoodsOrderService.selectByIds(idsList);
     }
 
     /**
@@ -321,64 +337,80 @@ public class ErpGoodsOrderController  {
     @PostMapping("/orderCompanyOrder")
     public void orderCompanyOrder(String sysDictDataVoListStr,String orderNo,String erpOrderId,String code){
 
-        String companyName = "";
-        if(StringUtils.isEmpty(code)){
-            List<CourierLog> courierLogList =  courierLogService.getListByErpOrderId(Long.parseLong(erpOrderId));
-            code = courierLogList.get(0).getMailType();
-        }else{
-            code = code.equals("yunda") ? "YUNDA" : code;
-        }
-        List sysDictDataVoList = JsonUtil.transferToObj(sysDictDataVoListStr,List.class);
-        for (Object sysDictDataVo : sysDictDataVoList){
-            Map sysDictDataVoMap = (Map) sysDictDataVo;
-            if(code.equals(sysDictDataVoMap.get("dictValue"))){
-                companyName = sysDictDataVoMap.get("dictLabel").toString();
-                break;
-            }
-        }
+        System.out.println("接口入参：orderNo:"+orderNo+";;erpOrderId:"+erpOrderId+";;code:"+code);
 
         // 获取订单信息
         ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpOrderId));
-        // 获取店铺信息
-        Shop shop = shopService.queryById(erpGoodsOrder.getShopErpId());
-        // 定义返回对象
-        String result = "";
-        if(shop.getShopType().equals("1")){
-            // 拼多多 同步订单快递单号
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("order_sn",erpGoodsOrder.getOrderSn());
-            jsonObject.put("tracking_number",orderNo);
-            String json = jsonObject.toString();
-            result = DllInitializer.executePddOrderSynchronization(PddUtil.CLIENT_ID,PddUtil.CLIENT_SECRET,shop.getToken(),companyName,json);
-        } else if(shop.getShopType().equals("2")){
-            if (companyName.equals("韵达快递")){
-                companyName = "韵达速递";
+
+        if(erpGoodsOrder.getOrderStatus() == 2L && erpGoodsOrder.getAfterSalesStatus() == 0L){
+            String companyName = "";
+            if(StringUtils.isEmpty(code)){
+                ExpressDeliveryOrder expressDeliveryOrder = expressDeliveryOrderService.getByErpOrderId(erpOrderId);
+                if (expressDeliveryOrder != null){
+                    code = expressDeliveryOrder.getType();
+                }else{
+                    List<CourierLog> courierLogList =  courierLogService.getListByErpOrderId(Long.parseLong(erpOrderId));
+                    code = courierLogList.get(0).getMailType();
+                }
+
+            }else{
+                code = code.equals("yunda") ? "YUNDA" : code;
             }
-            // 孔夫子 同步订单快递单号
-            result = DllInitializer.executeKongfzOrderSynchronization(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
-                    companyName,Integer.parseInt(erpGoodsOrder.getOrderSn()),"","",orderNo,"","");
-        } else if(shop.getShopType().equals("5")){
-            // 闲鱼 同步订单快递单号
-            // 创建传参对象
-            Map xyGoodsMap = new HashMap();
-            // appId
-            xyGoodsMap.put("appId",shop.getMallId());
-            // appSecret
-            xyGoodsMap.put("appSecret",shop.getToken());
-            // user_name
-            String[] userNames = new String[]{shop.getShopKey()};
-            xyGoodsMap.put("user_name",userNames);
-            // 订单号
-            xyGoodsMap.put("order_no",erpGoodsOrder.getOrderSn());
-            // 快递单号
-            xyGoodsMap.put("waybill_no",orderNo);
-            // 快递公司名称
-            xyGoodsMap.put("express_name",companyName);
-            // 调用接口
-            result = DllInitializer.executeXyOrderSynchronization(JsonUtil.transferToJson(xyGoodsMap));
+            List sysDictDataVoList = JsonUtil.transferToObj(sysDictDataVoListStr,List.class);
+            for (Object sysDictDataVo : sysDictDataVoList){
+                Map sysDictDataVoMap = (Map) sysDictDataVo;
+                if(code.equals(sysDictDataVoMap.get("dictValue"))){
+                    companyName = sysDictDataVoMap.get("dictLabel").toString();
+                    break;
+                }
+            }
+
+
+            // 获取店铺信息
+            Shop shop = shopService.queryById(erpGoodsOrder.getShopErpId());
+            // 定义返回对象
+            String result = "";
+            if(shop.getShopType().equals("1")){
+                // 拼多多 同步订单快递单号
+                JSONObject jsonObject = new JSONObject();
+                jsonObject.put("order_sn",erpGoodsOrder.getOrderSn());
+                jsonObject.put("tracking_number",orderNo);
+                String json = jsonObject.toString();
+                result = DllInitializer.executePddOrderSynchronization(PddUtil.CLIENT_ID,PddUtil.CLIENT_SECRET,shop.getToken(),companyName,json);
+            } else if(shop.getShopType().equals("2")){
+                if (companyName.equals("韵达快递")){
+                    companyName = "韵达速递";
+                }else if (companyName.contains("邮政")){
+                    companyName = "中国邮政";
+                }
+                // 孔夫子 同步订单快递单号
+                result = DllInitializer.executeKongfzOrderSynchronization(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
+                        companyName,Integer.parseInt(erpGoodsOrder.getOrderSn()),"","",orderNo,"","");
+            } else if(shop.getShopType().equals("5")){
+                // 闲鱼 同步订单快递单号
+                // 创建传参对象
+                Map xyGoodsMap = new HashMap();
+                // appId
+                xyGoodsMap.put("appId",shop.getMallId());
+                // appSecret
+                xyGoodsMap.put("appSecret",shop.getToken());
+                // user_name
+                String[] userNames = new String[]{shop.getShopKey()};
+                xyGoodsMap.put("user_name",userNames);
+                // 订单号
+                xyGoodsMap.put("order_no",erpGoodsOrder.getOrderSn());
+                // 快递单号
+                xyGoodsMap.put("waybill_no",orderNo);
+                // 快递公司名称
+                xyGoodsMap.put("express_name",companyName);
+                // 调用接口
+                result = DllInitializer.executeXyOrderSynchronization(JsonUtil.transferToJson(xyGoodsMap));
+            }
+            System.out.println("调用接口返回值："+result);
+        }else{
+            // 订单未处于待发货状态，无法回填快递
         }
 
-        System.out.println("调用接口返回值："+result);
     }
 
     /**
@@ -670,8 +702,8 @@ public class ErpGoodsOrderController  {
      * 进销存库存同步方法
      */
     @PostMapping("/synchronizeStockNew")
-    public String synchronizeStockNew(String productId,String inventory,String oldInventory,String erpGoodsId){
-        return tShopGoodsPublishedService.synchronizeStockNew(productId,Integer.parseInt(inventory),Integer.parseInt(oldInventory),Long.parseLong(erpGoodsId));
+    public String synchronizeStockNew(String productId,String userId,String inventory,String oldInventory,String erpGoodsId){
+        return tShopGoodsPublishedService.synchronizeStockNew(productId,Long.parseLong(userId),Integer.parseInt(inventory),Integer.parseInt(oldInventory),Long.parseLong(erpGoodsId));
     }
 
 
@@ -682,7 +714,9 @@ public class ErpGoodsOrderController  {
     @PostMapping("/test")
     public void test(String erpOrderId){
         ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpOrderId));
-        tShopGoodsPublishedService.createSalesOrder(erpGoodsOrder);
+//        tShopGoodsPublishedService.createSalesOrder(erpGoodsOrder);
+
+
     }
 
 

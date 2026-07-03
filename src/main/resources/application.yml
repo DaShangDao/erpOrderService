@@ -18,19 +18,24 @@ spring:
       strict: false # 严格匹配数据源,默认false. true未匹配到指定数据源时抛异常,false使用默认数据源
       datasource:
         master:
-          url: jdbc:mysql://nj-cynosdbmysql-grp-1v6vxn5f.sql.tencentcdb.com:26247/order?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
-          username: root
-          password: Long6166@@
+          url: jdbc:mysql://36.212.7.35:3306/order?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+          username: zhishu
+          password: KSwx1MDcRW
           driver-class-name: com.mysql.cj.jdbc.Driver
         taskDb:
-          url: jdbc:mysql://nj-cynosdbmysql-grp-1v6vxn5f.sql.tencentcdb.com:26247/task?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
-          username: root
-          password: Long6166@@
+          url: jdbc:mysql://36.212.7.35:3306/task?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+          username: zhishu
+          password: KSwx1MDcRW
           driver-class-name: com.mysql.cj.jdbc.Driver
         slave:
           url: jdbc:mysql://146.56.227.42:3306/zhishu?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
           username: zhishu
           password: XsRR4K3ATizyc5BK
+          driver-class-name: com.mysql.cj.jdbc.Driver
+        psi:
+          url: jdbc:mysql://175.27.224.66:3306/psi?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+          username: root
+          password: 5e07c0eec1770c94
           driver-class-name: com.mysql.cj.jdbc.Driver
   redis:
     host: 36.212.20.113

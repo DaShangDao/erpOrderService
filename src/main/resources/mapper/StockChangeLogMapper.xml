@@ -19,6 +19,20 @@
             shop_goods_id = #{shopGoodsId} AND about_id = #{aboutId}
     </select>
 
+    <select id="selectByAboutIdAndType" resultType="com.order.main.entity.StockChangeLog">
+        SELECT
+            id,
+            before_inv,
+            after_inv,
+            create_by,
+            create_time,
+            type
+        FROM
+            t_stock_change_log
+        WHERE
+             about_id = #{aboutId} And type = #{type}
+    </select>
+
     <insert id="insert" parameterType="com.order.main.entity.StockChangeLog" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO t_stock_change_log (
             shop_goods_id,

@@ -18,6 +18,13 @@ public interface ICourierLogService {
     List<CourierLog> getListByErpOrderId(Long erpOrderId);
 
     /**
+     * 根据运单查询日志
+     * @param mailNo
+     * @return
+     */
+    List<CourierLog> getListByMailNo(String mailNo);
+
+    /**
      * 分页查询快递日志列表
      */
     List<CourierLog> getPageList(CourierLog courierLog);

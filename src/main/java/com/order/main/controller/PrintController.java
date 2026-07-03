@@ -42,6 +42,7 @@ public class PrintController {
     private final IPrintSerivce printSerivce;
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
     private final IEmsPrintService emsPrintService;
+    private final IJtPrintService jtPrintService;
 
     /**
      * 创建运单
@@ -71,16 +72,36 @@ public class PrintController {
     @PostMapping("/createOrderBatch")
     @CrossOrigin(origins = "*")  // 允许所有来源访问
     public Map createOrderBatch(String partnerId,String secret,String type,String orderSn,
-                                String contact,String phoneNumber,String province,String city,String area,String town){
-
+                                String contact,String phoneNumber,String province,String city,String area,String town,String remark){
         Map logisticsMap = new HashMap();
         logisticsMap.put("contact",contact);
         logisticsMap.put("phone_number",phoneNumber);
         logisticsMap.put("delivery_province",province);
         logisticsMap.put("delivery_city",city);
-        logisticsMap.put("delivery_area",area+town);
-        logisticsMap.put("full_address",province+city+area+town);
-        return  printSerivce.createOrder("",partnerId,secret,type,"","1",orderSn,logisticsMap);
+        logisticsMap.put("delivery_area",area);
+        logisticsMap.put("full_address",town);
+        if (type.equals("YUNDA")){
+            return  printSerivce.createOrder("",partnerId,secret,type,"","1",orderSn,logisticsMap);
+        }else if (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO")){
+            Map map = new HashMap();
+            map.put("orderSn",orderSn);
+            map.put("deliveryMode","1");
+            map.put("logisticsMap",logisticsMap);
+            map.put("type",type);
+            // 快递账号数据
+            Map fastMailMap = new HashMap();
+            fastMailMap.put("partnerId",partnerId);
+            fastMailMap.put("secret",secret);
+            fastMailMap.put("type",type);
+            fastMailMap.put("remark",remark);
+            map.put("fastMailMap",JsonUtil.transferToJson(fastMailMap));
+            return printSerivce.createOrderNew(map);
+        }else{
+            Map errorMap = new HashMap();
+            errorMap.put("code","500");
+            errorMap.put("msg","异常类型："+type);
+            return errorMap;
+        }
     }
 
     /**
@@ -238,6 +259,7 @@ public class PrintController {
                     List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectListByOrderNo(expressDeliveryOrder.getLogisticsOrderNo());
                     for (ErpGoodsOrder erpGoodsOrder : erpGoodsOrderList){
                         erpGoodsOrder.setTrackingNumber("");
+                        erpGoodsOrder.setOrderStatus(2L);
                         erpGoodsOrderService.update(erpGoodsOrder);
                     }
                     result.put("code","200");
@@ -246,6 +268,32 @@ public class PrintController {
                     result.put("code","500");
                     result.put("msg",dataMap.get("retMsg").toString());
                 }
+            }else if(fastMail.get("type").equals("JTSD")){
+                String dataStr = jtPrintService.jtOrderCancelOrder(fastMail.get("partnerId").toString(),fastMail.get("secret").toString(),expressDeliveryOrder.getLogisticsOrderNo(),"1");
+                Map dataMap = JsonUtil.transferToObj(dataStr,Map.class);
+                if (dataMap.get("code").equals("1") && dataMap.get("msg").equals("success")){
+                    // 已回收
+                    expressDeliveryOrder.setStatus("2");
+                    expressDeliveryOrderService.update(expressDeliveryOrder);
+
+                    // 更新订单信息
+                    List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectListByOrderNo(expressDeliveryOrder.getLogisticsOrderNo());
+                    for (ErpGoodsOrder erpGoodsOrder : erpGoodsOrderList){
+                        erpGoodsOrder.setTrackingNumber("");
+                        erpGoodsOrder.setOrderStatus(2L);
+                        erpGoodsOrderService.update(erpGoodsOrder);
+                    }
+
+                    result.put("code","200");
+                    result.put("msg","回收成功");
+                }else{
+                    result.put("code","500");
+                    result.put("msg",dataMap.get("retMsg").toString());
+                }
+                System.out.println(dataMap);
+            }else if (fastMail.get("type").equals("YTO")){
+                result.put("code","500");
+                result.put("msg","圆通不支持回收单号，未发货运单无需回收");
             }
             return result;
         }else{
@@ -304,9 +352,111 @@ public class PrintController {
         }
     }
 
+    @PostMapping("/cancelBmOrderApiYunda")
+    public Map cancelBmOrderApiYunda(String partnerId,String secret,String orderSn,String mailNo){
+        return  printSerivce.cancelBmOrder(partnerId, secret, orderSn, mailNo);
+    }
+
     @PostMapping("/cancelBmOrderApi")
-    public Map cancelBmOrderApi(String partnerId, String secret, String orderSn,String mailNo){
-        return printSerivce.cancelBmOrder(partnerId,secret,orderSn,mailNo);
+    public Map cancelBmOrderApi(String mailNo) {
+        Map result = new HashMap();
+        // 邮政、极兔
+        List<ExpressDeliveryOrder> expressDeliveryOrderList = expressDeliveryOrderService.getByWaybillNo(mailNo);
+        if (!expressDeliveryOrderList.isEmpty()) {
+            ExpressDeliveryOrder expressDeliveryOrder = expressDeliveryOrderList.get(0);
+            Map fastMail = JsonUtil.transferToObj(expressDeliveryOrder.getFastMailStr(), Map.class);
+            if (fastMail.get("type").equals("YZXB")) {
+                String dataStr = emsPrintService.cancelBmOrder(expressDeliveryOrder.getLogisticsOrderNo(), expressDeliveryOrder.getWaybillNo(), "1", fastMail.get("partnerId").toString(), fastMail.get("secret").toString(), fastMail.get("remark").toString());
+                Map dataMap = JsonUtil.transferToObj(dataStr, Map.class);
+                if (dataMap.get("retCode").toString().equals("00000")) {
+                    // 已回收
+                    expressDeliveryOrder.setStatus("2");
+                    expressDeliveryOrderService.update(expressDeliveryOrder);
+                    // 更新订单信息
+                    List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectListByOrderNo(expressDeliveryOrder.getLogisticsOrderNo());
+                    for (ErpGoodsOrder erpGoodsOrder : erpGoodsOrderList) {
+                        erpGoodsOrder.setTrackingNumber("");
+                        erpGoodsOrder.setOrderStatus(2L);
+                        erpGoodsOrderService.update(erpGoodsOrder);
+                    }
+                    result.put("code", "200");
+                    result.put("msg", "回收成功");
+                } else {
+                    result.put("code", "500");
+                    result.put("msg", dataMap.get("retMsg").toString());
+                }
+            } else if (fastMail.get("type").equals("JTSD")) {
+                String dataStr = jtPrintService.jtOrderCancelOrder(fastMail.get("partnerId").toString(), fastMail.get("secret").toString(), expressDeliveryOrder.getLogisticsOrderNo(), "1");
+                Map dataMap = JsonUtil.transferToObj(dataStr, Map.class);
+                if (dataMap.get("code").equals("1") && dataMap.get("msg").equals("success")) {
+                    // 已回收
+                    expressDeliveryOrder.setStatus("2");
+                    expressDeliveryOrderService.update(expressDeliveryOrder);
+
+                    // 更新订单信息
+                    List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectListByOrderNo(expressDeliveryOrder.getLogisticsOrderNo());
+                    for (ErpGoodsOrder erpGoodsOrder : erpGoodsOrderList) {
+                        erpGoodsOrder.setTrackingNumber("");
+                        erpGoodsOrder.setOrderStatus(2L);
+                        erpGoodsOrderService.update(erpGoodsOrder);
+                    }
+                    result.put("code", "200");
+                    result.put("msg", "回收成功");
+                } else {
+                    result.put("code", "500");
+                    result.put("msg", dataMap.get("retMsg").toString());
+                }
+                System.out.println(dataMap);
+            }else if (fastMail.get("type").equals("YTO")){
+                result.put("code","500");
+                result.put("msg","圆通不支持回收单号，未发货运单无需回收");
+            } else {
+                result.put("code", "500");
+                result.put("msg", "异常快递类型：" + fastMail.get("type"));
+            }
+        } else {
+            List<CourierLog> courierLogList = courierLogService.getListByMailNo(mailNo);
+            if (courierLogList.isEmpty()) {
+                result.put("code", "500");
+                result.put("msg", "未获取到发货记录");
+                return result;
+            }
+
+            CourierLog courierLog = courierLogList.get(0);
+            if (StringUtils.isEmpty(courierLog.getRemark())) {
+                result = printSerivce.cancelBmOrder(courierLog.getPartnerId(), courierLog.getSecret(), courierLog.getOrderSerialNo(), courierLog.getMailNo());
+            } else {
+                if (courierLog.getMailType().equals("ZTO")) {
+                    // 网点中通快递单取消
+                    result.put("code", "500");
+                    result.put("msg", "中通全网件快递订单不支持回收");
+                    return result;
+                } else {
+                    // 拼多多代打单取消
+                    Map fastMailVo = JsonUtil.transferToObj(courierLog.getRemark(), Map.class);
+                    // 快递公司编码
+                    String wpCode = fastMailVo.get("type").toString();
+                    // 发货地址信息
+                    Map remarkData = JsonUtil.transferToObj(fastMailVo.get("remark").toString(), Map.class);
+                    JSONObject jsonObject = new JSONObject();
+                    // 运单号
+                    jsonObject.put("waybill_code", courierLog.getMailNo());
+                    // 快递公司code
+                    jsonObject.put("wp_code", wpCode);
+                    String res = PddSimpleDllLoader.executePddApi("PddWaybillCancel", PddUtil.CLIENT_ID, PddUtil.CLIENT_SECRET, remarkData.get("token").toString(), jsonObject.toString());
+                    Map resMap = JsonUtil.transferToObj(res, Map.class);
+                    if ((Boolean) resMap.get("success")) {
+                        courierLogService.deleteByMailNo(courierLog.getMailNo());
+                        result.put("code", "200");
+                        result.put("msg", "取消成功");
+                    } else {
+                        result.put("code", "500");
+                        result.put("msg", resMap.get("message").toString());
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     /**
@@ -578,7 +728,6 @@ public class PrintController {
             result.put("expressDeliveryOrder",expressDeliveryOrder);
             return result;
         }else{
-
             List<CourierLog> courierLogList = courierLogService.getListByErpOrderId(Long.parseLong(erpOrderId));
             if (courierLogList.isEmpty()){
                 result.put("code","500");
@@ -614,6 +763,111 @@ public class PrintController {
                 item.put("artNo",zhishuShopGoods.getArtNo());
                 item.put("originalArtNo",zhishuShopGoods.getOriginalArtNo());
                 itemList.add(item);
+            }
+
+            if (courierLog.getMailType().equals("ZTO")){
+                Map dataMap = JsonUtil.transferToObj(remark,Map.class);
+                Map senderInfo = JsonUtil.transferToObj(courierLog.getSender(),Map.class);
+                Map receiveInfo = JsonUtil.transferToObj(courierLog.getReceiver(),Map.class);
+                Map data = (Map) dataMap.get("result");
+                // 快递单号
+                String mailNo = data.get("billCode").toString();
+                // 表头
+                Map bigMarkInfo = (Map) data.get("bigMarkInfo");
+                // title
+                String title = bigMarkInfo.get("mark").toString();
+                // 集
+                String jiStr = bigMarkInfo.get("bagAddr").toString();
+                JSONObject sender = new JSONObject();
+                sender.put("name",senderInfo.get("senderName").toString());
+                sender.put("phone",senderInfo.get("senderMobile").toString());
+                sender.put("address",senderInfo.get("senderAddress").toString());
+                JSONObject receiver = new JSONObject();
+                receiver.put("name",receiveInfo.get("receiverName").toString());
+                receiver.put("phone",receiveInfo.get("receiverMobile").toString());
+                receiver.put("address",receiveInfo.get("receiverProvince").toString() + receiveInfo.get("receiverCity").toString() + receiveInfo.get("receiverDistrict").toString() + receiveInfo.get("receiverAddress").toString());
+                // 构建打印数据
+                Map resMap = new HashMap();
+                resMap.put("code","200");
+                resMap.put("title",title);
+                resMap.put("jiStr",jiStr);
+                resMap.put("mailNo",mailNo);
+                resMap.put("sender",sender);
+                resMap.put("receiver",receiver);
+                resMap.put("dataList",itemList);
+                resMap.put("mailType",courierLog.getMailType());
+                resMap.put("fastMailType","1");
+                return resMap;
+            } else {
+                Map fastMailVo = new HashMap();
+                if (StringUtils.isEmpty(remark)){
+                    fastMailVo.put("fastMailType","1");
+                    fastMailVo.put("partnerId",courierLog.getPartnerId());
+                    fastMailVo.put("secret",courierLog.getSecret());
+                }else{
+                    fastMailVo = JsonUtil.transferToObj(remark,Map.class);
+                }
+
+                return singlePrintService.printView(fastMailVo,courierLog.getMailNo(),courierLog.getOrderSn(),itemList);
+            }
+        }
+    }
+
+
+    /**
+     * 根据运单号查询订单信息
+     * @return
+     */
+    @GetMapping("/printViewByWaybillNo")
+    @CrossOrigin(origins = "*")  // 允许所有来源访问
+    public Map printViewByWaybillNo(String waybillNo){
+        System.out.println("运单号："+waybillNo);
+        Map result = new HashMap();
+        List<ExpressDeliveryOrder> expressDeliveryOrderList = expressDeliveryOrderService.getByWaybillNo(waybillNo);
+        if (!expressDeliveryOrderList.isEmpty()){
+            result.put("code","200");
+            result.put("expressDeliveryOrder",expressDeliveryOrderList.get(0));
+            return result;
+        }else{
+            List<CourierLog> courierLogList = courierLogService.getListByMailNo(waybillNo);
+            if (courierLogList.isEmpty()){
+                result.put("code","500");
+                result.put("msg","未获取到发货记录");
+                return result;
+            }
+            CourierLog courierLog = courierLogList.get(0);
+            ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
+            // 订单全部商品打印
+            erpGoodsOrder.setOrderSn(courierLog.getOrderSn());
+            List<ErpGoodsOrder>  erpGoodsOrderList = erpGoodsOrderService.selectOrderList(erpGoodsOrder);
+            String remark = courierLog.getRemark();
+
+            List itemList = new ArrayList();
+            for (ErpGoodsOrder ego : erpGoodsOrderList){
+                Map itemMap = JsonUtil.transferToObj(ego.getItemList(),Map.class);
+                OrderExternalGoods orderExternalGoods = orderExternalGoodsService.selectByOrderId(ego.getId());
+                Map item = new HashMap();
+                if (orderExternalGoods == null){
+                    List items = JsonUtil.transferToObj(courierLog.getItems(),List.class);
+
+                    Map itemData = (Map) items.get(0);
+                    item.put("itemName",itemData.get("name").toString());
+                    item.put("itemNum",itemData.get("number").toString());
+                }else{
+                    ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectById(Long.parseLong(orderExternalGoods.getGoodsId().toString()));
+                    if (zhishuShopGoods == null){
+                        result.put("code","500");
+                        result.put("msg","未获取自营商品信息");
+                        return result;
+                    }
+                    item.put("goodsName",itemMap.get("goodsName").toString());
+                    item.put("goodsCount",itemMap.get("goodsCount").toString());
+                    item.put("isbn",zhishuShopGoods.getIsbn());
+                    item.put("artNo",zhishuShopGoods.getArtNo());
+                    item.put("originalArtNo",zhishuShopGoods.getOriginalArtNo());
+                }
+                itemList.add(item);
+
             }
 
             if (courierLog.getMailType().equals("ZTO")){

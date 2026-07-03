@@ -10,10 +10,11 @@
         <result property="status" column="status"/>
         <result property="createTime" column="create_time"/>
         <result property="useTime" column="use_time"/>
+        <result property="orderType" column="order_type"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, erp_goods_order_id, status, create_time, use_time
+        id, erp_goods_order_id, status, create_time, use_time,msg,order_type
     </sql>
 
     <!-- 根据ID查询 -->
@@ -25,7 +26,7 @@
     </select>
 
     <select id="selectByStatus" resultType="com.order.main.entity.ErpGoodsOrder">
-        select o.*,q.id as queue_id  FROM t_erp_goods_order_queue q
+        select o.*,q.id as queue_id,q.order_type  FROM t_erp_goods_order_queue q
         left join erp_goods_order o on q.erp_goods_order_id = o.id
         where q.status = '0'
         order by create_time desc
@@ -33,44 +34,82 @@
     </select>
 
     <!-- 分页查询列表 -->
-    <select id="selectPageList" resultMap="BaseResultMap">
-        SELECT
-        <include refid="Base_Column_List"/>
-        FROM t_erp_goods_order_queue
+    <select id="selectPageList" resultType="com.order.main.entity.ErpGoodsOrder">
+        select o.*,q.id as queue_id,q.order_type,q.status,q.msg,q.create_time as queue_create_time,q.use_time
+        FROM t_erp_goods_order_queue q
+        left join erp_goods_order o on q.erp_goods_order_id = o.id
         <where>
-            <if test="erpGoodsOrderId != null">
-                AND erp_goods_order_id = #{erpGoodsOrderId}
+            <if test="orderSn != null">
+                AND o.order_sn like concat('%',#{orderSn},'%')
             </if>
-            <if test="status != null and status != ''">
-                AND status = #{status}
+            <if test="createdBy != null">
+                AND o.created_by = #{createdBy}
             </if>
-            <if test="createTime != null">
-                AND create_time = #{createTime}
+            <if test="status != null">
+                AND q.status = #{status}
             </if>
-            <if test="useTime != null">
-                AND use_time = #{useTime}
+            <if test="orderType != null">
+                AND q.order_type = #{orderType}
+            </if>
+
+            <if test="startCreateTime != null">
+                AND q.create_time &gt;= #{startCreateTime}
+            </if>
+            <if test="endCreateTime != null">
+                AND q.create_time &lt;= #{endCreateTime}
+            </if>
+            <if test="startUseTime != null">
+                AND q.use_time &gt;= #{startUseTime}
+            </if>
+            <if test="endUseTime != null">
+                AND q.use_time &lt;= #{endUseTime}
+            </if>
+            <if test="shopType !=null">
+                AND o.shop_type = #{shopType}
+            </if>
+            <if test="shopErpName != null">
+                AND o.shop_erp_name LIKE CONCAT('%',#{shopErpName},'%')
             </if>
         </where>
-        ORDER BY id DESC
+        ORDER BY q.id DESC
         LIMIT #{pageNum}, #{pageSize}
     </select>
 
     <!-- 查询总记录数 -->
     <select id="count" resultType="java.lang.Integer">
         SELECT COUNT(*)
-        FROM t_erp_goods_order_queue
+        FROM t_erp_goods_order_queue q
+        left join erp_goods_order o on q.erp_goods_order_id = o.id
         <where>
-            <if test="erpGoodsOrderId != null">
-                AND erp_goods_order_id = #{erpGoodsOrderId}
+            <if test="orderSn != null">
+                AND o.order_sn like concat('%',#{orderSn},'%')
             </if>
-            <if test="status != null and status != ''">
-                AND status = #{status}
+            <if test="createdBy != null">
+                AND o.created_by = #{createdBy}
             </if>
-            <if test="createTime != null">
-                AND create_time = #{createTime}
+            <if test="status != null">
+                AND q.status = #{status}
             </if>
-            <if test="useTime != null">
-                AND use_time = #{useTime}
+            <if test="orderType != null">
+                AND q.order_type = #{orderType}
+            </if>
+            <if test="startCreateTime != null">
+                AND q.create_time &gt;= #{startCreateTime}
+            </if>
+            <if test="endCreateTime != null">
+                AND q.create_time &lt;= #{endCreateTime}
+            </if>
+            <if test="startUseTime != null">
+                AND q.use_time &gt;= #{startUseTime}
+            </if>
+            <if test="endUseTime != null">
+                AND q.use_time &lt;= #{endUseTime}
+            </if>
+            <if test="shopType !=null">
+                AND o.shop_type = #{shopType}
+            </if>
+            <if test="shopErpName != null">
+                AND o.shop_erp_name LIKE CONCAT('%',#{shopErpName},'%')
             </if>
         </where>
     </select>
@@ -96,6 +135,9 @@
             <if test="useTime != null">
                 AND use_time = #{useTime}
             </if>
+            <if test="orderType != null">
+                AND order_type = #{orderType}
+            </if>
         </where>
         ORDER BY id DESC
     </select>
@@ -106,12 +148,14 @@
             erp_goods_order_id,
             status,
             create_time,
-            use_time
+            use_time,
+            order_type
         ) VALUES (
                      #{erpGoodsOrderId},
                      #{status},
                      #{createTime},
-                     #{useTime}
+                     #{useTime},
+                     #{orderType}
                  )
     </insert>
 
@@ -130,6 +174,12 @@
             </if>
             <if test="useTime != null">
                 use_time = #{useTime},
+            </if>
+            <if test="msg != null">
+                msg = #{msg},
+            </if>
+            <if test="orderType != null">
+                order_type = #{orderType}
             </if>
         </set>
         WHERE id = #{id}

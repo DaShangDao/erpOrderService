@@ -19,7 +19,7 @@
 
     <!-- 基础字段列表 -->
     <sql id="Base_Column_List">
-        id, erp_shop_id, shop_name, erp_shop_name, product_id, warehouse_id, shop_id,trilateral_id,user_id
+        id, erp_shop_id, shop_name, erp_shop_name, product_id, warehouse_id, shop_id,trilateral_id,user_id,is_distribution
     </sql>
 
 
@@ -42,9 +42,18 @@
     <select id="selectByProductId" resultMap="TShopGoodsPublishedResult">
         SELECT <include refid="Base_Column_List"/>
         FROM t_shop_goods_published
-        WHERE product_id = #{productId}
+        WHERE product_id = #{productId} and user_id = #{userId}
         order by id asc
     </select>
+
+
+    <select id="selectDelFlag" resultMap="TShopGoodsPublishedResult">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_shop_goods_published
+        WHERE product_id = #{productId} and user_id = #{userId} and trilateral_id = #{trilateralId} and del_flag = 1
+        limit 1
+    </select>
+
 
     <delete id="deleteById">
         delete FROM t_shop_goods_published where id = #{id}
@@ -53,5 +62,11 @@
     <update id="updateShopGoodsPublished">
         UPDATE t_shop_goods_published SET del_flag = 1,update_time = UNIX_TIMESTAMP() WHERE id = #{id}
     </update>
+
+
+    <update id="updateShopGoodsPublishedRecover">
+        UPDATE t_shop_goods_published SET del_flag = 0,update_time = UNIX_TIMESTAMP() WHERE id = #{id}
+    </update>
+
 
 </mapper>

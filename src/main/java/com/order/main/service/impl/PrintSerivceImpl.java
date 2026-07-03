@@ -24,6 +24,8 @@ public class PrintSerivceImpl implements IPrintSerivce {
     private final ICourierLogService courierLogService;
     private final IZtoPrintService ztoPrintService;
     private final IEmsPrintService emsPrintService;
+    private final IJtPrintService jtPrintService;
+    private final IYtoPrintService ytoPrintService;
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
 
 
@@ -54,7 +56,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
         List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectOrderList(erpGoodsOrder);
         if (erpGoodsOrderList.isEmpty()){
             result.put("code","500");
-            result.put("msg","订单不存在");
+            result.put("msg","订单未处于待发货状态");
             return result;
         }
         // 操作类型
@@ -79,6 +81,11 @@ public class PrintSerivceImpl implements IPrintSerivce {
             }
         }
         erpGoodsOrder = erpGoodsOrderList.get(0);
+        if (erpGoodsOrder.getOrderStatus() != 2L || erpGoodsOrder.getAfterSalesStatus() != 0L){
+            result.put("code","500");
+            result.put("msg","创建快递订单失败：订单未处于待发货状态");
+            return result;
+        }
         // 联系人/发货人
         String senderName = logisticsMap.get("contact").toString();
         // 联系电话
@@ -115,7 +122,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
             // 区
             sender.put("county",deliveryArea);
             // 详细地址 必须添加省市区并以半角逗号隔开
-            sender.put("address",deliveryProvince+","+deliveryCity+","+deliveryArea+","+fullAddress);
+            sender.put("address",fullAddress);
             // 手机号
             sender.put("mobile",phoneNumber);
             order.put("sender",sender);
@@ -124,13 +131,13 @@ public class PrintSerivceImpl implements IPrintSerivce {
             // 收件人姓名
             receiver.put("name",erpGoodsOrder.getReceiverName());
             // 省
-            sender.put("province",erpGoodsOrder.getProvince());
+            receiver.put("province",erpGoodsOrder.getProvince());
             // 市
-            sender.put("city",erpGoodsOrder.getCity());
+            receiver.put("city",erpGoodsOrder.getCity());
             // 区
-            sender.put("county",erpGoodsOrder.getCountry());
+            receiver.put("county",erpGoodsOrder.getCountry());
             // 详细地址 必须添加省市区并以半角逗号隔开
-            receiver.put("address",erpGoodsOrder.getProvince()+","+erpGoodsOrder.getCity()+","+erpGoodsOrder.getCountry()+","+erpGoodsOrder.getTown());
+            receiver.put("address",erpGoodsOrder.getTown());
             // 手机号
             receiver.put("mobile",erpGoodsOrder.getMobile());
             order.put("receiver",receiver);
@@ -235,7 +242,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
         // 返回值对象定义
         Map result = new HashMap();
         ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
-        erpGoodsOrder.setOrderStatus(2L);
+//        erpGoodsOrder.setOrderStatus(2L);
         if (deliveryMode.equals("1")){
             // 订单号
             String orderSn = map.get("orderSn") == null ? "" : map.get("orderSn").toString();
@@ -250,7 +257,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
         List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectOrderList(erpGoodsOrder);
         if (erpGoodsOrderList.isEmpty()){
             result.put("code","500");
-            result.put("msg","订单不存在");
+            result.put("msg","订单未处于待发货状态");
             return result;
         }
         // 获取发货地信息
@@ -275,6 +282,16 @@ public class PrintSerivceImpl implements IPrintSerivce {
                 return result;
             }
         }
+
+        // 获取订单信息
+        erpGoodsOrder = erpGoodsOrderList.get(0);
+
+//        if (erpGoodsOrder.getOrderStatus() != 2L || erpGoodsOrder.getAfterSalesStatus() != 0L){
+//            result.put("code","500");
+//            result.put("msg","创建快递订单失败：订单未处于待发货状态");
+//            return result;
+//        }
+
         // 获取快递账号信息
         Map fastMailMap = JsonUtil.transferToObj(map.get("fastMailMap").toString(),Map.class);
         // 账号/编码
@@ -284,8 +301,6 @@ public class PrintSerivceImpl implements IPrintSerivce {
         // 备注
         String remark = fastMailMap.get("remark") == null ? "" : fastMailMap.get("remark").toString();
 
-        // 获取订单信息
-        erpGoodsOrder = erpGoodsOrderList.get(0);
         // 寄件人信息
         Sender sender = new Sender();
         // 联系人/发货人
@@ -310,12 +325,25 @@ public class PrintSerivceImpl implements IPrintSerivce {
         receiver.setPhone(erpGoodsOrder.getMobile());
         // 座机
         receiver.setMobile(erpGoodsOrder.getMobile());
+
+
         // 省
-        receiver.setProv(erpGoodsOrder.getProvince());
+        String province = erpGoodsOrder.getProvince();
         // 市
-        receiver.setCity(erpGoodsOrder.getCity());
+        String city = erpGoodsOrder.getCity();
         // 区
-        receiver.setCounty(erpGoodsOrder.getCountry());
+        String county = erpGoodsOrder.getCountry();
+
+        // 判断是否为直辖市（北京、上海、天津、重庆）
+        if (province.contains("北京") || province.contains("上海") || province.contains("天津") || province.contains("重庆") || StringUtils.isEmpty(county)) {
+            receiver.setProv(province);   // 省
+            receiver.setCity(province);   // 市 = 省
+            receiver.setCounty(city);     // 区 = 原来的市
+        } else {
+            receiver.setProv(province);
+            receiver.setCity(city);
+            receiver.setCounty(county);
+        }
         // 详细地址
         receiver.setAddress(erpGoodsOrder.getTown());
         // 商品信息
@@ -383,12 +411,68 @@ public class PrintSerivceImpl implements IPrintSerivce {
                 resultMap.put("code","500");
                 resultMap.put("msg","创建失败："+resDataMap.get("retMsg").toString());
             }
-        }else{
+        }else if(type.equals("JTSD")){
+            String resData = jtPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,partnerId,secret);
+
+            // 转义
+            Map resDataMap = JsonUtil.transferToObj(resData,Map.class);
+            if (resDataMap.get("code").equals("1") && resDataMap.get("msg").equals("success")){
+                // 创建成功
+                Map data = (Map) resDataMap.get("data");
+                // 快递号
+                expressDeliveryOrder.setWaybillNo(data.get("billCode").toString());
+                // 大头笔名称
+                expressDeliveryOrder.setMarkDestinationName(data.get("sortingCode").toString());
+                // 集包地名称
+                expressDeliveryOrder.setPackageCodeName(data.get("lastCenterName").toString());
+                // 1 创建成功  2 已回收
+                expressDeliveryOrder.setStatus("1");
+                // 新增数据库
+                expressDeliveryOrderService.save(expressDeliveryOrder);
+                resultMap.put("code","200");
+                resultMap.put("msg","创建成功");
+                // 订单信息
+                resultMap.put("expressDeliveryOrder",expressDeliveryOrder);
+            }else{
+                try{
+                    resultMap.put("code","500");
+                    resultMap.put("msg","创建失败："+resDataMap.get("msg").toString());
+                }catch (Exception e){
+                    resultMap.put("code","500");
+                    resultMap.put("msg","创建失败："+resDataMap);
+                }
+            }
+        }else if(type.equals("YTO")){
+            String resData = ytoPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,partnerId,secret);
+            Map resDataMap = JsonUtil.transferToObj(resData,Map.class);
+            if (resDataMap.get("mailNo") != null){
+                // 快递号
+                expressDeliveryOrder.setWaybillNo(resDataMap.get("mailNo").toString());
+                // 大头笔名称
+                expressDeliveryOrder.setMarkDestinationName(resDataMap.get("shortAddress").toString());
+                // 1 创建成功  2 已回收
+                expressDeliveryOrder.setStatus("1");
+                // 新增数据库
+                expressDeliveryOrderService.save(expressDeliveryOrder);
+                resultMap.put("code","200");
+                resultMap.put("msg","创建成功");
+                // 订单信息
+                resultMap.put("expressDeliveryOrder",expressDeliveryOrder);
+            }else{
+                try{
+                    resultMap.put("code","500");
+                    resultMap.put("msg","创建失败："+resDataMap.get("reaspm"));
+                }catch (Exception e){
+                    resultMap.put("code","500");
+                    resultMap.put("msg","创建失败："+resDataMap);
+                }
+            }
+        } else{
             resultMap.put("code","500");
             resultMap.put("msg","异常快递类型"+type);
         }
         // 如果快递号不为空 则代表创建成功
-        if (!StringUtils.isEmpty(expressDeliveryOrder.getWaybillNo()) && resultMap.get("code").equals("200")){
+        if (!StringUtils.isEmpty(expressDeliveryOrder.getWaybillNo()) && (type.equals("YTO") || resultMap.get("code").equals("200"))){
             // 回填快递单号
             backfill(erpGoodsOrderList,expressDeliveryOrder.getWaybillNo());
         }

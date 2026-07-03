@@ -26,6 +26,11 @@ public class CourierLogServiceImpl implements ICourierLogService {
     }
 
     @Override
+    public List<CourierLog> getListByMailNo(String mailNo){
+        return baseMapper.getListByMailNo(mailNo);
+    }
+
+    @Override
     public List<CourierLog> getPageList(CourierLog courierLog) {
         courierLog.setPageNum((courierLog.getPageNum() - 1) * courierLog.getPageSize());
         return baseMapper.selectPageList(courierLog);

@@ -189,6 +189,21 @@
         END DESC
     </select>
 
+
+    <!-- 根据ID列表查询 -->
+    <select id="selectByIds" resultMap="ErpGoodsOrderResult">
+        <include refid="selectErpGoodsOrderVo"/>
+        where e.id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        order by
+        CASE
+        WHEN LENGTH(e.created_at) = 10 THEN e.created_at * 1000
+        ELSE e.created_at
+        END DESC
+    </select>
+
     <!-- 分页查询 -->
     <select id="selectPageList" resultMap="ErpGoodsOrderResult">
         <include refid="selectErpGoodsOrderVo"/>

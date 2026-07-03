@@ -23,8 +23,8 @@ public class InterfaceUtils {
 
     private static RestTemplate createRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(3000); // 连接超时时间
-        factory.setReadTimeout(3000);    // 读取超时时间
+        factory.setConnectTimeout(30000); // 连接超时时间
+        factory.setReadTimeout(30000);    // 读取超时时间
         return new RestTemplate(factory);
     }
 
