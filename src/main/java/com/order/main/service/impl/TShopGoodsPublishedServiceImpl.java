@@ -2,11 +2,14 @@ package com.order.main.service.impl;
 
 import com.baomidou.dynamic.datasource.annotation.DS;
 import com.baomidou.dynamic.datasource.toolkit.DynamicDataSourceContextHolder;
+import com.order.main.dll.DllInitializer;
+import com.order.main.dll.KfzSimpleDllLoader;
 import com.order.main.dto.GoodsDto;
 import com.order.main.dto.TShopGoodsPublishedDto;
 import com.order.main.entity.*;
 import com.order.main.mapper.TShopGoodsPublishedMapper;
 import com.order.main.service.*;
+import com.order.main.util.ClientConstantUtils;
 import com.order.main.util.InterfaceUtils;
 import com.order.main.util.MaskUtils;
 import com.order.main.util.UrlUtil;
@@ -154,16 +157,15 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
      * @param productId         进销存商品id
      * @param inventory         新库存
      * @param oldInventory      原库存
-     * @param erpGoodsId        订单id
+     * @param erpGoodsOrder        订单id
      * @return
      */
     @Override
     @DS("taskDb")
-    public String synchronizeStockNew(String productId,Long userId,int inventory,int oldInventory,Long erpGoodsId){
+    public String synchronizeStockNew(String productId,Long userId,int inventory,int oldInventory,ErpGoodsOrder erpGoodsOrder){
         String log = "库存同步操作记录：";
         // 根据商品id获取店铺关联信息
         List<TShopGoodsPublishedDto> shopGoodsPublishedDtoList = selectByProductId(Long.parseLong(productId),userId);
-
         // 如果已发布记录不存在
         if(shopGoodsPublishedDtoList.isEmpty()){
             // 记录日志
@@ -180,79 +182,173 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                     // 转为List集合
                     .collect(Collectors.toList());
             List<Shop> shopList = shopService.selectBatchByIds(erpShopIdList);
-
-            List<SynchronizationShopLog> synchronizationShopLogsList = new ArrayList<>();
+//            List<SynchronizationShopLog> synchronizationShopLogsList = new ArrayList<>();
             // 循环已发布商品记录，将所有已发布商品进行库存同步
             for (TShopGoodsPublishedDto sgp : shopGoodsPublishedDtoList){
-                // 创建库存同步日志对象
-                SynchronizationShopLog synchronizationShopLog = new SynchronizationShopLog();
-                // 商品id
-                synchronizationShopLog.setGoodsId(sgp.getProductId());
-                // 商品创建人
-                synchronizationShopLog.setGoodsCreateBy(sgp.getUserId());
-                // erp订单id
-                synchronizationShopLog.setErpOrderId(erpGoodsId);
-                // 更新后库存
-                synchronizationShopLog.setInventory(inventory);
-                // 更新前库存
-                synchronizationShopLog.setInventoryOld(oldInventory);
-                // 三方平台id
-                synchronizationShopLog.setPlatformId(sgp.getTrilateralId());
-                if (oldInventory > inventory){
-                    // 扣减库存
-                    synchronizationShopLog.setUpdateType("扣减库存");
-                }else if (oldInventory < inventory){
-                    // 增加库存
-                    synchronizationShopLog.setUpdateType("增加库存");
-                }else if(oldInventory == inventory){
-                    // 同步库存
-                    synchronizationShopLog.setUpdateType("同步库存");
+                if (Objects.equals(sgp.getErpShopId(), erpGoodsOrder.getShopErpId())){
+                    continue;
+                }
+                Map synchronizationShopLog = new HashMap();
+                synchronizationShopLog.put("product_id",sgp.getProductId());
+                synchronizationShopLog.put("product_user_id",sgp.getUserId());
+                synchronizationShopLog.put("erp_order",JsonUtil.transferToJson(erpGoodsOrder));
+                synchronizationShopLog.put("platform",erpGoodsOrder.getItemList());
+                if (inventory < 0){
+                    synchronizationShopLog.put("update_type","扣减库存");
+                }else{
+                    synchronizationShopLog.put("update_type","增加库存");
                 }
                 for (Shop shop : shopList){
                     if (shop.getId().equals(sgp.getErpShopId())){
                         // 店铺id
-                        synchronizationShopLog.setShopId(shop.getId());
+                        synchronizationShopLog.put("shop_id",shop.getId());
                         // 店铺名称
-                        synchronizationShopLog.setShopName(shop.getShopName());
+                        synchronizationShopLog.put("shop_name",shop.getShopName());
                         // 店铺类型
-                        synchronizationShopLog.setShopType(shop.getShopType());
+                        synchronizationShopLog.put("shop_type",shop.getShopType());
                         // 店铺创建人
-                        synchronizationShopLog.setShopCreateBy(Long.parseLong(shop.getCreateBy()));
+                        synchronizationShopLog.put("shop_create_by",shop.getCreateBy());
+                        String addRes = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/synchronization-shop-log/save",synchronizationShopLog);
+                        System.out.println("库存操作日志记录添加记录："+addRes);
+                        Map addResMap = JsonUtil.transferToObj(addRes,Map.class);
+                        Map addResDataMap = (Map) addResMap.get("data");
+                        Map synchronizationShopLogUpdate = new HashMap();
+                        synchronizationShopLogUpdate.put("shop_create_by",shop.getCreateBy());
+                        synchronizationShopLogUpdate.put("id",addResDataMap.get("id").toString());
                         Map resultMap = new HashMap();
                         if(shop.getShopType().equals("1")){
-                            // 调用拼多多修改库存
-                            resultMap = editStockService.pddEditStock(shop,sgp.getTrilateralId().toString(),inventory+"");
-                            log += "拼多多店铺："+shop.getShopName() +":"+resultMap.get("msg")+";";
+                            // 获取库存
+                            String pddRes = InterfaceUtils.getInterface("http://pdd.buzhiyushu.cn","/api/pdd/auth/getShopGoodsDetail?accessToken="+shop.getToken()+"&goodsId="+sgp.getTrilateralId());
+                            Map pddResMap = JsonUtil.transferToObj(pddRes,Map.class);
+                            if (pddResMap.get("error_response") == null){
+                                Map goodsDetailGetResponse = (Map) pddResMap.get("goods_detail_get_response");
+                                List skuList = (List) goodsDetailGetResponse.get("sku_list");
+                                Map skuMap = (Map) skuList.get(0);
+                                BigDecimal stock = new BigDecimal(skuMap.get("quantity").toString());
+                                // 如果psi的库存比平台的库存少，那么用psi库存
+                                if (stock.compareTo(new BigDecimal(oldInventory)) > 0){
+                                    stock = new BigDecimal(oldInventory);
+                                }
+                                // 更新后库存
+                                BigDecimal inventoryNew = stock.add(new BigDecimal(inventory));
+                                // 记录日志
+                                synchronizationShopLogUpdate.put("quantity",Math.abs(inventory)+"");
+                                synchronizationShopLogUpdate.put("inventory",inventoryNew.toString());
+                                synchronizationShopLogUpdate.put("inventory_old",stock.toString());
+                                // 调用拼多多修改库存
+                                resultMap = editStockService.pddEditStock(shop,sgp.getTrilateralId().toString(),inventoryNew+"",1);
+                                log += "拼多多店铺："+shop.getShopName() +":"+resultMap.get("msg")+";";
+                            }else{
+                                Map errorResponse = (Map) pddResMap.get("error_response");
+                                String errorMsg = errorResponse.get("error_msg").toString();
+                                if (errorMsg.equals("access_token已过期")){
+                                    errorMsg = "店铺失效，请重新授权";
+                                }else{
+                                    errorMsg += ";" + errorResponse.get("sub_msg");
+                                }
+                                resultMap = new HashMap();
+                                resultMap.put("code","500");
+                                resultMap.put("msg",errorMsg);
+                                log += "拼多多店铺："+shop.getShopName() +":" + errorMsg + ";";
+                            }
+
                         } else if (shop.getShopType().equals("2")){
-                            // 调用孔夫子修改库存
-                            resultMap = editStockService.kfzEditStock(shop.getToken(),sgp.getTrilateralId().toString(),inventory+"");
-                            log += "孔夫子店铺："+shop.getShopName() +":"+resultMap.get("msg")+";";
+                            // 获取库存
+                            JSONObject jsonObject = new JSONObject();
+                            jsonObject.put("itemId",sgp.getTrilateralId().toString());
+                            String res = KfzSimpleDllLoader.executeKongfzShopItemListFunc(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),jsonObject.toString());
+                            Map resMap = JsonUtil.transferToObj(res,Map.class);
+                            Map successResponse = resMap.get("successResponse") == null ? null : (Map) resMap.get("successResponse");
+                            if (successResponse != null){
+                                List dataList = (List) successResponse.get("list");
+                                if (!dataList.isEmpty()){
+                                    Map data = (Map) dataList.get(0);
+                                    BigDecimal stock = new BigDecimal(data.get("number").toString());
+                                    // 如果psi的库存比平台的库存少，那么用psi库存
+                                    if (stock.compareTo(new BigDecimal(oldInventory)) > 0){
+                                        stock = new BigDecimal(oldInventory);
+                                    }
+                                    // 更新后库存
+                                    BigDecimal inventoryNew = stock.add(new BigDecimal(inventory));
+                                    // 记录日志
+                                    synchronizationShopLogUpdate.put("quantity",Math.abs(inventory)+"");
+                                    synchronizationShopLogUpdate.put("inventory",inventoryNew.toString());
+                                    synchronizationShopLogUpdate.put("inventory_old",stock.toString());
+                                    // 调用孔夫子修改库存
+                                    resultMap = editStockService.kfzEditStock(shop.getToken(),sgp.getTrilateralId().toString(),inventoryNew+"");
+                                    log += "孔夫子店铺："+shop.getShopName() +":"+resultMap.get("msg")+";";
+                                }else{
+                                    log += "孔夫子店铺："+shop.getShopName() +":未查询到商品信息;";
+                                }
+                            }else{
+                                Map errorResponse = (Map) resMap.get("errorResponse");
+                                String msg = errorResponse.get("msg").toString();
+                                if (msg.contains("accessToken")){
+                                    msg = "店铺失效，请重新授权";
+                                }
+
+                                resultMap = new HashMap();
+                                resultMap.put("code","500");
+                                resultMap.put("msg",msg);
+                                log += "孔夫子店铺："+shop.getShopName() +":" + msg + ";";
+                            }
                         } else if (shop.getShopType().equals("5")){
-                            // 调用闲鱼修改库存
-                            resultMap = editStockService.xyEditStock(shop,sgp.getTrilateralId().toString(),inventory+"");
-                            log += "闲鱼店铺："+shop.getShopName() +":"+resultMap.get("msg")+";";
+                            // 查询店铺库存
+                            JSONObject xyGoodsMap = new JSONObject();
+                            // 闲管家商品id
+                            xyGoodsMap.put("product_id",sgp.getTrilateralId());
+                            // appId
+                            xyGoodsMap.put("appId",shop.getMallId());
+                            // appSecret
+                            xyGoodsMap.put("appSecret",shop.getToken());
+                            // user_name
+                            String[] userNames = new String[]{shop.getShopKey()};
+                            xyGoodsMap.put("user_name",userNames);
+                            String res = DllInitializer.executeGetGoodsDetail(xyGoodsMap.toString());
+                            Map resMap = JsonUtil.transferToObj(res,Map.class);
+                            if (resMap.get("msg").toString().equals("OK")){
+                                Map dataMap = (Map) resMap.get("data");
+                                BigDecimal stock = new BigDecimal(dataMap.get("stock").toString());
+                                // 如果psi的库存比平台的库存少，那么用psi库存
+                                if (stock.compareTo(new BigDecimal(oldInventory)) > 0){
+                                    stock = new BigDecimal(oldInventory);
+                                }
+                                // 更新后库存
+                                BigDecimal inventoryNew = stock.add(new BigDecimal(inventory));
+                                // 记录日志
+                                synchronizationShopLogUpdate.put("quantity",Math.abs(inventory)+"");
+                                synchronizationShopLogUpdate.put("inventory",inventoryNew.toString());
+                                synchronizationShopLogUpdate.put("inventory_old",stock.toString());
+                                // 调用闲鱼修改库存
+                                resultMap = editStockService.xyEditStock(shop,sgp.getTrilateralId().toString(),inventoryNew+"");
+                                log += "闲鱼店铺："+shop.getShopName() +":"+resultMap.get("msg")+";原库存："+stock+";现库存："+inventoryNew;
+                            }else{
+
+                                resultMap = new HashMap();
+                                resultMap.put("code","500");
+                                resultMap.put("msg",resMap.get("msg"));
+
+                                log += "闲鱼店铺："+shop.getShopName() +";查询商品异常："+resMap.get("msg");
+                            }
                         }
                         // 状态码
-                        synchronizationShopLog.setCode(resultMap.get("code").toString());
+                        synchronizationShopLogUpdate.put("code",resultMap.get("code").toString());
                         // 日志
-                        String msg = resultMap.get("msg").toString();
-                        if(msg.contains("http")){
+                        String msg = "";
+                        try{
+                            msg = resultMap.get("msg").toString();
+                            if(msg.contains("http")){
+                                msg = "接口调用异常，请联系管理员";
+                            }
+                        }catch (Exception e){
                             msg = "接口调用异常，请联系管理员";
                         }
-                        synchronizationShopLog.setMsg(msg);
-                        // 创建时间
-                        long currentTime = System.currentTimeMillis() / 1000;
-                        synchronizationShopLog.setCreateAt(currentTime);
-                        synchronizationShopLogsList.add(synchronizationShopLog);
+                        synchronizationShopLogUpdate.put("msg",msg);
+                        String res = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/synchronization-shop-log/update",synchronizationShopLogUpdate);
+                        System.out.println("修改库存日志："+res);
                         break;
                     }
                 }
-            }
-            try{
-                // 执行批量添加
-                synchronizationShopLogService.saveBatch(synchronizationShopLogsList);
-            }catch (Exception e){
-                e.printStackTrace();
             }
         }
 
@@ -469,7 +565,6 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                                             psiProduct = new HashMap();
                                             psiProduct = (Map) productMatchResMap.get("data");
                                             psiProduct.put("about_id",aboutId);
-                                            System.out.println("about_id_2:"+psiProduct.get("about_id"));
                                             break;
                                         }
                                     }
@@ -515,7 +610,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                                     // 金额充足 创建销售订单
                                     Boolean bool = createSalesOrder(erpGoodsOrder,psiProduct,goodsDto);
                                     // 库存同步
-                                    String log = synchronizeStockNew(psiProduct.get("id").toString(),warehouseUserId,quantity.subtract(new BigDecimal(1)).intValue(),quantity.intValue(),erpGoodsOrder.getId());
+                                    String log = synchronizeStockNew(psiProduct.get("id").toString(),warehouseUserId,-1,quantity.intValue(),erpGoodsOrder);
                                     // 校验创建销售订单是否成功
                                     if (bool){
                                         // 分账日志对象
@@ -538,7 +633,6 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                                         deductionDetails.put("psiSplitAccountConfigPlatform",psiSplitAccountConfigPlatform);
                                         // 商品信息
                                         deductionDetails.put("product",psiProduct);
-                                        System.out.println("about_id_3:"+psiProduct.get("about_id"));
                                         // 仓库方手续费
                                         deductionDetails.put("handlingFeeWarehouse",handlingFeeWarehouse);
                                         // 分润方手续费
@@ -610,7 +704,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                             }else{
                                 // 不是分销商品的情况，不需要分账  直接 创建销售订单
                                 createSalesOrder(erpGoodsOrder,psiProduct,goodsDto);
-                                String log = synchronizeStockNew(psiProduct.get("id").toString(),erpGoodsOrder.getCreatedBy(),quantity.subtract(new BigDecimal(1)).intValue(),quantity.intValue(),erpGoodsOrder.getId());
+                                String log = synchronizeStockNew(psiProduct.get("id").toString(),erpGoodsOrder.getCreatedBy(),-1,quantity.intValue(),erpGoodsOrder);
                             }
                         }else {
                             ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
@@ -836,121 +930,166 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
         if (goodsDto == null){
             goodsDto = JsonUtil.transferToObj(erpGoodsOrder.getItemList(),GoodsDto.class);
         }
-        // 查询分账日志 ，若存在 则将 冻结余额增加的日志，生成 冻结余额 → 余额 的操作
-        String res = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/split-account-deduction-log/list?business_no="+erpGoodsOrder.getOrderSn()+"-"+erpGoodsOrder.getShopErpId()+"-"+goodsDto.getGoodsId());
-        Map resMap = JsonUtil.transferToObj(res,Map.class);
-        Map resData = (Map) resMap.get("data");
-        if (resData.get("list") != null){
-            List logList = (List) resData.get("list");
-            // 获取第一条日志  解析商品的aboutId;
-            Map logData = (Map) logList.get(0);
-            // 日志信息
-            Map detail = (Map) logData.get("deduction_details");
-            // 获取商品信息
-            Map product = (Map) detail.get("product");
-            // 商品的用户id
-            String aboutId = product.get("about_id").toString();
-            // 商品id
-            String productId = product.get("id").toString();
-            // 解锁库存
-            Map unlockInventoryMap = new HashMap();
-            // 订单id
-            unlockInventoryMap.put("association_order_id",erpGoodsOrder.getId());
-            // 订单号
-            unlockInventoryMap.put("association_order_no",erpGoodsOrder.getOrderSn());
-            // 用户id
-            unlockInventoryMap.put("about_id",aboutId);
-            String unlockInventoryRes = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/sales-order/unlock-inventory",unlockInventoryMap);
-            Map unlockInventoryResMap = JsonUtil.transferToObj(unlockInventoryRes,Map.class);
-            if (unlockInventoryResMap.get("code").toString().equals("200")){
-                try{
-                    for (Object object : logList){
-                        // 列表记录
-                        Map splitAccountDeductionLog = (Map) object;
-                        // 日志信息
-                        Object deductionDetailsObj = splitAccountDeductionLog.get("deduction_details");
-                        JSONObject deductionDetails = new JSONObject((Map<String, ?>) deductionDetailsObj);
+        try{
+            // 查询分账日志 ，若存在 则将 冻结余额增加的日志，生成 冻结余额 → 余额 的操作
+            String res = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/split-account-deduction-log/list?business_no="+erpGoodsOrder.getOrderSn()+"-"+erpGoodsOrder.getShopErpId()+"-"+goodsDto.getGoodsId());
+            Map resMap = JsonUtil.transferToObj(res,Map.class);
+            Map resData = (Map) resMap.get("data");
+            if (resData.get("list") != null){
+                List logList = (List) resData.get("list");
+                // 获取第一条日志  解析商品的aboutId;
+                Map logData = (Map) logList.get(0);
+                // 日志信息
+                Map detail = (Map) logData.get("deduction_details");
+                // 获取商品信息
+                Map product = (Map) detail.get("product");
+                // 商品的用户id
+                String aboutId = product.get("about_id").toString();
+                // 商品id
+                String productId = product.get("id").toString();
+                // 解锁库存
+                Map unlockInventoryMap = new HashMap();
+                // 订单id
+                unlockInventoryMap.put("association_order_id",erpGoodsOrder.getId());
+                // 订单号
+                unlockInventoryMap.put("association_order_no",erpGoodsOrder.getOrderSn());
+                // 用户id
+                unlockInventoryMap.put("about_id",aboutId);
+                String unlockInventoryRes = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/sales-order/unlock-inventory",unlockInventoryMap);
+                Map unlockInventoryResMap = JsonUtil.transferToObj(unlockInventoryRes,Map.class);
+                if (unlockInventoryResMap.get("code").toString().equals("200")){
+                    try{
+                        for (Object object : logList){
+                            // 列表记录
+                            Map splitAccountDeductionLog = (Map) object;
+                            // 日志信息
+                            Object deductionDetailsObj = splitAccountDeductionLog.get("deduction_details");
+                            JSONObject deductionDetails = new JSONObject((Map<String, ?>) deductionDetailsObj);
 
-                        // 交互金额 单位 分
-                        BigDecimal deductionAmount = new BigDecimal(splitAccountDeductionLog.get("deduction_amount").toString()).multiply(new BigDecimal(100));
-                        // 获取操作人id
-                        String userId = splitAccountDeductionLog.get("created_by").toString();
-                        if(userId.equals("0")){
-                            // 管理员
-                            userId = "1";
-                        }
-                        // 获取操作人信息
-                        SysUser user = userService.selectUserOne(Long.parseLong(userId));
+                            // 交互金额 单位 分
+                            BigDecimal deductionAmount = new BigDecimal(splitAccountDeductionLog.get("deduction_amount").toString()).multiply(new BigDecimal(100));
+                            // 获取操作人id
+                            String userId = splitAccountDeductionLog.get("created_by").toString();
+                            if(userId.equals("0")){
+                                // 管理员
+                                userId = "1";
+                            }
+                            // 获取操作人信息
+                            SysUser user = userService.selectUserOne(Long.parseLong(userId));
 
-                        if (deductionDetails.get("msg").toString().contains("冻结")){
-                            // 新冻结金额
-                            user.setFreeze(user.getFreeze().subtract(deductionAmount));
-                            // 修改
-                            userService.updateMoney(user);
-                        }else{
-                            // 新余额
-                            user.setBalance(user.getBalance().subtract(deductionAmount));
-                            // 修改
-                            userService.updateMoney(user);
+                            if (deductionDetails.get("msg").toString().contains("冻结")){
+                                // 新冻结金额
+                                user.setFreeze(user.getFreeze().subtract(deductionAmount));
+                                // 修改
+                                userService.updateMoney(user);
+                            }else{
+                                // 新余额
+                                user.setBalance(user.getBalance().subtract(deductionAmount));
+                                // 修改
+                                userService.updateMoney(user);
+                            }
+                            // 修改日志记录
+                            Map updateLog = new HashMap();
+                            updateLog.put("id",splitAccountDeductionLog.get("id").toString());
+                            deductionDetails.put("msg",deductionDetails.get("msg") + "-已退款");
+                            updateLog.put("deduction_details",deductionDetails);
+                            updateLog.put("status","1");
+                            String updateLogRes = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/split-account-deduction-log/update",updateLog);
+                            Map updateLogResMap = JsonUtil.transferToObj(updateLogRes,Map.class);
+                            if (updateLogResMap.get("code").toString().equals("200")){
+                                System.out.println("更新成功");
+                            }else{
+                                System.out.println("更新失败");
+                            }
                         }
-                        // 修改日志记录
-                        Map updateLog = new HashMap();
-                        updateLog.put("id",splitAccountDeductionLog.get("id").toString());
-                        deductionDetails.put("msg",deductionDetails.get("msg") + "-已退款");
-                        updateLog.put("deduction_details",deductionDetails);
-                        updateLog.put("status","1");
-                        String updateLogRes = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/split-account-deduction-log/update",updateLog);
-                        Map updateLogResMap = JsonUtil.transferToObj(updateLogRes,Map.class);
-                        if (updateLogResMap.get("code").toString().equals("200")){
-                            System.out.println("更新成功");
-                        }else{
-                            System.out.println("更新失败");
+                        // 获取库存
+                        String stockRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/product/getProductInventory?user_id="+aboutId+"&product_id="+productId+"&type=1");
+                        Map stockResMap = JsonUtil.transferToObj(stockRes,Map.class);
+                        Map stcokData = (Map) stockResMap.get("data");
+                        // 库存
+                        BigDecimal quantity = new BigDecimal(stcokData.get("quantity").toString());
+                        try {
+                            // 手动切换到 taskDb
+                            DynamicDataSourceContextHolder.push("taskDb");
+                            // 同步库存
+                            synchronizeStockNew(productId,Long.parseLong(aboutId),Integer.parseInt(goodsDto.getGoodsCount()),quantity.intValue(),erpGoodsOrder);
+                            // 根据用户id 商品id 平台id查询 已被删除的记录，给他还原
+
+                            TShopGoodsPublishedDto shopGoodsPublishedDto = null;
+                            // 根据商品id获取店铺关联信息
+                            if (erpGoodsOrder.getShopType().toString().equals("5")){
+                                shopGoodsPublishedDto = selectDelFlag(Long.parseLong(productId),Long.parseLong(aboutId),Long.parseLong(goodsDto.getOuterId()));
+                            }else{
+                                shopGoodsPublishedDto = selectDelFlag(Long.parseLong(productId),Long.parseLong(aboutId),Long.parseLong(goodsDto.getGoodsId()));
+                            }
+                            if (shopGoodsPublishedDto != null){
+                                updateShopGoodsPublishedRecover(shopGoodsPublishedDto.getId());
+                            }
+                        } finally {
+                            // 使用完后清理
+                            DynamicDataSourceContextHolder.poll();
                         }
+                        //
+                        erpGoodsOrderQueue.setStatus("1");
+                        erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";退款回滚成功");
+                    }catch (Exception e){
+                        e.printStackTrace();
+                        erpGoodsOrderQueue.setStatus("3");
+                        erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";分账/同步库存异常："+e.getMessage());
                     }
+                }else{
+                    // 解锁库存失败
+                    erpGoodsOrderQueue.setStatus("2");
+                    erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";错误提示："+unlockInventoryResMap);
+                }
+            }else{
+                // 手动切换到 taskDb
+                DynamicDataSourceContextHolder.push("taskDb");
+                // 店铺类型
+                Long shopType = erpGoodsOrder.getShopType();
+                // 获取商品id
+                String goodsId = "-1";
+                if(shopType == 5){
+                    goodsId = goodsDto.getOuterId();        //闲鱼
+                }else if(shopType == 1|| shopType == 2){
+                    goodsId = goodsDto.getGoodsId();        //拼多多
+                }
+                // 获取商品属于用户
+                try {
+                    List<TShopGoodsPublishedDto> tShopGoodsPublishedDtoList = tShopGoodsPublishedMapper.selectByTrilateralId(Long.parseLong(goodsId));
+                    Long aboutId = tShopGoodsPublishedDtoList.get(0).getUserId();
+                    Long productId = tShopGoodsPublishedDtoList.get(0).getProductId();
+                    // 解锁库存
+                    Map unlockInventoryMap = new HashMap();
+                    // 订单id
+                    unlockInventoryMap.put("association_order_id",erpGoodsOrder.getId());
+                    // 订单号
+                    unlockInventoryMap.put("association_order_no",erpGoodsOrder.getOrderSn());
+                    // 用户id
+                    unlockInventoryMap.put("about_id",aboutId);
+                    String unlockInventoryRes = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/sales-order/unlock-inventory",unlockInventoryMap);
+                    Map unlockInventoryResMap = JsonUtil.transferToObj(unlockInventoryRes,Map.class);
+
                     // 获取库存
                     String stockRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/product/getProductInventory?user_id="+aboutId+"&product_id="+productId+"&type=1");
                     Map stockResMap = JsonUtil.transferToObj(stockRes,Map.class);
                     Map stcokData = (Map) stockResMap.get("data");
                     // 库存
                     BigDecimal quantity = new BigDecimal(stcokData.get("quantity").toString());
-                    try {
-                        // 手动切换到 taskDb
-                        DynamicDataSourceContextHolder.push("taskDb");
-                        // 同步库存
-                        synchronizeStockNew(productId,Long.parseLong(aboutId),quantity.intValue(),quantity.subtract(BigDecimal.ONE).intValue(),erpGoodsOrder.getId());
-                        // 根据用户id 商品id 平台id查询 已被删除的记录，给他还原
-
-                        TShopGoodsPublishedDto shopGoodsPublishedDto = null;
-                        // 根据商品id获取店铺关联信息
-                        if (erpGoodsOrder.getShopType().toString().equals("5")){
-                            shopGoodsPublishedDto = selectDelFlag(Long.parseLong(productId),Long.parseLong(aboutId),Long.parseLong(goodsDto.getOuterId()));
-                        }else{
-                            shopGoodsPublishedDto = selectDelFlag(Long.parseLong(productId),Long.parseLong(aboutId),Long.parseLong(goodsDto.getGoodsId()));
-                        }
-                        if (shopGoodsPublishedDto != null){
-                            updateShopGoodsPublishedRecover(shopGoodsPublishedDto.getId());
-                        }
-                    } finally {
-                        // 使用完后清理
-                        DynamicDataSourceContextHolder.poll();
-                    }
-                    //
+                    // 同步库存
+                    String log = synchronizeStockNew(productId.toString(),aboutId,Integer.parseInt(goodsDto.getGoodsCount()),quantity.intValue(),erpGoodsOrder);
+                    // 退款成功
                     erpGoodsOrderQueue.setStatus("1");
-                    erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";退款回滚成功");
-                }catch (Exception e){
-                    e.printStackTrace();
-                    erpGoodsOrderQueue.setStatus("3");
-                    erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";分账/同步库存异常："+e.getMessage());
+                    erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";退款回滚成功："+log+";");
+                } finally {
+                    // 使用完后清理
+                    DynamicDataSourceContextHolder.poll();
                 }
-            }else{
-                // 解锁库存失败
-                erpGoodsOrderQueue.setStatus("2");
-                erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";错误提示："+unlockInventoryResMap);
             }
-        }else{
+        }catch (Exception e){
             // 解锁库存失败
             erpGoodsOrderQueue.setStatus("2");
-            erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";错误提示：未查询到分账信息");
+            erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";错误提示："+e.getMessage());
         }
         erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
     }

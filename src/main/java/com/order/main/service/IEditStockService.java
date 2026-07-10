@@ -34,5 +34,5 @@ public interface IEditStockService {
      * @param goodsId   商品id
      * @param quantity  库存数量
      */
-    Map pddEditStock(Shop shop, String goodsId, String quantity);
+    Map pddEditStock(Shop shop, String goodsId, String quantity,int updateType);
 }

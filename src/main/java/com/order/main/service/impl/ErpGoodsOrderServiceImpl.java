@@ -1967,7 +1967,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     Map resultMap = new HashMap();
                     if(sgp.getShopType().equals("1")){
                         // 调用拼多多修改库存
-                        resultMap = editStockService.pddEditStock(editShop,sgp.getPlatformId(),inventory+"");
+                        resultMap = editStockService.pddEditStock(editShop,sgp.getPlatformId(),inventory+"",1);
                         log += "拼多多店铺："+sgp.getShopName() +":"+resultMap.get("msg")+";";
                     } else if (sgp.getShopType().equals("2")){
                         // 调用孔夫子修改库存

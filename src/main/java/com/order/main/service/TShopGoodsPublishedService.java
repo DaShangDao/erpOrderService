@@ -63,7 +63,7 @@ public interface TShopGoodsPublishedService {
      * @param erpGoodsId        订单id
      * @return
      */
-    String synchronizeStockNew(String productId,Long userId,int inventory,int oldInventory,Long erpGoodsId);
+    String synchronizeStockNew(String productId,Long userId,int inventory,int oldInventory,ErpGoodsOrder erpGoodsOrder);
 
 
     /**

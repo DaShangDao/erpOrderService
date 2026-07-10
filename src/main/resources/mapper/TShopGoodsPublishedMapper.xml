@@ -43,6 +43,7 @@
         SELECT <include refid="Base_Column_List"/>
         FROM t_shop_goods_published
         WHERE product_id = #{productId} and user_id = #{userId}
+        GROUP BY erp_shop_id
         order by id asc
     </select>
 

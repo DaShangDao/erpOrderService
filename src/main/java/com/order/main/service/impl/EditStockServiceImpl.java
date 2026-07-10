@@ -157,7 +157,7 @@ public class EditStockServiceImpl implements IEditStockService {
      * @param quantity  库存数量
      */
     @Override
-    public Map pddEditStock(Shop shop,String goodsId,String quantity) {
+    public Map pddEditStock(Shop shop,String goodsId,String quantity,int updateType) {
         // 返回参数
         Map resultMap = new HashMap();
         // 获取skuId
@@ -179,10 +179,12 @@ public class EditStockServiceImpl implements IEditStockService {
                 PddGoodsQuantityUpdateRequest request = new PddGoodsQuantityUpdateRequest();
                 // 商品id
                 request.setGoodsId(Long.parseLong(goodsId));
-                // 库存数量
-                request.setQuantity(Long.parseLong(quantity));
                 // skuId
                 request.setSkuId(Long.parseLong(skuId));
+                // 	库存更新方式，可选。1为全量更新，2为增量更新。如果不填，默认为全量更新
+                request.setUpdateType(updateType);
+                // 库存数量
+                request.setQuantity(Long.parseLong(quantity));
                 // 调用修改库存接口
                 PddGoodsQuantityUpdateResponse response = client.syncInvoke(request, shop.getToken());
                 String msg = "";

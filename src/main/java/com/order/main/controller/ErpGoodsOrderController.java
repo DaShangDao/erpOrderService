@@ -698,39 +698,13 @@ public class ErpGoodsOrderController  {
     }
 
 
-    /**
-     * 进销存库存同步方法
-     */
-    @PostMapping("/synchronizeStockNew")
-    public String synchronizeStockNew(String productId,String userId,String inventory,String oldInventory,String erpGoodsId){
-        return tShopGoodsPublishedService.synchronizeStockNew(productId,Long.parseLong(userId),Integer.parseInt(inventory),Integer.parseInt(oldInventory),Long.parseLong(erpGoodsId));
-    }
+//    /**
+//     * 进销存库存同步方法
+//     */
+//    @PostMapping("/synchronizeStockNew")
+//    public String synchronizeStockNew(String productId,String userId,String inventory,String oldInventory,String erpGoodsId){
+//        return tShopGoodsPublishedService.synchronizeStockNew(productId,Long.parseLong(userId),Integer.parseInt(inventory),Integer.parseInt(oldInventory),Long.parseLong(erpGoodsId));
+//    }
+//
 
-
-    /**
-     *
-     * @param erpOrderId               订单id
-     */
-    @PostMapping("/test")
-    public void test(String erpOrderId){
-        ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpOrderId));
-//        tShopGoodsPublishedService.createSalesOrder(erpGoodsOrder);
-
-
-    }
-
-
-    /**
-     *
-     * @param apiCode           接口代码
-     * @param senderNo          生产协议客户号
-     * @param authorization     授权码
-     * @param secretKey         密钥
-     * @param json              业务参数
-     * @return
-     */
-    @PostMapping("/test2")
-    public String test2(String apiCode,String senderNo,String authorization,String secretKey,String json){
-        return PrintSimpleDllLoader.exceteEms(apiCode,senderNo,authorization,secretKey,json);
-    }
 }

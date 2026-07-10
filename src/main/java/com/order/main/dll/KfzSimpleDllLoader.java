@@ -28,6 +28,10 @@ public class KfzSimpleDllLoader {
     private static Function kongfzOrderGetFunc;
     // 同步订单的快递单号
     private static Function kongfzOrderSynchronizationFunc;
+    // 获取店铺商品详情
+    private static Function kongfzKongfzShopItemDetailFunc;
+    // 获取店铺商品列表
+    private static Function kongfzShopItemListFunc;
 
     private static Function freeCStringFunc;
 
@@ -64,12 +68,18 @@ public class KfzSimpleDllLoader {
         kongfzOrderGetFunc = nativeLibrary.getFunction("KongfzOrderGet");
         // 同步订单的快递单号
         kongfzOrderSynchronizationFunc = nativeLibrary.getFunction("KongfzOrderSynchronization");
+        // 获取店铺商品详情
+        kongfzKongfzShopItemDetailFunc = nativeLibrary.getFunction("KongfzShopItemDetail");
+        // 获取店铺商品列表
+        kongfzShopItemListFunc = nativeLibrary.getFunction("KongfzShopItemList");
         // 释放c串内存
         freeCStringFunc = nativeLibrary.getFunction("FreeCString");
 
         if (kongfzOrderListFunc == null) throw new Exception("无法找到 KongfzOrderList 函数");
         if (kongfzOrderGetFunc == null) throw new Exception("无法找到 KongfzOrderGet 函数");
         if (kongfzOrderSynchronizationFunc == null) throw new Exception("无法找到 KongfzOrderSynchronization 函数");
+        if (kongfzKongfzShopItemDetailFunc == null) throw new Exception("KongfzShopItemDetail");
+        if (kongfzShopItemListFunc == null) throw  new Exception("KongfzShopItemList");
         if (freeCStringFunc == null) throw new Exception("无法找到 FreeCString 函数");
 
         System.out.println("Native 库加载成功: " + libraryPath);
@@ -168,6 +178,51 @@ public class KfzSimpleDllLoader {
 
             Object result = kongfzOrderListFunc.invoke(Pointer.class,
                     new Object[]{appId, cleanedAppSecret, cleanedAccessToken, cleanedOrderListJson});
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+
+    /**
+     * 查询店铺商品详情
+     * @param appId 开放平台分配给应用的AppId
+     * @param appSecret App密钥
+     * @param accessToken 用户登录授权成功后，开放平台颁发给应用的授权信息
+     * @param json 查询订单请求结构体字符串
+     * @return 查询结果字符串
+     */
+    public static String  executeKongfzShopItemDetail(int appId, String appSecret, String accessToken,String json){
+        try {
+            String cleanedAppSecret = ensureUtf8(appSecret);
+            String cleanedAccessToken = ensureUtf8(accessToken);
+            String cleanedJson = ensureUtf8(json);
+            Object result = kongfzKongfzShopItemDetailFunc.invoke(Pointer.class,
+                    new Object[]{appId, cleanedAppSecret, cleanedAccessToken, cleanedJson});
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+
+
+    /**
+     * 查询店铺商品列表
+     * @param appId 开放平台分配给应用的AppId
+     * @param appSecret App密钥
+     * @param accessToken 用户登录授权成功后，开放平台颁发给应用的授权信息
+     * @param json 查询订单请求结构体字符串
+     * @return 查询结果字符串
+     */
+    public static String  executeKongfzShopItemListFunc(int appId, String appSecret, String accessToken,String json){
+        try {
+            String cleanedAppSecret = ensureUtf8(appSecret);
+            String cleanedAccessToken = ensureUtf8(accessToken);
+            String cleanedJson = ensureUtf8(json);
+            Object result = kongfzShopItemListFunc.invoke(Pointer.class,
+                    new Object[]{appId, cleanedAppSecret, cleanedAccessToken, cleanedJson});
             return ptrToString((Pointer) result);
         } catch (Exception e) {
             return "Error: " + e.getMessage();

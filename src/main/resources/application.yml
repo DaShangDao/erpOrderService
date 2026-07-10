@@ -33,9 +33,9 @@ spring:
           password: XsRR4K3ATizyc5BK
           driver-class-name: com.mysql.cj.jdbc.Driver
         psi:
-          url: jdbc:mysql://175.27.224.66:3306/psi?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+          url: jdbc:mysql://36.212.7.130:3378/psi?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8&autoReconnect=true&rewriteBatchedStatements=true&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
           username: root
-          password: 5e07c0eec1770c94
+          password: 5eb2486bb7586a1d
           driver-class-name: com.mysql.cj.jdbc.Driver
   redis:
     host: 36.212.20.113

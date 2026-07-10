@@ -248,6 +248,23 @@ public class DllInitializer {
     }
 
     /**
+     * 获取商品想起
+     * @param jsonData
+     * @return
+     */
+    public static String executeGetGoodsDetail(String jsonData){
+        if (!xyInitialized) throw new IllegalStateException("闲鱼 DLL库未初始化");
+
+        if (xyConfigPath != null) {
+            xyConfigPath = cleanFilePath(xyConfigPath);
+            System.out.println("使用配置文件路径: " + xyConfigPath);
+        } else {
+            System.out.println("警告：配置文件路径为空，将使用默认配置");
+        }
+        return XySimpleDllLoader.executeGetGoodsDetail(jsonData, xyConfigPath);
+    }
+
+    /**
      * 执行孔夫子订单同步
      */
     public static String executeKongfzOrderSynchronization(int appId, String appSecret, String accessToken,
