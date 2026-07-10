@@ -85,6 +85,9 @@ public class EditStockServiceImpl implements IEditStockService {
                     if (resultDataMap.get("msg").equals("OK")){
                         resultMap.put("code","200");
                         resultMap.put("msg","库存为0下架成功");
+                    }else{
+                        resultMap.put("code","500");
+                        resultMap.put("msg",JsonUtil.transferToJson(resultDataMap));
                     }
                 }else{
                     //库存不为0 则执行上架操作
@@ -94,13 +97,10 @@ public class EditStockServiceImpl implements IEditStockService {
                 resultMap.put("code","500");
                 resultMap.put("msg","更新库存成功;额外操作异常");
             }
-
-
         }catch (Exception e){
             resultMap.put("code","500");
             resultMap.put("msg",e.getMessage());
         }
-
         return resultMap;
     }
 

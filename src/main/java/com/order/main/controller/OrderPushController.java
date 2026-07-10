@@ -327,6 +327,16 @@ public class OrderPushController {
                 createSplitAccountDeductionLog.put("config_name", configNameStr);
                 createSplitAccountDeductionLog.put("status", "0");
 
+                // 创建PSI库存同步日志
+                String logIdDispatch = tShopGoodsPublishedService.savePsiSyncLog(
+                        String.valueOf(productId),
+                        String.valueOf(aboutId),
+                        JsonUtil.transferToJson(order),
+                        order.getItemList(),
+                        "扣减库存",
+                        String.valueOf(aboutId)
+                );
+
                 // 创建销售订单
                 tShopGoodsPublishedService.createSalesOrder(
                         String.valueOf(order.getId()),
@@ -352,6 +362,10 @@ public class OrderPushController {
                         order
 
                 );
+
+                tShopGoodsPublishedService.updatePsiSyncLog(logIdDispatch, String.valueOf(aboutId), "1",
+                        String.valueOf(quantity - 1), String.valueOf(quantity),
+                        "200", "手动下发成功");
 
                 // 获取管理员（平台账号）
                 SysUser adminUser = sysUserService.selectUserOne(1L);
@@ -491,6 +505,15 @@ public class OrderPushController {
 
             } else {
                 // 非分销：直接下发，不需要分账
+                String logIdDispatch2 = tShopGoodsPublishedService.savePsiSyncLog(
+                        String.valueOf(productId),
+                        String.valueOf(aboutId),
+                        JsonUtil.transferToJson(order),
+                        order.getItemList(),
+                        "扣减库存",
+                        String.valueOf(aboutId)
+                );
+
                 tShopGoodsPublishedService.createSalesOrder(
                         String.valueOf(order.getId()),
                         order.getOrderSn(),
@@ -505,6 +528,10 @@ public class OrderPushController {
                         order.getMobile(),
                         order.getProvince() + "-" + order.getCity() + "-" + order.getCountry() + "-" + order.getTown()
                 );
+
+                tShopGoodsPublishedService.updatePsiSyncLog(logIdDispatch2, String.valueOf(aboutId), "1",
+                        String.valueOf(quantity - 1), String.valueOf(quantity),
+                        "200", "手动下发成功");
 
                 tShopGoodsPublishedService.synchronizeStockNew(
                         String.valueOf(productId),
@@ -605,4 +632,5 @@ public class OrderPushController {
                 "/api/split-account-deduction-log/create", createSplitAccountDeductionLog);
         System.out.println("分账日志记录结果: " + res);
     }
+
 }

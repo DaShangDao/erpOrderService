@@ -60,7 +60,6 @@ public interface TShopGoodsPublishedService {
      * @param productId         进销存商品id
      * @param inventory         新库存
      * @param oldInventory      原库存
-     * @param erpGoodsId        订单id
      * @return
      */
     String synchronizeStockNew(String productId,Long userId,int inventory,int oldInventory,ErpGoodsOrder erpGoodsOrder);
@@ -101,4 +100,18 @@ public interface TShopGoodsPublishedService {
     void createSalesOrder(String orderId,String orderSn,String productId,String unitPrice,
                           String quantity,String sales_person,
                           String sales_person_id,String about_id,String shopType,String receiverName,String receiverPhone,String receiverAddress);
+
+    /**
+     * 创建PSI库存同步日志记录（save），返回日志ID
+     */
+    String savePsiSyncLog(String productId, String productUserId,
+                          String erpOrderJson, String platform,
+                          String updateType, String shopCreateBy);
+
+    /**
+     * 更新PSI库存同步日志（update），设置最终结果
+     */
+    void updatePsiSyncLog(String id, String shopCreateBy, String quantity,
+                          String inventory, String inventoryOld,
+                          String code, String msg);
 }
