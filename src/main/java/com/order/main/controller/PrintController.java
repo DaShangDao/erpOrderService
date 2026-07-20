@@ -80,7 +80,7 @@ public class PrintController {
         logisticsMap.put("delivery_city",city);
         logisticsMap.put("delivery_area",area);
         logisticsMap.put("full_address",town);
-        if (type.equals("YUNDA")){
+        if (type.equals("YUNDA") || type.equals("ZTO")){
             return  printSerivce.createOrder("",partnerId,secret,type,"","1",orderSn,logisticsMap);
         }else if (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO")){
             Map map = new HashMap();

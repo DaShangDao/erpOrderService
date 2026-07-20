@@ -242,7 +242,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
         // 返回值对象定义
         Map result = new HashMap();
         ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
-//        erpGoodsOrder.setOrderStatus(2L);
+        erpGoodsOrder.setOrderStatus(2L);
         if (deliveryMode.equals("1")){
             // 订单号
             String orderSn = map.get("orderSn") == null ? "" : map.get("orderSn").toString();

@@ -51,6 +51,7 @@ public class ErpGoodsOrderController  {
     private final ICourierLogService courierLogService;
     private final TShopGoodsPublishedService tShopGoodsPublishedService;
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
+    private final IErpGoodsOrderQueueService erpGoodsOrderQueueService;
 
 
 
@@ -65,6 +66,38 @@ public class ErpGoodsOrderController  {
     public ErpGoodsOrder getErpGoodsOrderById(Long id) {
         ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(id);
         return erpGoodsOrder;
+    }
+
+    @GetMapping("/getErpGoodsOrderByOrderSn")
+    @CrossOrigin(origins = "*")  // 允许所有来源访问
+    public ErpGoodsOrder getErpGoodsOrderByOrderSn(String orderSn){
+        return erpGoodsOrderService.selectByOrderNo(orderSn);
+    }
+
+    @GetMapping("/getErpGoodsOrderByOrderSns")
+    @CrossOrigin(origins = "*")  // 允许所有来源访问
+    public Map<String, Object> getErpGoodsOrderByOrderSns(String orderSns) {
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> afterSalesList = new ArrayList<>();
+
+        if (orderSns != null && !orderSns.isEmpty()) {
+            String[] snArray = orderSns.split(",");
+            for (String sn : snArray) {
+                sn = sn.trim();
+                if (sn.isEmpty()) continue;
+                ErpGoodsOrder order = erpGoodsOrderService.selectByOrderNo(sn);
+                if (order != null && order.getAfterSalesStatus() != null && order.getAfterSalesStatus() != 0L) {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("orderSn", sn);
+                    item.put("afterSalesStatus", order.getAfterSalesStatus());
+                    afterSalesList.add(item);
+                }
+            }
+        }
+
+        result.put("afterSalesCount", afterSalesList.size());
+        result.put("afterSalesList", afterSalesList);
+        return result;
     }
 
     @GetMapping("/getList")
@@ -707,4 +740,41 @@ public class ErpGoodsOrderController  {
 //    }
 //
 
+
+    @GetMapping("/test")
+    public void test(String erpId){
+        // 获取未下发的订单
+        ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpId));
+        erpGoodsOrder.setOrderType("0");
+        erpGoodsOrder.setQueueId("13056");
+
+
+        if (erpGoodsOrder != null){
+            if (erpGoodsOrder.getOrderType() == null || erpGoodsOrder.getOrderType().equals("0")){
+                WarehouseSettings warehouseSettings = erpGoodsOrderService.getWarehouseSettings(erpGoodsOrder.getCreatedBy());
+
+                if (warehouseSettings == null){
+                    // 设置默认配置
+                    warehouseSettings = new WarehouseSettings();
+                    // 库存同步形式  0 下单减库存   1  支付减库存
+                    warehouseSettings.setStockSynchronizeType(1L);
+                    // 是否自动下发  0 否  1 是
+                    warehouseSettings.setAutoIssue(1L);
+                    // 是否开启亏损保护 0 否 1 是
+                    warehouseSettings.setLossProtection(1L);
+                    // 利润下限  默认利润1块钱
+                    warehouseSettings.setProfitFloor(new BigDecimal(100));
+                }
+                // 下发
+                tShopGoodsPublishedService.createSalesOrder(erpGoodsOrder,warehouseSettings);
+            }else if(erpGoodsOrder.getOrderType().equals("1")){
+                // 订单完成的操作
+                tShopGoodsPublishedService.orderFinish(erpGoodsOrder);
+            }else if (erpGoodsOrder.getOrderType().equals("2")){
+                // 订单退款
+                tShopGoodsPublishedService.orderReturnh(erpGoodsOrder);
+            }
+
+        }
+    }
 }

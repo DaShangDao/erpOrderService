@@ -29,7 +29,7 @@
         select o.*,q.id as queue_id,q.order_type  FROM t_erp_goods_order_queue q
         left join erp_goods_order o on q.erp_goods_order_id = o.id
         where q.status = '0'
-        order by create_time desc
+        order by create_time asc
         limit 1
     </select>
 

@@ -52,4 +52,16 @@ public interface TShopGoodsPublishedMapper {
 
     int deleteById(Long id);
 
+    /**
+     * 按 erp_shop_id + product_id + trilateral_id 批量删除
+     */
+    int batchDeleteByShopProductTrilateral(@Param("erpShopId") Long erpShopId,
+                                           @Param("productId") Long productId,
+                                           @Param("trilateralId") Long trilateralId);
+
+    /**
+     * 批量插入 t_shop_goods_published
+     */
+    int batchInsert(@Param("list") List<TShopGoodsPublishedDto> list);
+
 }

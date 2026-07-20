@@ -69,5 +69,18 @@
         UPDATE t_shop_goods_published SET del_flag = 0,update_time = UNIX_TIMESTAMP() WHERE id = #{id}
     </update>
 
+    <delete id="batchDeleteByShopProductTrilateral">
+        DELETE FROM t_shop_goods_published
+        WHERE erp_shop_id = #{erpShopId} AND product_id = #{productId} AND trilateral_id = #{trilateralId}
+    </delete>
+
+    <insert id="batchInsert" useGeneratedKeys="false">
+        INSERT INTO t_shop_goods_published
+        (erp_shop_id, product_id, trilateral_id, user_id, is_distribution, del_flag, create_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.erpShopId}, #{item.productId}, #{item.trilateralId}, #{item.userId}, #{item.isdistribution}, 0, #{item.createTime})
+        </foreach>
+    </insert>
 
 </mapper>

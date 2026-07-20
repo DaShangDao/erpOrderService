@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 public final class UrlUtil {
 
     public static String getNewWarehouse(){
-        //     return "http://localhost:9090";
-        return "https://psi.api.buzhiyushu.cn";
+//         return "http://192.168.101.162:9090";
+       return "https://psi.api.buzhiyushu.cn";
     }
 }

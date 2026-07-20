@@ -1232,12 +1232,14 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         }
         // 如果之前的订单处于未发货状态，并且设置模板为空或者设置模板中是否自动回复库存=1时，执行库存回退操作
         // 或者 订单处于未发货状态  没有售后，但是 孔夫子商品 并且商品数量 =0  执行库存回退操作
+        // 或者 旧售后状态等于  2 （待商家确认） 并且 新售后状态 等于10 （同意退款） 并且没有运单号
         if((erpGoodsOrder.getOldOrderStatus() < 3L  && erpGoodsOrder.getAfterSalesStatus() == 10L
                 && (warehouseSettings == null || warehouseSettings.getStockRollback() == 1))
                 ||
                 (erpGoodsOrder.getOldOrderStatus() < 3L
                         && (warehouseSettings == null || warehouseSettings.getStockRollback() == 1)
                         && erpGoodsOrder.getShopType().toString().equals("2") && Integer.parseInt(goodsDto.getGoodsCount()) == 0)
+                || (erpGoodsOrder.getOldAfterSalesStatus() == 2L && erpGoodsOrder.getAfterSalesStatus() == 10L && StringUtils.isEmpty(erpGoodsOrder.getTrackingNumber()))
                         ){
 
             String cacheKey = erpGoodsOrder.getOrderSn() + goodsDto.getGoodsId();

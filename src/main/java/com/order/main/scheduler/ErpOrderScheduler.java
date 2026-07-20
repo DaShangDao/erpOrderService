@@ -73,8 +73,13 @@ public class ErpOrderScheduler {
                     // 订单完成的操作
                     tShopGoodsPublishedService.orderFinish(erpGoodsOrder);
                 }else if (erpGoodsOrder.getOrderType().equals("2")){
-                    // 订单退款
-                    tShopGoodsPublishedService.orderReturnh(erpGoodsOrder);
+                    // 孔夫子订单
+                    if (erpGoodsOrder.getShopType().toString().equals("2")){
+                        tShopGoodsPublishedService.orderReturnhKfz(erpGoodsOrder);
+                    }else{
+                        // 订单退款
+                        tShopGoodsPublishedService.orderReturnh(erpGoodsOrder);
+                    }
                 }
 
             }

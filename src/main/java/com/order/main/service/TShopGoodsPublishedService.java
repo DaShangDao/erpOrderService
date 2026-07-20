@@ -83,6 +83,12 @@ public interface TShopGoodsPublishedService {
     void orderReturnh(ErpGoodsOrder erpGoodsOrder);
 
     /**
+     * 孔夫子订单退货事件
+     * @param erpGoodsOrder
+     */
+    void orderReturnhKfz(ErpGoodsOrder erpGoodsOrder);
+
+    /**
      * 测试
      * @param orderId
      * @param orderSn
@@ -114,4 +120,10 @@ public interface TShopGoodsPublishedService {
     void updatePsiSyncLog(String id, String shopCreateBy, String quantity,
                           String inventory, String inventoryOld,
                           String code, String msg);
+
+    /**
+     * 发布商品到 t_shop_goods_published（先删后插，按库存数量插入多条）
+     */
+    void publishGoods(Long userId, String productIdStr, String trilateralIdStr,
+                      String stockStr, Long shopErpId);
 }
