@@ -7,6 +7,7 @@ import com.order.main.entity.Item;
 import com.order.main.entity.Receiver;
 import com.order.main.entity.Sender;
 import com.order.main.service.IYtoPrintService;
+import com.order.main.util.DateUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -70,4 +71,13 @@ public class YtoPrintServiceImpl implements IYtoPrintService {
         return PrintSimpleDllLoader.exceteYTO("privacy_create_adapter",customerCode,secretKey,jsonObject.toString());
     }
 
+
+    @Override
+    public String getOrderNum(String customerCode, String secretKey){
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("clientId",customerCode);
+        jsonObject.put("requestDate",DateUtils.getTimeByDayOffsetYYYYMMDD(0));
+        jsonObject.put("timestamp", DateUtils.parseDateTimeToTimestamp(DateUtils.getTimeByDayOffset(0)));
+        return PrintSimpleDllLoader.exceteYTO("waybill_balance_adapter",customerCode,secretKey,jsonObject.toString());
+    }
 }

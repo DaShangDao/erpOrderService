@@ -714,7 +714,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                                 if (balance.compareTo(totalPrice) >= 0){
                                     // 查询仓库用户信息
                                     Long warehouseUserId = Long.parseLong(psiProduct.get("about_id").toString());
-                                    SysUser  warehouseUser = userService.selectUserOne(warehouseUserId);
+
                                     // 金额充足 创建销售订单
                                     Boolean bool = createSalesOrder(erpGoodsOrder,psiProduct,goodsDto,quantity);
                                     // 库存同步
@@ -771,6 +771,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                                         /**
                                          * 仓库部分
                                          */
+                                        SysUser  warehouseUser = userService.selectUserOne(warehouseUserId);
                                         // 1.先增加仓库金额
                                         BigDecimal oldFreezeWarehouseAdd = warehouseUser.getFreeze();
                                         warehouseUser.setFreeze(oldFreezeWarehouseAdd.add(price));

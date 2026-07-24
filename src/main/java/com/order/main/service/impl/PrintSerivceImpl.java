@@ -2,9 +2,11 @@ package com.order.main.service.impl;
 
 import com.alibaba.fastjson.JSONObject;
 import com.order.main.dll.DllInitializer;
+import com.order.main.dll.PddSimpleDllLoader;
 import com.order.main.dto.GoodsDto;
 import com.order.main.entity.*;
 import com.order.main.service.*;
+import com.order.main.util.PddUtil;
 import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.pdd.pop.sdk.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
@@ -478,6 +480,219 @@ public class PrintSerivceImpl implements IPrintSerivce {
         }
 
         return resultMap;
+    }
+
+
+    /**
+     * 拼多多面单打印
+     * @param map
+     * @return
+     */
+    @Override
+    public Map createOrderPdd(Map map){
+        // 返回值对象定义
+        Map result = new HashMap();
+        // 打印模式  1 全部打印  2 单独打印
+//        String deliveryMode = map.get("deliveryMode").toString();
+        String orderSn = map.get("orderSn").toString();
+        // 面单账号信息
+        Map fastMailVo = JsonUtil.transferToObj(map.get("fastMailVo").toString(),Map.class);
+        // 快递公司编码
+        String wpCode = fastMailVo.get("type").toString();
+        // 发货地址信息
+        Map remarkData = JsonUtil.transferToObj(fastMailVo.get("remark").toString(),Map.class);
+
+
+        ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
+        erpGoodsOrder.setOrderStatus(2L);
+
+        // 订单全部商品打印
+        erpGoodsOrder.setOrderSn(orderSn);
+
+        List<ErpGoodsOrder>  erpGoodsOrderList = erpGoodsOrderService.selectOrderList(erpGoodsOrder);
+
+        if (erpGoodsOrderList.isEmpty()){
+            result.put("code","500");
+            result.put("msg","订单不存在");
+            return result;
+        }
+
+
+        Map logisticsMap = map.get("logisticsMap") == null ? null : (Map) map.get("logisticsMap");
+
+        if (logisticsMap == null){
+            Iterator<ErpGoodsOrder> iterator = erpGoodsOrderList.iterator();
+            while (iterator.hasNext()) {
+                ErpGoodsOrder ego = iterator.next();
+                // 获取订单的商品
+                OrderExternalGoods orderExternalGoods = orderExternalGoodsService.selectByOrderId(ego.getId());
+                if (orderExternalGoods == null) {
+                    iterator.remove(); // 安全删除
+                }else if (null == logisticsMap){
+                    logisticsMap = zhishuShopGoodsService.selectLogisticsByGoodsId(orderExternalGoods.getGoodsId().toString());
+                }
+            }
+        }
+
+
+        if (erpGoodsOrderList.isEmpty()){
+            result.put("code","500");
+            result.put("msg","订单未获取到指定商品信息");
+            return result;
+        }
+        // 操作类型
+        String operationType = "ADD_ORDER";
+
+        erpGoodsOrder = erpGoodsOrderList.get(0);
+
+        // 联系人/发货人
+        String senderName = logisticsMap.get("contact").toString();
+        // 联系电话
+        String phoneNumber = logisticsMap.get("phone_number").toString();
+
+        // 入参信息
+        JSONObject paramWaybillCloudPrintApplyNewRequest = new JSONObject();
+        /**
+         * 发货人信息
+         */
+        JSONObject sender = new JSONObject();
+        // 发货地址，需要入参与 search 接口中的发货人地址信息一致
+        JSONObject address = new JSONObject();
+        address.put("country",remarkData.get("country").toString());         // 国家
+        address.put("province",remarkData.get("province").toString());       // 省
+        address.put("city",remarkData.get("city").toString());               // 市
+        address.put("district",remarkData.get("district").toString());       // 区
+        address.put("detail",remarkData.get("detail").toString());           // 详细地址
+        sender.put("address",address);
+        // 手机号码
+        sender.put("mobile",phoneNumber);
+        // 发货人
+        sender.put("name",senderName);
+        // 固定电话
+        sender.put("phone",phoneNumber);
+        /**
+         * 取号列表
+         */
+        List<JSONObject> tradeOrderInfoDtos = new ArrayList<>();
+        // 取号对象
+        JSONObject tradeOrderInfoDto = new JSONObject();
+        // 请求id
+        tradeOrderInfoDto.put("object_id",orderSn);
+        // 订单信息
+        JSONObject orderInfo = new JSONObject();
+        // 订单渠道平台编码
+        orderInfo.put("order_channels_type","OTHERS");
+        // 订单号 数量限制100
+        List<String> tradeOrderList = new ArrayList<>();
+        // 订单号
+        tradeOrderList.add(orderSn);
+        orderInfo.put("trade_order_list",tradeOrderList);
+        // 包裹信息
+        JSONObject packageInfo = new JSONObject();
+        List<JSONObject> items = new ArrayList<>();
+        List<JSONObject> returnItems = new ArrayList<>();
+        for (ErpGoodsOrder ego : erpGoodsOrderList){
+            // 商品信息
+            GoodsDto goodsDto = JsonUtil.transferToObj(ego.getItemList(),GoodsDto.class);
+            // 单个商品列表
+            JSONObject item = new JSONObject();
+            // 商品名称
+            item.put("name",goodsDto.getGoodsName());
+            // 商品数量
+            item.put("count",goodsDto.getGoodsCount());
+            items.add(item);
+            // 封装返回数据
+            JSONObject returnItem = new JSONObject();
+            returnItem.put("goodsName",goodsDto.getGoodsName());
+            returnItem.put("goodsCount",goodsDto.getGoodsCount());
+            returnItems.add(returnItem);
+        }
+        packageInfo.put("items",items);
+        tradeOrderInfoDto.put("order_info",orderInfo);
+        tradeOrderInfoDto.put("package_info",packageInfo);
+        // 收件人信息
+        JSONObject recipient = new JSONObject();
+        // 收件人地址
+        JSONObject recipientAddress = new JSONObject();
+        // 省
+
+        String province = erpGoodsOrder.getProvince();
+        String county = erpGoodsOrder.getCountry();
+        // 判断是否为直辖市（北京、上海、天津、重庆）
+        if (province.contains("北京") || province.contains("上海") || province.contains("天津") || province.contains("重庆") || StringUtils.isEmpty(county)) {
+            recipientAddress.put("province",province);
+            // 市
+            recipientAddress.put("city",province);
+            // 区
+            recipientAddress.put("district",erpGoodsOrder.getCity());
+        } else {
+            recipientAddress.put("province",erpGoodsOrder.getProvince());
+            // 市
+            recipientAddress.put("city",erpGoodsOrder.getCity());
+            // 区
+            recipientAddress.put("district",erpGoodsOrder.getCountry());
+        }
+
+        // 详细地址
+        recipientAddress.put("detail",erpGoodsOrder.getTown());
+
+        recipient.put("address",recipientAddress);
+        // 手机号
+        recipient.put("mobile",erpGoodsOrder.getMobile());
+        // 收件人姓名
+        recipient.put("name",erpGoodsOrder.getReceiverName());
+
+        tradeOrderInfoDto.put("recipient",recipient);
+        // 标准模板模板URL
+        tradeOrderInfoDto.put("template_url", PddUtil.getCloudprintStdtemplates(wpCode));
+        // 使用者ID
+        tradeOrderInfoDto.put("user_id",remarkData.get("mallId").toString());
+
+        tradeOrderInfoDtos.add(tradeOrderInfoDto);
+        paramWaybillCloudPrintApplyNewRequest.put("sender",sender);
+        paramWaybillCloudPrintApplyNewRequest.put("trade_order_info_dtos",tradeOrderInfoDtos);
+        paramWaybillCloudPrintApplyNewRequest.put("wp_code",wpCode);
+
+        String json = paramWaybillCloudPrintApplyNewRequest.toString();
+
+        String res = PddSimpleDllLoader.executePddApi("PddWaybillGet", PddUtil.CLIENT_ID,PddUtil.CLIENT_SECRET,remarkData.get("token").toString(), json);
+
+        Map resMap = JsonUtil.transferToObj(res,Map.class);
+
+        Map pddWaybillGetResponse = (Map)resMap.get("pdd_waybill_get_response");
+
+        List modules = (List)pddWaybillGetResponse.get("modules");
+
+        Map module = (Map)modules.get(0);
+        // 运单号
+        String waybillCode = module.get("waybill_code").toString();
+
+        for (ErpGoodsOrder ego : erpGoodsOrderList){
+            // 日志对象定义
+            CourierLog courierLog = new CourierLog();
+            courierLog.setErpOrderId(ego.getId());
+            courierLog.setOrderSn(ego.getOrderSn());
+            courierLog.setMailNo(waybillCode);
+            courierLog.setPartnerId(fastMailVo.get("partnerId").toString());
+            courierLog.setSecret("");
+            courierLog.setOrderSerialNo(orderSn);
+            courierLog.setSender(sender.toString());
+            courierLog.setReceiver(recipient.toString());
+            courierLog.setItems(JsonUtil.transferToJson(items));
+            courierLog.setType(operationType);
+            courierLog.setCreateBy(ego.getCreatedBy());
+            long currentTime = System.currentTimeMillis() / 1000;
+            courierLog.setCreateAt(currentTime);
+            courierLog.setRemark(map.get("fastMailVo").toString());
+            courierLog.setMailType(wpCode);
+            courierLogService.save(courierLog);
+
+            ego.setTrackingNumber(waybillCode);
+            erpGoodsOrderService.update(ego);
+        }
+        module.put("erpGoodsOrderList",erpGoodsOrderList);
+        module.put("dataList",returnItems);
+        return module;
     }
 
     // 回填快递单号

@@ -67,12 +67,14 @@ public class PrintController {
      * @param secret        联调密码
      * @param type          快递类型  YUNDA  ZTO
      * @param orderSns      订单号组
+     * @param fastMailType  快递账号类型  1 网点面单  2 拼多多面单
      * @return
      */
     @PostMapping("/createOrderBatch")
     @CrossOrigin(origins = "*")  // 允许所有来源访问
     public Map createOrderBatch(String partnerId,String secret,String type,String orderSn,
-                                String contact,String phoneNumber,String province,String city,String area,String town,String remark){
+                                String contact,String phoneNumber,String province,String city,
+                                String area,String town,String remark,@RequestParam(required = false, defaultValue = "1")String fastMailType){
         Map logisticsMap = new HashMap();
         logisticsMap.put("contact",contact);
         logisticsMap.put("phone_number",phoneNumber);
@@ -80,27 +82,46 @@ public class PrintController {
         logisticsMap.put("delivery_city",city);
         logisticsMap.put("delivery_area",area);
         logisticsMap.put("full_address",town);
-        if (type.equals("YUNDA") || type.equals("ZTO")){
-            return  printSerivce.createOrder("",partnerId,secret,type,"","1",orderSn,logisticsMap);
-        }else if (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO")){
+        if (StringUtils.isEmpty(fastMailType) || fastMailType.equals("1")){
+            if (type.equals("YUNDA") || type.equals("ZTO")){
+                return  printSerivce.createOrder("",partnerId,secret,type,"","1",orderSn,logisticsMap);
+            }else if (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO")){
+                Map map = new HashMap();
+                map.put("orderSn",orderSn);
+                map.put("deliveryMode","1");
+                map.put("logisticsMap",logisticsMap);
+                map.put("type",type);
+                // 快递账号数据
+                Map fastMailMap = new HashMap();
+                fastMailMap.put("partnerId",partnerId);
+                fastMailMap.put("secret",secret);
+                fastMailMap.put("type",type);
+                fastMailMap.put("remark",remark);
+                map.put("fastMailMap",JsonUtil.transferToJson(fastMailMap));
+                return printSerivce.createOrderNew(map);
+            }else{
+                Map errorMap = new HashMap();
+                errorMap.put("code","500");
+                errorMap.put("msg","异常类型："+type);
+                return errorMap;
+            }
+        }else{
             Map map = new HashMap();
             map.put("orderSn",orderSn);
             map.put("deliveryMode","1");
             map.put("logisticsMap",logisticsMap);
-            map.put("type",type);
             // 快递账号数据
             Map fastMailMap = new HashMap();
             fastMailMap.put("partnerId",partnerId);
-            fastMailMap.put("secret",secret);
             fastMailMap.put("type",type);
             fastMailMap.put("remark",remark);
-            map.put("fastMailMap",JsonUtil.transferToJson(fastMailMap));
-            return printSerivce.createOrderNew(map);
-        }else{
-            Map errorMap = new HashMap();
-            errorMap.put("code","500");
-            errorMap.put("msg","异常类型："+type);
-            return errorMap;
+            map.put("fastMailVo",JsonUtil.transferToJson(fastMailMap));
+
+            Map pddMap = printSerivce.createOrderPdd(map);
+            Map resMap = new HashMap();
+            resMap.put("code","200");
+            resMap.put("data",pddMap);
+            return resMap;
         }
     }
 
@@ -358,6 +379,7 @@ public class PrintController {
     }
 
     @PostMapping("/cancelBmOrderApi")
+    @CrossOrigin(origins = "*")  // 允许所有来源访问
     public Map cancelBmOrderApi(String mailNo) {
         Map result = new HashMap();
         // 邮政、极兔
@@ -852,7 +874,12 @@ public class PrintController {
 
                     Map itemData = (Map) items.get(0);
                     item.put("itemName",itemData.get("name").toString());
-                    item.put("itemNum",itemData.get("number").toString());
+
+                    String itemNum = itemData.get("number") == null ? itemData.get("quantity") == null ? "0" : itemData.get("quantity").toString() :itemData.get("number").toString();
+                    if (itemNum.equals("0")){
+                        itemNum = itemData.get("count") == null ? "0" : itemData.get("count").toString();
+                    }
+                    item.put("itemNum",itemNum);
                 }else{
                     ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectById(Long.parseLong(orderExternalGoods.getGoodsId().toString()));
                     if (zhishuShopGoods == null){
@@ -870,7 +897,7 @@ public class PrintController {
 
             }
 
-            if (courierLog.getMailType().equals("ZTO")){
+            if (courierLog.getMailType().equals("ZTO") && StringUtils.isEmpty(courierLog.getSecret())){
                 Map dataMap = JsonUtil.transferToObj(remark,Map.class);
                 Map senderInfo = JsonUtil.transferToObj(courierLog.getSender(),Map.class);
                 Map receiveInfo = JsonUtil.transferToObj(courierLog.getReceiver(),Map.class);
@@ -913,7 +940,24 @@ public class PrintController {
                     fastMailVo = JsonUtil.transferToObj(remark,Map.class);
                 }
 
-                return singlePrintService.printView(fastMailVo,courierLog.getMailNo(),courierLog.getOrderSn(),itemList);
+                if (StringUtils.isEmpty(courierLog.getSecret())){
+                    fastMailVo.put("fastMailType","2");
+                }
+                Map resMap = singlePrintService.printView(fastMailVo,courierLog.getMailNo(),courierLog.getOrderSn(),itemList);
+                if (fastMailVo.get("fastMailType").equals("1")){
+                    return resMap;
+                }else{
+                    if (resMap.get("code").equals("200")){
+                        Map resDataMap = (Map) resMap.get("data");
+                        resDataMap.put("fastMailType",fastMailVo.get("fastMailType"));
+                        Map resMap2 = new HashMap();
+                        resMap2.put("code","200");
+                        resMap2.put("data",resDataMap);
+                        return resMap2;
+                    }else{
+                        return resMap;
+                    }
+                }
             }
         }
     }

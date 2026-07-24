@@ -27,4 +27,11 @@ public interface IYtoPrintService {
     String createOrder(ErpGoodsOrder erpGoodsOrder, Receiver receiver, Sender sender, List<Item> items, String customerCode, String secretKey);
 
 
+    /**
+     * 获取电子面单余额
+     * @param customerCode
+     * @param secretKey
+     * @return
+     */
+    String getOrderNum(String customerCode, String secretKey);
 }

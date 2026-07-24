@@ -26,6 +26,28 @@ public class DateUtils {
         return dateTime.format(formatter);
     }
 
+
+    /**
+     * 根据天数偏移量获取 GMT+8 时区的时间字符串
+     * @param daysOffset 天数偏移量（正数表示未来，负数表示过去，0表示当前）
+     * @return 格式为 yyyy-MM-dd HH:mm:ss 的时间字符串
+     */
+    public static String getTimeByDayOffsetYYYYMMDD(int daysOffset) {
+        // 创建 GMT+8 时区
+        ZoneId gmtPlus8 = ZoneId.of("GMT+8");
+
+        // 获取当前 GMT+8 时区的时间并添加天数偏移
+        ZonedDateTime dateTime = ZonedDateTime.now(gmtPlus8).plusDays(daysOffset);
+
+        // 定义格式化器
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+        // 格式化并返回结果
+        return dateTime.format(formatter);
+    }
+
+
+
     /**
      * 将时间戳（10位或13位）转换为 GMT+8 时区的格式化时间字符串
      * @param timestamp 时间戳（10位秒或13位毫秒）

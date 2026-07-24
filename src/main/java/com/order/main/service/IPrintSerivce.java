@@ -18,12 +18,22 @@ public interface IPrintSerivce {
     Map createOrder(String orderId, String partnerId, String secret, String type, String cusArea, String deliveryMode, String orderSn,Map logisticsMap);
 
 
+
+
     /**
      * 新创建订单
      * @param map
      * @return
      */
     Map createOrderNew(Map map);
+
+
+    /**
+     * 拼多多面单打印
+     * @param map
+     * @return
+     */
+    Map createOrderPdd(Map map);
 
     /**
      * 快递单号取消
