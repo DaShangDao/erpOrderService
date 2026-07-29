@@ -87,7 +87,7 @@ public class SinglePrintServiceImpl implements ISinglePrintService {
     public Map printView(Map fastMailVo, String mailNo, String orderNo, List itemList){
 
         // 快递账号类型  1 网点  2 拼多多
-        String fastMailType = fastMailVo.get("fastMailType").toString();
+        String fastMailType = fastMailVo.get("fastMailType") == null ? "1" : fastMailVo.get("fastMailType").toString();
 
         // 返回值对象定义
         Map result = new HashMap();

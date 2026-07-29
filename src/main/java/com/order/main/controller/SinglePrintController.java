@@ -28,6 +28,7 @@ public class SinglePrintController {
     private final IJtPrintService jtPrintService;
     private final IYtoPrintService ytoPrintService;
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
+    private final IStoPrintService stoPrintService;
 
     /**
      * 根据ID查询
@@ -117,7 +118,7 @@ public class SinglePrintController {
         // 状态
         singlePrint.setStatus("1");
 
-        if (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO")){
+        if (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO") || type.equals("STO")){
             // 寄件人信息
             Sender sender = new Sender();
             // 名称
@@ -269,6 +270,36 @@ public class SinglePrintController {
                     }
                 }
                 System.out.println(resData);
+            }else if (type.equals("STO")) {
+                String resData = stoPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,fastMailVo.get("remark").toString(),fastMailVo.get("partnerId").toString(),fastMailVo.get("secret").toString());
+                Map resDataMap = JsonUtil.transferToObj(resData,Map.class);
+                if(resDataMap.get("success").toString().equals("true")){
+                    Map data = (Map) resDataMap.get("data");
+                    // 快递号
+                    expressDeliveryOrder.setWaybillNo(data.get("waybillNo").toString());
+                    // 大头笔名称
+                    expressDeliveryOrder.setMarkDestinationName(data.get("bigWord").toString());
+                    // 集
+                    expressDeliveryOrder.setPackageCodeName(data.get("packagePlace").toString());
+                    // 1 创建成功  2 已回收
+                    expressDeliveryOrder.setStatus("1");
+                    // 新增数据库
+                    expressDeliveryOrderService.save(expressDeliveryOrder);
+                    result.put("code","200");
+                    result.put("msg","创建成功");
+                    // 订单信息
+                    result.put("expressDeliveryOrder",expressDeliveryOrder);
+                    // 回填快递单号
+                    waybillCode = expressDeliveryOrder.getWaybillNo();
+                }else{
+                    try{
+                        result.put("code","500");
+                        result.put("msg","创建失败："+resDataMap.get("reaspm"));
+                    }catch (Exception e){
+                        result.put("code","500");
+                        result.put("msg","创建失败："+resDataMap);
+                    }
+                }
             }else{
                 result.put("code","500");
                 result.put("msg","异常快递类型"+type);
@@ -626,7 +657,20 @@ public class SinglePrintController {
                     result.put("msg",dataMap.get("retMsg").toString());
                 }
                 System.out.println(dataMap);
-            }else if (fastMail.get("type").equals("YTO")){
+            }else if(fastMail.get("type").equals("STO")){
+                String dataStr = stoPrintService.orderCancel(expressDeliveryOrder.getWaybillNo());
+                Map dataMap = JsonUtil.transferToObj(dataStr,Map.class);
+                if (dataMap.get("success").toString().equals("true")){
+                    // 已回收
+                    expressDeliveryOrder.setStatus("2");
+                    expressDeliveryOrderService.update(expressDeliveryOrder);
+                    result.put("code","200");
+                    result.put("msg","回收成功");
+                }else{
+                    result.put("code","500");
+                    result.put("msg",dataMap);
+                }
+            } else if (fastMail.get("type").equals("YTO")){
                 result.put("code","500");
                 result.put("msg","圆通不支持回收单号，未发货运单无需回收");
             }

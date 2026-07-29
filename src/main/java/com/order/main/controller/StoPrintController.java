@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/api/emsPrint")
+@RequestMapping("/api/stoPrint")
 public class StoPrintController {
 
 

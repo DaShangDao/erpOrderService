@@ -633,4 +633,32 @@ public class OrderPushController {
         System.out.println("分账日志记录结果: " + res);
     }
 
+    /**
+     * 跳过订单（将队列状态置为4-跳过，msg改为跳过订单）
+     */
+    @PostMapping("/skipOrder")
+    @CrossOrigin(origins = "*")
+    public Map skipOrder(@RequestParam Long queueId) {
+        Map result = new HashMap();
+        try {
+            ErpGoodsOrderQueue queue = erpGoodsOrderQueueService.getById(queueId);
+            if (queue == null) {
+                result.put("code", "400");
+                result.put("msg", "队列记录不存在");
+                return result;
+            }
+            queue.setStatus("4");
+            queue.setMsg("跳过订单");
+            erpGoodsOrderQueueService.update(queue);
+            result.put("code", "200");
+            result.put("msg", "已跳过该订单");
+            return result;
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("code", "500");
+            result.put("msg", "系统错误: " + e.getMessage());
+            return result;
+        }
+    }
+
 }

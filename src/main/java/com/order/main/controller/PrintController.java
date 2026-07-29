@@ -43,6 +43,7 @@ public class PrintController {
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
     private final IEmsPrintService emsPrintService;
     private final IJtPrintService jtPrintService;
+    private final IStoPrintService stoPrintService;
 
     /**
      * 创建运单
@@ -85,7 +86,7 @@ public class PrintController {
         if (StringUtils.isEmpty(fastMailType) || fastMailType.equals("1")){
             if (type.equals("YUNDA") || type.equals("ZTO")){
                 return  printSerivce.createOrder("",partnerId,secret,type,"","1",orderSn,logisticsMap);
-            }else if (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO")){
+            }else if (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO") || type.equals("STO")){
                 Map map = new HashMap();
                 map.put("orderSn",orderSn);
                 map.put("deliveryMode","1");
@@ -312,6 +313,27 @@ public class PrintController {
                     result.put("msg",dataMap.get("retMsg").toString());
                 }
                 System.out.println(dataMap);
+            }else if(fastMail.get("type").equals("STO")){
+                String dataStr = stoPrintService.orderCancel(expressDeliveryOrder.getWaybillNo());
+                Map dataMap = JsonUtil.transferToObj(dataStr,Map.class);
+                if (dataMap.get("success").toString().equals("true")){
+                    // 已回收
+                    expressDeliveryOrder.setStatus("2");
+                    expressDeliveryOrderService.update(expressDeliveryOrder);
+
+                    // 更新订单信息
+                    List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectListByOrderNo(expressDeliveryOrder.getLogisticsOrderNo());
+                    for (ErpGoodsOrder erpGoodsOrder : erpGoodsOrderList){
+                        erpGoodsOrder.setTrackingNumber("");
+                        erpGoodsOrder.setOrderStatus(2L);
+                        erpGoodsOrderService.update(erpGoodsOrder);
+                    }
+                    result.put("code","200");
+                    result.put("msg","回收成功");
+                }else{
+                    result.put("code","500");
+                    result.put("msg",dataMap);
+                }
             }else if (fastMail.get("type").equals("YTO")){
                 result.put("code","500");
                 result.put("msg","圆通不支持回收单号，未发货运单无需回收");
@@ -429,6 +451,27 @@ public class PrintController {
                     result.put("msg", dataMap.get("retMsg").toString());
                 }
                 System.out.println(dataMap);
+            }else if(fastMail.get("type").equals("STO")){
+                String dataStr = stoPrintService.orderCancel(expressDeliveryOrder.getWaybillNo());
+                Map dataMap = JsonUtil.transferToObj(dataStr,Map.class);
+                if (dataMap.get("success").toString().equals("true")){
+                    // 已回收
+                    expressDeliveryOrder.setStatus("2");
+                    expressDeliveryOrderService.update(expressDeliveryOrder);
+
+                    // 更新订单信息
+                    List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectListByOrderNo(expressDeliveryOrder.getLogisticsOrderNo());
+                    for (ErpGoodsOrder erpGoodsOrder : erpGoodsOrderList){
+                        erpGoodsOrder.setTrackingNumber("");
+                        erpGoodsOrder.setOrderStatus(2L);
+                        erpGoodsOrderService.update(erpGoodsOrder);
+                    }
+                    result.put("code","200");
+                    result.put("msg","回收成功");
+                }else{
+                    result.put("code","500");
+                    result.put("msg",dataMap);
+                }
             }else if (fastMail.get("type").equals("YTO")){
                 result.put("code","500");
                 result.put("msg","圆通不支持回收单号，未发货运单无需回收");
@@ -897,7 +940,7 @@ public class PrintController {
 
             }
 
-            if (courierLog.getMailType().equals("ZTO") && StringUtils.isEmpty(courierLog.getSecret())){
+            if (courierLog.getMailType().equals("ZTO") && !StringUtils.isEmpty(courierLog.getSecret())){
                 Map dataMap = JsonUtil.transferToObj(remark,Map.class);
                 Map senderInfo = JsonUtil.transferToObj(courierLog.getSender(),Map.class);
                 Map receiveInfo = JsonUtil.transferToObj(courierLog.getReceiver(),Map.class);

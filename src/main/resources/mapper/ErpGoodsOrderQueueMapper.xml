@@ -53,10 +53,10 @@
             </if>
 
             <if test="startCreateTime != null">
-                AND q.create_time &gt;= #{startCreateTime}
+                AND o.created_at &gt;= #{startCreateTime}
             </if>
             <if test="endCreateTime != null">
-                AND q.create_time &lt;= #{endCreateTime}
+                AND o.created_at &lt;= #{endCreateTime}
             </if>
             <if test="startUseTime != null">
                 AND q.use_time &gt;= #{startUseTime}
@@ -71,7 +71,7 @@
                 AND o.shop_erp_name LIKE CONCAT('%',#{shopErpName},'%')
             </if>
         </where>
-        ORDER BY q.id DESC
+        ORDER BY o.created_at desc
         LIMIT #{pageNum}, #{pageSize}
     </select>
 
@@ -94,10 +94,10 @@
                 AND q.order_type = #{orderType}
             </if>
             <if test="startCreateTime != null">
-                AND q.create_time &gt;= #{startCreateTime}
+                AND o.created_at &gt;= #{startCreateTime}
             </if>
             <if test="endCreateTime != null">
-                AND q.create_time &lt;= #{endCreateTime}
+                AND o.created_at &lt;= #{endCreateTime}
             </if>
             <if test="startUseTime != null">
                 AND q.use_time &gt;= #{startUseTime}

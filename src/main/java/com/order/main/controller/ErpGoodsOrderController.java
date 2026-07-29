@@ -77,6 +77,7 @@ public class ErpGoodsOrderController  {
     @GetMapping("/getErpGoodsOrderByOrderSns")
     @CrossOrigin(origins = "*")  // 允许所有来源访问
     public Map<String, Object> getErpGoodsOrderByOrderSns(String orderSns) {
+        System.out.println("调用查询订单是否售后"+orderSns);
         Map<String, Object> result = new HashMap<>();
         List<Map<String, Object>> afterSalesList = new ArrayList<>();
 
@@ -85,8 +86,10 @@ public class ErpGoodsOrderController  {
             for (String sn : snArray) {
                 sn = sn.trim();
                 if (sn.isEmpty()) continue;
-                ErpGoodsOrder order = erpGoodsOrderService.selectByOrderNo(sn);
-                if (order != null && order.getAfterSalesStatus() != null && order.getAfterSalesStatus() != 0L) {
+                List<ErpGoodsOrder> orderList = erpGoodsOrderService.selectListByOrderNo(sn);
+                ErpGoodsOrder order = orderList.get(0);
+                if ((order != null && order.getAfterSalesStatus() != null && order.getAfterSalesStatus() != 0L)
+                        || !order.getOrderStatus().toString().equals("2")) {
                     Map<String, Object> item = new HashMap<>();
                     item.put("orderSn", sn);
                     item.put("afterSalesStatus", order.getAfterSalesStatus());
@@ -554,7 +557,7 @@ public class ErpGoodsOrderController  {
                                     ErpGoodsOrder erpGoodsOrder = null;
                                     try{
                                         // id查询erp订单是否存在
-                                        erpGoodsOrder = erpGoodsOrderService.selectBoOrderNoAndGoodsId(orderSn,itemId);
+                                        erpGoodsOrder = erpGoodsOrderService.selectByOrderNo(orderSn);
                                     } catch (Exception e) {
                                         callBackData = "查询异常,异常参数:订单号:"+orderSn+";商品id:"+itemId;
                                         // 打印异常
@@ -746,7 +749,7 @@ public class ErpGoodsOrderController  {
         // 获取未下发的订单
         ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpId));
         erpGoodsOrder.setOrderType("0");
-        erpGoodsOrder.setQueueId("13056");
+        erpGoodsOrder.setQueueId("39128");
 
 
         if (erpGoodsOrder != null){

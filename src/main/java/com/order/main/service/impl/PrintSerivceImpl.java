@@ -28,6 +28,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
     private final IEmsPrintService emsPrintService;
     private final IJtPrintService jtPrintService;
     private final IYtoPrintService ytoPrintService;
+    private final IStoPrintService stoPrintService;
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
 
 
@@ -244,7 +245,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
         // 返回值对象定义
         Map result = new HashMap();
         ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
-        erpGoodsOrder.setOrderStatus(2L);
+//        erpGoodsOrder.setOrderStatus(2L);
         if (deliveryMode.equals("1")){
             // 订单号
             String orderSn = map.get("orderSn") == null ? "" : map.get("orderSn").toString();
@@ -415,7 +416,6 @@ public class PrintSerivceImpl implements IPrintSerivce {
             }
         }else if(type.equals("JTSD")){
             String resData = jtPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,partnerId,secret);
-
             // 转义
             Map resDataMap = JsonUtil.transferToObj(resData,Map.class);
             if (resDataMap.get("code").equals("1") && resDataMap.get("msg").equals("success")){
@@ -452,6 +452,34 @@ public class PrintSerivceImpl implements IPrintSerivce {
                 expressDeliveryOrder.setWaybillNo(resDataMap.get("mailNo").toString());
                 // 大头笔名称
                 expressDeliveryOrder.setMarkDestinationName(resDataMap.get("shortAddress").toString());
+                // 1 创建成功  2 已回收
+                expressDeliveryOrder.setStatus("1");
+                // 新增数据库
+                expressDeliveryOrderService.save(expressDeliveryOrder);
+                resultMap.put("code","200");
+                resultMap.put("msg","创建成功");
+                // 订单信息
+                resultMap.put("expressDeliveryOrder",expressDeliveryOrder);
+            }else{
+                try{
+                    resultMap.put("code","500");
+                    resultMap.put("msg","创建失败："+resDataMap.get("reaspm"));
+                }catch (Exception e){
+                    resultMap.put("code","500");
+                    resultMap.put("msg","创建失败："+resDataMap);
+                }
+            }
+        }else if(type.equals("STO")){
+            String resData = stoPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,remark,partnerId,secret);
+            Map resDataMap = JsonUtil.transferToObj(resData,Map.class);
+            if(resDataMap.get("success").toString().equals("true")){
+                Map data = (Map) resDataMap.get("data");
+                // 快递号
+                expressDeliveryOrder.setWaybillNo(data.get("waybillNo").toString());
+                // 大头笔名称
+                expressDeliveryOrder.setMarkDestinationName(data.get("bigWord").toString());
+                // 集
+                expressDeliveryOrder.setPackageCodeName(data.get("packagePlace").toString());
                 // 1 创建成功  2 已回收
                 expressDeliveryOrder.setStatus("1");
                 // 新增数据库

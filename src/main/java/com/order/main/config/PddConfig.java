@@ -10,6 +10,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.FileHandler;
+import java.util.logging.Formatter;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
+
 @Configuration // 标记为配置类
 public class PddConfig {
 
@@ -21,6 +32,34 @@ public class PddConfig {
 
     @Autowired
     private IErpGoodsOrderService erpGoodsOrderService;
+
+    // 日志记录器缓存（按 mallID）
+    private static final ConcurrentHashMap<Long, Logger> MESSAGE_LOGGER_CACHE = new ConcurrentHashMap<>();
+
+    private static Logger getMessageLogger(Long mallID) {
+        return MESSAGE_LOGGER_CACHE.computeIfAbsent(mallID, id -> {
+            try {
+                String logDir = "./pdd_message_logs/";
+                Files.createDirectories(Path.of(logDir));
+                FileHandler fh = new FileHandler(logDir + id + "_%g.log", 50 * 1024 * 1024, 10, true);
+                fh.setFormatter(new Formatter() {
+                    @Override
+                    public String format(LogRecord record) {
+                        return record.getMessage() + System.lineSeparator();
+                    }
+                });
+                Logger logger = Logger.getLogger("pdd-msg-" + id);
+                logger.setUseParentHandlers(false);
+                logger.addHandler(fh);
+                return logger;
+            } catch (IOException e) {
+                // 日志初始化失败，返回一个空 Logger 静默降级
+                Logger logger = Logger.getLogger("pdd-msg-" + id);
+                logger.setUseParentHandlers(false);
+                return logger;
+            }
+        });
+    }
 
 
     /**
@@ -44,6 +83,20 @@ public class PddConfig {
                     public void onMessage(Message message) {
                         // 订单类型
                         String orderType = message.getType();
+
+                        if (!orderType.equals("pdd_goods_GoodsOffShelf")                     // 商品下架消息
+                                && !orderType.equals("pdd_goods_GoodsOnShelf")                   // 商品上架消息
+                                && !orderType.equals("pdd_goods_GoodsAdd")                       // 商品新建消息
+                                && !orderType.equals("pdd_goods_GoodsUpdate")                    // 商品更新消息
+                                && !orderType.equals("pdd_goods_GoodsDelete")                    // 商品删除消息
+                                && !orderType.equals("pdd_goods_GoodsCheckReject")){
+                            // 记录日志到文件（按 mall_id 分文件，50MB自动轮转）
+                            String timeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                            Long mallID = message.getMallID();
+                            if (mallID != null) {
+                                getMessageLogger(mallID).info("[" + timeStr + "] " + message.getType() + " | " + message.getContent());
+                            }
+                        }
 
                         if(orderType.equals("pdd_trade_TradeConfirmed")                                 // 交易确认消息
                                         || orderType.equals("pdd_trade_TradeSellerShip")                // 卖家发货消息

@@ -131,21 +131,57 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
             }
             if (goodsDto != null){
                 String goodsId = goodsDto.getGoodsId();
+
                 List<TShopGoodsPublishedDto> tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
                 if (tShopGoodsPublishedDtoList.isEmpty() && goodsDto.getOuterId() != null){
                     goodsId = goodsDto.getOuterId();
-                    tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
+                    try{
+                        tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
+                    }catch (NumberFormatException e){
+                        System.out.println("非进销存商品");
+                    }
                 }
                 if (!tShopGoodsPublishedDtoList.isEmpty()){
                     // 获取库存持有人
                     TShopGoodsPublishedDto tShopGoodsPublishedDto = tShopGoodsPublishedDtoList.get(0);
                     distribution(warehouseSettings,erpGoodsOrder,tShopGoodsPublishedDto);
                 }else{
-                    ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
-                    erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
-                    erpGoodsOrderQueue.setStatus("3");
-                    erpGoodsOrderQueue.setMsg("异常:未找到发货记录");
-                    erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+                    try{
+                        // 查询是否
+                        String psiRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/shop-goods-published/by-trilateral?user_id="+erpGoodsOrder.getCreatedBy()+"&trilateral_id="+goodsDto.getGoodsId());
+
+                        Map psiResMap = JsonUtil.transferToObj(psiRes,Map.class);
+                        List psiData = (List) psiResMap.get("data");
+                        if (psiData.isEmpty()){
+                            psiRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/shop-goods-published/by-trilateral?user_id="+erpGoodsOrder.getCreatedBy()+"&trilateral_id="+goodsDto.getOuterId());
+                            psiResMap = JsonUtil.transferToObj(psiRes,Map.class);
+                            if (psiResMap.get("code").toString().equals("200")){
+                                psiData = (List) psiResMap.get("data");
+                            }
+                        }
+
+                        if (!psiData.isEmpty()){
+                            Map data = (Map) psiData.get(0);
+                            TShopGoodsPublishedDto tShopGoodsPublishedDto = new TShopGoodsPublishedDto();
+                            tShopGoodsPublishedDto.setTrilateralId(Long.parseLong(data.get("trilateral_id").toString()));
+                            tShopGoodsPublishedDto.setUserId(erpGoodsOrder.getCreatedBy());
+                            tShopGoodsPublishedDto.setProductId(Long.parseLong(data.get("product_id").toString()));
+                            tShopGoodsPublishedDto.setIsdistribution("0");
+                            distribution(warehouseSettings,erpGoodsOrder,tShopGoodsPublishedDto);
+                        }else{
+                            ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                            erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                            erpGoodsOrderQueue.setStatus("3");
+                            erpGoodsOrderQueue.setMsg("异常:未找到发布记录");
+                            erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+                        }
+                    }catch (Exception e){
+                        ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                        erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                        erpGoodsOrderQueue.setStatus("3");
+                        erpGoodsOrderQueue.setMsg("异常:系统异常请联系管理员");
+                        erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+                    }
                 }
             }
         }catch (Exception e){

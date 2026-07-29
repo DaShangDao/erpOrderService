@@ -44,7 +44,7 @@
         FROM t_shop_goods_published
         WHERE product_id = #{productId} and user_id = #{userId}
         GROUP BY erp_shop_id
-        order by id asc
+        order by id desc
     </select>
 
 
@@ -71,7 +71,7 @@
 
     <delete id="batchDeleteByShopProductTrilateral">
         DELETE FROM t_shop_goods_published
-        WHERE erp_shop_id = #{erpShopId} AND product_id = #{productId} AND trilateral_id = #{trilateralId}
+        WHERE erp_shop_id = #{erpShopId} AND trilateral_id = #{trilateralId}
     </delete>
 
     <insert id="batchInsert" useGeneratedKeys="false">

@@ -933,15 +933,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     erpGoodsOrderQueue.setOrderType("0");
                     List<ErpGoodsOrderQueue> erpGoodsOrderQueueList = erpGoodsOrderQueueService.getList(erpGoodsOrderQueue);
                     if (erpGoodsOrderQueueList == null || erpGoodsOrderQueueList.isEmpty()){
-                        List<TShopGoodsPublishedDto> tShopGoodsPublishedDtoList = tShopGoodsPublishedService.selectByTrilateralId(Long.parseLong(goodsDto.getGoodsId()));
-                        if (tShopGoodsPublishedDtoList.isEmpty() && goodsDto.getOuterId() != null){
-                            tShopGoodsPublishedDtoList = tShopGoodsPublishedService.selectByTrilateralId(Long.parseLong(goodsDto.getOuterId()));
-                        }
-                        if (!tShopGoodsPublishedDtoList.isEmpty()){
-                            // 订单状态
-                            erpGoodsOrderQueue.setStatus("0");
-                            erpGoodsOrderQueueService.save(erpGoodsOrderQueue);
-                        }
+                        // 订单状态
+                        erpGoodsOrderQueue.setStatus("0");
+                        erpGoodsOrderQueueService.save(erpGoodsOrderQueue);
                     }
                 }catch (Exception e){
                     System.out.println("推送销售订单失败");
