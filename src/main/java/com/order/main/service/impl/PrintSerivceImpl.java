@@ -337,8 +337,14 @@ public class PrintSerivceImpl implements IPrintSerivce {
         // 区
         String county = erpGoodsOrder.getCountry();
 
+        if (StringUtils.isEmpty(city)){
+            city = province;
+        }
+
         // 判断是否为直辖市（北京、上海、天津、重庆）
-        if (province.contains("北京") || province.contains("上海") || province.contains("天津") || province.contains("重庆") || StringUtils.isEmpty(county)) {
+        if (province.contains("北京") || province.contains("上海")
+                || province.contains("天津") || province.contains("重庆")
+                || StringUtils.isEmpty(county)) {
             receiver.setProv(province);   // 省
             receiver.setCity(province);   // 市 = 省
             receiver.setCounty(city);     // 区 = 原来的市

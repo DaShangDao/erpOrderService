@@ -77,7 +77,6 @@ public class ShopGoodsPublishedServiceImpl implements IShopGoodsPublishedService
     @Override
     @DS("slave")
     public ShopGoodsPublished selectByShopIdAndPlatformId(String shopId, String platformId){
-        System.out.println("查询已发布商品参数：shopId:"+shopId+";goodsId:"+platformId);
         return baseMapper.selectByShopIdAndPlatformId(shopId,platformId);
     }
 

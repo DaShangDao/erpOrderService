@@ -532,6 +532,9 @@ public class ErpGoodsOrderController  {
                         int count = Integer.parseInt(data.get("count").toString());
                         if (count > 0){
                             List list = (List) data.get("list");
+                            if(list.isEmpty()){
+                                break;
+                            }
                             for (int i = 0; i < list.size(); i++){
                                Map order = (Map) list.get(i);
                                Map goods = (Map) order.get("goods");
@@ -586,6 +589,9 @@ public class ErpGoodsOrderController  {
                             if (runningTaskList.size() > 0){
                                 runningTaskService.batchInsert(runningTaskList);
                             }
+                            if (pageNo >= 100){
+                                System.out.println("1111");
+                            }
                         }else{
                             break;
                         }
@@ -593,6 +599,7 @@ public class ErpGoodsOrderController  {
                         break;
                     }
                     pageNo++;
+
                 }
             }
         });
