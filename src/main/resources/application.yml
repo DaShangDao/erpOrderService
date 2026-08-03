@@ -93,6 +93,8 @@ scheduler:
     # 孔夫子订单定时器
     kfzOrder: false
     erpOrder: false
+    # 拼多多发货网络超时重试定时器
+    orderCompanyRetry: false
   daily:
     kfzOrder: "0 0/1 * * * ?"
     erpOrder: "* * * * * ?"

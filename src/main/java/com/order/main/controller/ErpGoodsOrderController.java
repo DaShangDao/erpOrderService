@@ -52,6 +52,7 @@ public class ErpGoodsOrderController  {
     private final TShopGoodsPublishedService tShopGoodsPublishedService;
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
     private final IErpGoodsOrderQueueService erpGoodsOrderQueueService;
+    private final IOrderCompanyRetryService orderCompanyRetryService;
 
 
 
@@ -413,6 +414,25 @@ public class ErpGoodsOrderController  {
                 jsonObject.put("tracking_number",orderNo);
                 String json = jsonObject.toString();
                 result = DllInitializer.executePddOrderSynchronization(PddUtil.CLIENT_ID,PddUtil.CLIENT_SECRET,shop.getToken(),companyName,json);
+                // 网络超时异常：记录到重试表，由定时器后续重试
+                if (result != null && (result.contains("网络超时异常") || result.contains("暂时无法识别该运单号"))){
+                    try {
+                        OrderCompanyRetry retry = new OrderCompanyRetry();
+                        retry.setShopId(shop.getId());
+                        retry.setErpOrderId(Long.parseLong(erpOrderId));
+                        retry.setOrderSn(erpGoodsOrder.getOrderSn());
+                        retry.setTrackingNumber(orderNo);
+                        retry.setCompanyName(companyName);
+                        retry.setRetryCount(0);
+                        retry.setStatus(0);
+                        retry.setLastResult(result);
+                        orderCompanyRetryService.save(retry);
+                        System.out.println("拼多多发货网络超时，已记录重试: shopId=" + shop.getId() + ", orderSn=" + erpGoodsOrder.getOrderSn());
+                    } catch (Exception e) {
+                        System.err.println("记录拼多多发货重试失败: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
             } else if(shop.getShopType().equals("2")){
                 if (companyName.equals("韵达快递")){
                     companyName = "韵达速递";
