@@ -208,6 +208,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         for (int i = 0; i < orderList.size(); i++){
             // 获取订单对象
             Map map = (Map) orderList.get(i);
+            System.out.println("订单信息开始："+map);
             // 订单编号
             String orderSn = map.get("orderId").toString();
             if(map.get("orderStatus").equals("ConfirmedToPay")){
@@ -263,8 +264,11 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     // 打印异常
                     e.printStackTrace();
                 }
+
+                System.out.println("查询订单数据：订单号："+erpGoodsOrder);
                 // erpGoodsOrder 非null判断
                 if(erpGoodsOrder == null){
+                    System.out.println("新建："+orderSn);
                     // 新建订单对象
                     erpGoodsOrder = new ErpGoodsOrder();
                     // 订单编号
@@ -299,6 +303,8 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     // 订单中商品sku列表对象
                     erpGoodsOrder.setGoodsDto(goodsDto);
                 }else{
+                    System.out.println("修改："+orderSn);
+
                     goodsDto = JsonUtil.transferToObj(erpGoodsOrder.getItemList(), GoodsDto.class);
                     goodsDto.setGoodsCount(item.get("number").toString());
                     erpGoodsOrder.setGoodsDto(goodsDto);
@@ -318,7 +324,8 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     erpGoodsOrder.setConfirmStatus(0L);
                 }
                 // 如果省为空再进行获取地址信息
-                if (StringUtils.isEmpty(erpGoodsOrder.getProvince()) || StringUtils.isEmpty(erpGoodsOrder.getTown())) {
+                if (StringUtils.isEmpty(erpGoodsOrder.getProvince()) || StringUtils.isEmpty(erpGoodsOrder.getTown())
+                || (erpGoodsOrder.getOrderStatus() == 2L && erpGoodsOrder.getAfterSalesStatus() == 0L)) {
                     erpGoodsOrder.setProvince(receiverInfo.get("provName") == null ? "" : receiverInfo.get("provName").toString());
                     erpGoodsOrder.setCity(receiverInfo.get("cityName") == null ? "" : receiverInfo.get("cityName").toString());
                     erpGoodsOrder.setCountry(receiverInfo.get("areaName") == null ? "" : receiverInfo.get("areaName").toString());
@@ -581,14 +588,19 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                                 newOrderList.add(order);
                                 callBackData += "订单号："+orderSn+";商品id："+itemId+";已执行订单库存同步操作;";
                             }else{
-                                // 校验是否下发
-                                OrderExternalGoods orderExternalGoods = orderExternalGoodsService.selectByOrderId(erpGoodsOrder.getId());
-                                // 未下发则重新执行下单操作
-                                if (orderExternalGoods == null){
-                                    newOrderList.add(order);
-                                    callBackData += "订单号："+orderSn+";商品id："+itemId+";订单未下发，重新执行下发流程;";
+                                ErpGoodsOrderQueue erpGoodsOrderQueue = erpGoodsOrderQueueService.selectByErpGoodsOrderId(erpGoodsOrder.getId());
+                                if (erpGoodsOrderQueue == null){
+                                    // 校验是否下发
+                                    OrderExternalGoods orderExternalGoods = orderExternalGoodsService.selectByOrderId(erpGoodsOrder.getId());
+                                    // 未下发则重新执行下单操作
+                                    if (orderExternalGoods == null){
+                                        newOrderList.add(order);
+                                        callBackData += "订单号："+orderSn+";商品id："+itemId+";订单未下发，重新执行下发流程;";
+                                    }else{
+                                        callBackData += "订单号："+orderSn+";商品id："+itemId+";订单已下发;";
+                                    }
                                 }else{
-                                    callBackData += "订单号："+orderSn+";商品id："+itemId+";订单已下发;";
+                                    callBackData += "订单号："+orderSn+";商品id："+itemId+";订单已推送;";
                                 }
                             }
                         }

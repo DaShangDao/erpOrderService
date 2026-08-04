@@ -13,6 +13,13 @@ public interface IErpGoodsOrderQueueService {
     ErpGoodsOrderQueue getById(Long id);
 
     /**
+     * 根据订单id查询
+     * @param erpGoodsOrderId
+     * @return
+     */
+    ErpGoodsOrderQueue selectByErpGoodsOrderId(Long erpGoodsOrderId);
+
+    /**
      * 获取未下发的订单数据
      * @return
      */

@@ -119,6 +119,18 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
 
     @Override
     @DS("taskDb")
+    public int deleteByErpShopId(Long erpShopId){
+        return tShopGoodsPublishedMapper.deleteByErpShopId(erpShopId);
+    }
+
+    @Override
+    @DS("taskDb")
+    public int deleteByTrilateralId(Long trilateralId){
+        return tShopGoodsPublishedMapper.deleteByTrilateralId(trilateralId);
+    }
+
+    @Override
+    @DS("taskDb")
     public void createSalesOrder(ErpGoodsOrder erpGoodsOrder,WarehouseSettings warehouseSettings) {
         try{
             System.out.println("【开始执行推送销售订单操作】-----------------------："+JsonUtil.transferToJson(erpGoodsOrder));
@@ -978,6 +990,16 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
         requestParams.put("association_order_no", erpGoodsOrder.getOrderSn());
         // 来源类型 0-预留 1-erp订单
         requestParams.put("from_type", "1");
+        // 订单日期
+        Long createdAt = erpGoodsOrder.getCreatedAt();
+        if (createdAt != null) {
+            // 判断是13位毫秒级还是10位秒级
+            if (createdAt.toString().length() == 13) {
+                createdAt = createdAt / 1000; // 毫秒转秒
+            }
+            // 如果是10位，保持不变
+            requestParams.put("order_date", createdAt.toString());
+        }
         // 商品id
         requestParams.put("items[0][product_id]",psiProduct.get("id").toString());
         // 单价

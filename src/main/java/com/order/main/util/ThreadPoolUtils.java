@@ -49,7 +49,7 @@ public class ThreadPoolUtils {
             // 获取处理器数量
             int cpuNum = Runtime.getRuntime().availableProcessors();
             // 根据cpu数量,计算出合理的线程并发数
-            int maximumPoolSize = cpuNum * 2 + 1;
+            int maximumPoolSize = cpuNum * 5;
             // 核心线程数、最大线程数、闲置线程存活时间、时间单位、线程队列、线程工厂、当前线程数已经超过最大线程数时的异常处理策略
             threadPool = new ThreadPoolExecutor(maximumPoolSize - 1,
                     maximumPoolSize,

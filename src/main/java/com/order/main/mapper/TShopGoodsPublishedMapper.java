@@ -52,6 +52,10 @@ public interface TShopGoodsPublishedMapper {
 
     int deleteById(Long id);
 
+    int deleteByErpShopId(Long erpShopId);
+
+    int deleteByTrilateralId(Long trilateralId);
+
     /**
      * 按 erp_shop_id + product_id + trilateral_id 批量删除
      */

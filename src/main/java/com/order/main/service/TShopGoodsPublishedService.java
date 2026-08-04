@@ -54,6 +54,9 @@ public interface TShopGoodsPublishedService {
 
     int deleteById(Long id);
 
+    int deleteByErpShopId(Long erpShopId);
+
+    int deleteByTrilateralId(Long trilateralId);
 
     /**
      * 进销存 库存同步方法

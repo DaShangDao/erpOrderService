@@ -60,6 +60,14 @@
         delete FROM t_shop_goods_published where id = #{id}
     </delete>
 
+    <delete id="deleteByErpShopId">
+        delete FROM t_shop_goods_published where erp_shop_id = #{erpShopId}
+    </delete>
+
+    <delete id="deleteByTrilateralId">
+        delete FROM t_shop_goods_published where trilateral_id = #{trilateralId}
+    </delete>
+
     <update id="updateShopGoodsPublished">
         UPDATE t_shop_goods_published SET del_flag = 1,update_time = UNIX_TIMESTAMP() WHERE id = #{id}
     </update>

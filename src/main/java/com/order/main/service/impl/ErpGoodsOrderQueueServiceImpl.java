@@ -23,6 +23,18 @@ public class ErpGoodsOrderQueueServiceImpl implements IErpGoodsOrderQueueService
         return baseMapper.selectById(id);
     }
 
+
+    /**
+     * 根据订单id查询
+     * @param erpGoodsOrderId
+     * @return
+     */
+    @Override
+    @DS("master")
+    public ErpGoodsOrderQueue selectByErpGoodsOrderId(Long erpGoodsOrderId){
+        return baseMapper.selectByErpGoodsOrderId(erpGoodsOrderId);
+    }
+
     /**
      * 获取未下发的订单数据
      * @return

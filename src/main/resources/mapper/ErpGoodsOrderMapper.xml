@@ -176,6 +176,8 @@
     <select id="selectBoOrderNoAndGoodsId" resultMap="ErpGoodsOrderResult">
         <include refid="selectErpGoodsOrderVo"/>
         where order_sn = #{orderSn} and item_list like concat('%', #{goodsId}, '%')
+        order by id asc
+        limit 1
     </select>
 
     <!-- 查询列表 -->

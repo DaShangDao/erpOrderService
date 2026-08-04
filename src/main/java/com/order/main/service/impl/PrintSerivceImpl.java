@@ -245,7 +245,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
         // 返回值对象定义
         Map result = new HashMap();
         ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
-//        erpGoodsOrder.setOrderStatus(2L);
+        erpGoodsOrder.setOrderStatus(2L);
         if (deliveryMode.equals("1")){
             // 订单号
             String orderSn = map.get("orderSn") == null ? "" : map.get("orderSn").toString();
@@ -289,11 +289,11 @@ public class PrintSerivceImpl implements IPrintSerivce {
         // 获取订单信息
         erpGoodsOrder = erpGoodsOrderList.get(0);
 
-//        if (erpGoodsOrder.getOrderStatus() != 2L || erpGoodsOrder.getAfterSalesStatus() != 0L){
-//            result.put("code","500");
-//            result.put("msg","创建快递订单失败：订单未处于待发货状态");
-//            return result;
-//        }
+        if (erpGoodsOrder.getOrderStatus() != 2L || erpGoodsOrder.getAfterSalesStatus() != 0L){
+            result.put("code","500");
+            result.put("msg","创建快递订单失败：订单未处于待发货状态");
+            return result;
+        }
 
         // 获取快递账号信息
         Map fastMailMap = JsonUtil.transferToObj(map.get("fastMailMap").toString(),Map.class);
