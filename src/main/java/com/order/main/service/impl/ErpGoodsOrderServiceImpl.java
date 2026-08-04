@@ -799,15 +799,6 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                 erpGoodsOrder.setConfirmAt(TimestampConverter.toTimestamp(orderInfo.get("confirm_time").toString()));
                 // 发货时间 时间戳
                 erpGoodsOrder.setShippingAt(TimestampConverter.toTimestamp(orderInfo.get("shipping_time").toString()));
-                // 如果省为空再进行获取地址信息
-                if (StringUtils.isEmpty(erpGoodsOrder.getProvince())) {
-                    erpGoodsOrder.setProvince(province);
-                    erpGoodsOrder.setCity(city);
-                    erpGoodsOrder.setCountry(country);
-                    erpGoodsOrder.setTown(town);
-                    erpGoodsOrder.setReceiverName(receiverName);
-                    erpGoodsOrder.setMobile(mobile);
-                }
                 // 快递单号
                 erpGoodsOrder.setTrackingNumber(getStringValue(orderInfo, "tracking_number"));
                 // 修改前售后状态
@@ -816,6 +807,17 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                 erpGoodsOrder.setAfterSalesStatus(getLongValue(orderInfo, "after_sales_status"));
                 // 订单最近一次更新时间
                 erpGoodsOrder.setUpdatedAt(TimestampConverter.toTimestamp(orderInfo.get("updated_at").toString()));
+
+                // 如果省为空再进行获取地址信息
+                if (StringUtils.isEmpty(erpGoodsOrder.getProvince())
+                        || (erpGoodsOrder.getOrderStatus() == 2L && erpGoodsOrder.getAfterSalesStatus() == 0L)) {
+                    erpGoodsOrder.setProvince(province);
+                    erpGoodsOrder.setCity(city);
+                    erpGoodsOrder.setCountry(country);
+                    erpGoodsOrder.setTown(town);
+                    erpGoodsOrder.setReceiverName(receiverName);
+                    erpGoodsOrder.setMobile(mobile);
+                }
 
                 // 订单具体操作方法
                 orderOperation(shop,erpGoodsOrder,manua);
@@ -1154,8 +1156,10 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         }
         // 发货时间 时间戳
         erpGoodsOrder.setShippingAt(getLongValue(orderDetailDataMap, "consign_time"));
+
         // 如果省为空再进行获取地址信息
-        if (StringUtils.isEmpty(erpGoodsOrder.getProvince())) {
+        if (StringUtils.isEmpty(erpGoodsOrder.getProvince())
+                || (erpGoodsOrder.getOrderStatus() == 2L && erpGoodsOrder.getAfterSalesStatus() == 0L)) {
             // 收件地省份
             erpGoodsOrder.setProvince(getStringValue(orderDetailDataMap, "prov_name"));
             // 收件地城市

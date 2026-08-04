@@ -84,20 +84,6 @@ public class PddConfig {
                         // 订单类型
                         String orderType = message.getType();
 
-                        if (!orderType.equals("pdd_goods_GoodsOffShelf")                     // 商品下架消息
-                                && !orderType.equals("pdd_goods_GoodsOnShelf")                   // 商品上架消息
-                                && !orderType.equals("pdd_goods_GoodsAdd")                       // 商品新建消息
-                                && !orderType.equals("pdd_goods_GoodsUpdate")                    // 商品更新消息
-                                && !orderType.equals("pdd_goods_GoodsDelete")                    // 商品删除消息
-                                && !orderType.equals("pdd_goods_GoodsCheckReject")){
-                            // 记录日志到文件（按 mall_id 分文件，50MB自动轮转）
-                            String timeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-                            Long mallID = message.getMallID();
-                            if (mallID != null) {
-                                getMessageLogger(mallID).info("[" + timeStr + "] " + message.getType() + " | " + message.getContent());
-                            }
-                        }
-
                         if(orderType.equals("pdd_trade_TradeConfirmed")                                 // 交易确认消息
                                         || orderType.equals("pdd_trade_TradeSellerShip")                // 卖家发货消息
                                         || orderType.equals("pdd_trade_TradeSuccess")                   // 交易成功消息
@@ -105,6 +91,7 @@ public class PddConfig {
                                         || orderType.equals("pdd_refund_RefundAgreeAgreement")          // 同意退款协议消息
                                         || orderType.equals("pdd_refund_RefundClosed")                  // 售后单关闭消息
                                         || orderType.equals("pdd_trade_TradeRiskChanged")               // 订单审核状态变更
+                                        || orderType.equals("pdd_trade_TradeLogisticsAddressChanged")   //修改交易收货地址消息
                         ){
                             // 获取订单详情信息
                             erpGoodsOrderService.pddOrderPush(message,false);
@@ -129,6 +116,8 @@ public class PddConfig {
                             }
                             // 将消息存入redis    key：shopId  value :list<Map>  type   erpShopId  shopId  goodsId
                             erpGoodsOrderService.messageSetRedis(message);
+                        }else{
+                            System.out.println("未知类型："+orderType);
                         }
                     }
                 });
