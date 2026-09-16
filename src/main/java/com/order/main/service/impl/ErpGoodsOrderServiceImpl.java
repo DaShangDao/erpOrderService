@@ -75,6 +75,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     private final IErpGoodsOrderAccountsService erpGoodsOrderAccountsService;
     private final IUserSettingsAttributeService userSettingsAttributeService;
     private final IShopService shopService;
+    private final ShopCacheService shopCacheService;
     private final ShopGoodsPublishedClient shopGoodsPublishedClient;
     private final RedisService redisService;
     private final IRunningTaskService runningTaskService;
@@ -82,6 +83,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
 
     private final IErpGoodsOrderQueueService erpGoodsOrderQueueService;
     private final IStockChangeLogService stockChangeLogService;
+    private final IUserRoleService userRoleService;
 
     @Autowired
     private TokenUtils tokenUtils;
@@ -402,6 +404,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                 Map orderMap = (Map) orderList.get(i);
                 String orderSn = orderMap.get("order_sn").toString();
 
+                if(orderSn.equals("260908-556689058100898")){
+                    System.out.println("1111");
+                }
                 // 定义日志数据
                 RunningTask runningTask = new RunningTask();
                 runningTask.setTaskId(Long.parseLong(taskId));
@@ -650,7 +655,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
 
     @Override
     public int pddOrderPush(Message message,Boolean manua){
-        Shop shop = shopService.selectShopByMallId(message.getMallID()+"");
+        Shop shop = shopCacheService.getShop(message.getMallID());
         if(shop != null){
             // 在这里处理接收到的消息
             System.out.println("订单消息: " + message);
@@ -833,7 +838,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
      */
     @Override
     public void pddOtherMessage(Message message){
-        Shop shop = shopService.selectShopByMallId(message.getMallID()+"");
+        Shop shop = shopCacheService.getShop(message.getMallID());
         if(shop != null){
             Map contentMap = JsonUtil.transferToObj(message.getContent(),Map.class);
             String orderSn = contentMap.get("tid").toString();
@@ -880,7 +885,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     @Override
     public void messageSetRedis(Message message){
         String type = message.getType();
-        Shop shop = shopService.selectShopByMallId(message.getMallID()+"");
+        Shop shop = shopCacheService.getShop(message.getMallID());
         if (shop != null){
             Map map = new HashMap();
             map.put("type",type);
@@ -930,6 +935,10 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                 editOrder(erpGoodsOrder,shop,erpGoodsOrder.getGoodsDto(),warehouseSettingsVo);
             }
         }
+        // 如果是孔夫子订单并且首次获得孔夫子订单是买家已取消状态，则不执行下发操作
+        if(shop.getShopType().equals("2") && erpGoodsOrder.getAfterSalesStatus() == 11L && manua){
+            manua = false;
+        }
         // 如果设置表为空，或者库存同步形式是 支付减库存，则 ifOrderStatus = 2
         Long ifOrderStatus = warehouseSettingsVo == null || warehouseSettingsVo.getStockSynchronizeType() == 1 ? 2L : 1L;
         // 校验订单状态是否与设置模板中库存同步设置一致并且不存在售后
@@ -946,7 +955,14 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                     // 订单类型
                     erpGoodsOrderQueue.setOrderType("0");
                     List<ErpGoodsOrderQueue> erpGoodsOrderQueueList = erpGoodsOrderQueueService.getList(erpGoodsOrderQueue);
-                    if (erpGoodsOrderQueueList == null || erpGoodsOrderQueueList.isEmpty()){
+                    // 查询用户是否是非分销商
+                    int count = 1;
+                    try{
+                        count = userRoleService.selecUserRole(erpGoodsOrder.getCreatedBy());
+                    }catch (Exception e){
+                        System.out.println("查询角色失败");
+                    }
+                    if (count == 1 && (erpGoodsOrderQueueList == null || erpGoodsOrderQueueList.isEmpty())){
                         // 订单状态
                         erpGoodsOrderQueue.setStatus("0");
                         erpGoodsOrderQueueService.save(erpGoodsOrderQueue);
@@ -2133,6 +2149,17 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     @Override
     public List<ErpGoodsOrder> selectOrderList(ErpGoodsOrder order){
         return baseMapper.selectOrderList(order);
+    }
+
+    /**
+     * 分页查询ERP订单（支持动态条件）
+     *
+     * @param order 查询条件对象
+     * @return 订单列表
+     */
+    @Override
+    public List<ErpGoodsOrder> selectErpOrderList(ErpGoodsOrder order){
+        return baseMapper.selectErpOrderList(order);
     }
 
     /**

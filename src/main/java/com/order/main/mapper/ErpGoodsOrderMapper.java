@@ -58,6 +58,14 @@ public interface ErpGoodsOrderMapper {
 
 
     /**
+     * 查询列表
+     * @param order
+     * @return
+     */
+    List<ErpGoodsOrder> selectErpOrderList(@Param("order") ErpGoodsOrder order);
+
+
+    /**
      * 根据ID列表查询订单
      * @param ids ID列表
      * @return 订单列表

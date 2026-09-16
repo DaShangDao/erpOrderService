@@ -156,6 +156,9 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                 if (!tShopGoodsPublishedDtoList.isEmpty()){
                     // 获取库存持有人
                     TShopGoodsPublishedDto tShopGoodsPublishedDto = tShopGoodsPublishedDtoList.get(0);
+                    if(tShopGoodsPublishedDto.getUserId() == 0){
+                        tShopGoodsPublishedDto.setUserId(erpGoodsOrder.getCreatedBy());
+                    }
                     distribution(warehouseSettings,erpGoodsOrder,tShopGoodsPublishedDto);
                 }else{
                     try{
@@ -215,7 +218,31 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
     public String synchronizeStockNew(String productId,Long userId,int inventory,int oldInventory,ErpGoodsOrder erpGoodsOrder){
         String log = "库存同步操作记录：";
         // 根据商品id获取店铺关联信息
-        List<TShopGoodsPublishedDto> shopGoodsPublishedDtoList = selectByProductId(Long.parseLong(productId),userId);
+        List<TShopGoodsPublishedDto> shopGoodsPublishedDtoList = new ArrayList<>();
+
+        // 查询是否
+        String psiRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/shop-goods-published/by-product-id?user_id="+erpGoodsOrder.getCreatedBy()+"&product_id="+productId);
+        Map psiResMap = JsonUtil.transferToObj(psiRes,Map.class);
+        List psiData = (List) psiResMap.get("data");
+
+        if (!psiData.isEmpty()){
+            for (int i=0;i<psiData.size();i++){
+                Map data = (Map) psiData.get(i);
+                TShopGoodsPublishedDto tShopGoodsPublishedDto = new TShopGoodsPublishedDto();
+                tShopGoodsPublishedDto.setTrilateralId(Long.parseLong(data.get("trilateral_id").toString()));
+                tShopGoodsPublishedDto.setUserId(erpGoodsOrder.getCreatedBy());
+                tShopGoodsPublishedDto.setProductId(Long.parseLong(data.get("product_id").toString()));
+                tShopGoodsPublishedDto.setIsdistribution("0");
+                tShopGoodsPublishedDto.setErpShopId(Long.parseLong(data.get("shop_erp_id").toString()));
+                shopGoodsPublishedDtoList.add(tShopGoodsPublishedDto);
+            }
+        }
+
+        if (shopGoodsPublishedDtoList.isEmpty()){
+            shopGoodsPublishedDtoList = selectByProductId(Long.parseLong(productId),userId);
+        }
+
+
         // 如果已发布记录不存在
         if(shopGoodsPublishedDtoList.isEmpty()){
             // 记录日志
@@ -274,6 +301,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                                 Map goodsDetailGetResponse = (Map) pddResMap.get("goods_detail_get_response");
                                 List skuList = (List) goodsDetailGetResponse.get("sku_list");
                                 Map skuMap = (Map) skuList.get(0);
+                                String skuId = skuMap.get("sku_id").toString();
                                 BigDecimal stock = new BigDecimal(skuMap.get("quantity").toString());
                                 // 如果psi的库存比平台的库存少，那么用psi库存
                                 if (stock.compareTo(new BigDecimal(oldInventory)) > 0){
@@ -286,7 +314,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                                 synchronizationShopLogUpdate.put("inventory",inventoryNew.toString());
                                 synchronizationShopLogUpdate.put("inventory_old",stock.toString());
                                 // 调用拼多多修改库存
-                                resultMap = editStockService.pddEditStock(shop,sgp.getTrilateralId().toString(),inventoryNew+"",1);
+                                resultMap = editStockService.pddEditStockNew(shop,sgp.getTrilateralId().toString(),inventoryNew+"",1,skuId);
                                 log += "拼多多店铺："+shop.getShopName() +":"+resultMap.get("msg")+";";
                             }else{
                                 Map errorResponse = (Map) pddResMap.get("error_response");
@@ -328,6 +356,8 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                                     resultMap = editStockService.kfzEditStock(shop.getToken(),sgp.getTrilateralId().toString(),inventoryNew+"");
                                     log += "孔夫子店铺："+shop.getShopName() +":"+resultMap.get("msg")+";";
                                 }else{
+                                    resultMap.put("code","500");
+                                    resultMap.put("msg","未查询到商品信息");
                                     log += "孔夫子店铺："+shop.getShopName() +":未查询到商品信息;";
                                 }
                             }else{
@@ -631,7 +661,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                 PsiSplitAccountConfig psiSplitAccountConfigWarehouse = new PsiSplitAccountConfig();
                 // 分润方
                 PsiSplitAccountConfig psiSplitAccountConfigPlatform = new PsiSplitAccountConfig();
-                if (psiEmployees.getRuleValue() != null){
+                if (psiEmployees != null && psiEmployees.getRuleValue() != null){
                     List ruleValueList = JsonUtil.transferToObj(psiEmployees.getRuleValue(),List.class);
 
                     for (Object ruleValue : ruleValueList){
@@ -647,6 +677,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                         }
                     }
                 }else{
+                    psiEmployees = new PsiEmployees();
                     // 默认模板id
                     psiEmployees.setSplitAccountConfigId(1L);
                     psiEmployees.setRuleName("默认规则");
@@ -1292,48 +1323,108 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                 // 获取商品属于用户
                 try {
                     List<TShopGoodsPublishedDto> tShopGoodsPublishedDtoList = tShopGoodsPublishedMapper.selectByTrilateralId(Long.parseLong(goodsId));
+                    if(tShopGoodsPublishedDtoList.isEmpty()){
+                        // 查询是否
+                        String psiRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/shop-goods-published/by-trilateral?user_id="+erpGoodsOrder.getCreatedBy()+"&trilateral_id="+goodsDto.getGoodsId());
+                        Map psiResMap = JsonUtil.transferToObj(psiRes,Map.class);
+                        List psiData = (List) psiResMap.get("data");
+                        if (psiData.isEmpty()){
+                            psiRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/shop-goods-published/by-trilateral?user_id="+erpGoodsOrder.getCreatedBy()+"&trilateral_id="+goodsDto.getOuterId());
+                            psiResMap = JsonUtil.transferToObj(psiRes,Map.class);
+                            if (psiResMap.get("code").toString().equals("200")){
+                                psiData = (List) psiResMap.get("data");
+                            }
+                        }
+                        if (!psiData.isEmpty()){
+                            Map data = (Map) psiData.get(0);
+                            TShopGoodsPublishedDto tShopGoodsPublishedDto = new TShopGoodsPublishedDto();
+                            tShopGoodsPublishedDto.setTrilateralId(Long.parseLong(data.get("trilateral_id").toString()));
+                            tShopGoodsPublishedDto.setUserId(erpGoodsOrder.getCreatedBy());
+                            tShopGoodsPublishedDto.setProductId(Long.parseLong(data.get("product_id").toString()));
+                            tShopGoodsPublishedDto.setIsdistribution("0");
+                            tShopGoodsPublishedDtoList.add(tShopGoodsPublishedDto);
+                        }
+                    }
                     Long aboutId = tShopGoodsPublishedDtoList.get(0).getUserId();
                     Long productId = tShopGoodsPublishedDtoList.get(0).getProductId();
 
-                    // 创建库存同步记录
-                    Map synchronizationShopLog = new HashMap();
-                    // 创建PSI库存同步日志
-                    String logId2 = savePsiSyncLog(
-                            String.valueOf(productId),
-                            String.valueOf(aboutId),
-                            JsonUtil.transferToJson(erpGoodsOrder),
-                            erpGoodsOrder.getItemList(),
-                            "解锁库存",
-                            String.valueOf(aboutId)
-                    );
 
-                    // 解锁库存
-                    Map unlockInventoryMap = new HashMap();
-                    // 订单id
-                    unlockInventoryMap.put("association_order_id",erpGoodsOrder.getId());
-                    // 订单号
-                    unlockInventoryMap.put("association_order_no",erpGoodsOrder.getOrderSn());
-                    // 用户id
-                    unlockInventoryMap.put("about_id",aboutId);
-                    String unlockInventoryRes = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/sales-order/unlock-inventory",unlockInventoryMap);
-                    Map unlockInventoryResMap = JsonUtil.transferToObj(unlockInventoryRes,Map.class);
+                    Boolean checkOutOfStock = true;
 
-                    // 获取库存
-                    String stockRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/product/getProductInventory?user_id="+aboutId+"&product_id="+productId+"&type=1");
-                    Map stockResMap = JsonUtil.transferToObj(stockRes,Map.class);
-                    Map stcokData = (Map) stockResMap.get("data");
+                    try{
+                        String checkOutOfStockRes = InterfaceUtils.getInterface("https://psi.api.buzhiyushu.cn","/api/product/check-out-of-stock?about_id="+aboutId+"&goods_id="+productId);
+                        Map checkOutOfStockResMap = JsonUtil.transferToObj(checkOutOfStockRes,Map.class);
+                        if(checkOutOfStockResMap.get("data") != null){
+                            Map data = (Map) checkOutOfStockResMap.get("data");
+                            String isOutOfStock = data.get("is_out_of_stock").toString();
+                            // isOutOfStock   0 正常  1 销毁
+                            if (isOutOfStock.equals("1")){
+                                checkOutOfStock = false;
+                            }
+                        }
+                    }catch (Exception e){
+                        System.out.println("退款查询商品是否缺货异常：");
+                        e.printStackTrace();
+                    }
+
+                    if (checkOutOfStock){
+                        // 创建PSI库存同步日志
+                        String logId2 = savePsiSyncLog(
+                                String.valueOf(productId),
+                                String.valueOf(aboutId),
+                                JsonUtil.transferToJson(erpGoodsOrder),
+                                erpGoodsOrder.getItemList(),
+                                "解锁库存",
+                                String.valueOf(aboutId)
+                        );
+
+                        // 解锁库存
+                        Map unlockInventoryMap = new HashMap();
+                        // 订单id
+                        unlockInventoryMap.put("association_order_id",erpGoodsOrder.getId());
+                        // 订单号
+                        unlockInventoryMap.put("association_order_no",erpGoodsOrder.getOrderSn());
+                        // 用户id
+                        unlockInventoryMap.put("about_id",aboutId);
+                        String unlockInventoryRes = InterfaceUtils.postForm(UrlUtil.getNewWarehouse(),"/api/sales-order/unlock-inventory",unlockInventoryMap);
+                        Map unlockInventoryResMap = JsonUtil.transferToObj(unlockInventoryRes,Map.class);
+
+                        // 获取库存
+                        String stockRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/product/getProductInventory?user_id="+aboutId+"&product_id="+productId+"&type=1");
+                        Map stockResMap = JsonUtil.transferToObj(stockRes,Map.class);
+                        Map stcokData = (Map) stockResMap.get("data");
                         // 库存
-                    BigDecimal quantity = new BigDecimal(stcokData.get("quantity").toString());
+                        BigDecimal quantity = new BigDecimal(stcokData.get("quantity").toString());
 
-                    updatePsiSyncLog(logId2, String.valueOf(aboutId), "1",
-                            String.valueOf(quantity), quantity.subtract(BigDecimal.ONE).toString(),
-                            "200", "退款回滚成功");
+                        updatePsiSyncLog(logId2, String.valueOf(aboutId), "1",
+                                String.valueOf(quantity), quantity.subtract(BigDecimal.ONE).toString(),
+                                "200", "退款回滚成功");
 
-                    // 同步库存
-                    String log = synchronizeStockNew(productId.toString(),aboutId,Integer.parseInt(goodsDto.getGoodsCount()),quantity.intValue(),erpGoodsOrder);
-                    // 退款成功
-                    erpGoodsOrderQueue.setStatus("1");
-                    erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";退款回滚成功："+log+";");
+                        // 同步库存
+                        String log = synchronizeStockNew(productId.toString(),aboutId,Integer.parseInt(goodsDto.getGoodsCount()),quantity.intValue(),erpGoodsOrder);
+                        // 退款成功
+                        erpGoodsOrderQueue.setStatus("1");
+                        erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";退款回滚成功："+log+";");
+                    }else{
+                        // 创建PSI库存同步日志
+                        String logId2 = savePsiSyncLog(
+                                String.valueOf(productId),
+                                String.valueOf(aboutId),
+                                JsonUtil.transferToJson(erpGoodsOrder),
+                                erpGoodsOrder.getItemList(),
+                                "商品缺货,同步0库存，下架商品",
+                                String.valueOf(aboutId)
+                        );
+
+                        updatePsiSyncLog(logId2, String.valueOf(aboutId), "1",
+                                "0", "0",
+                                "200", "退款成功,缺货商品0库存同步");
+                        // 同步库存
+                        String log = synchronizeStockNew(productId.toString(),aboutId,Integer.parseInt(goodsDto.getGoodsCount()),0,erpGoodsOrder);
+                        // 退款成功
+                        erpGoodsOrderQueue.setStatus("1");
+                        erpGoodsOrderQueue.setMsg( "订单编号："+erpGoodsOrder.getOrderSn()+";商品名称："+goodsDto.getGoodsName()+";退款成功："+log+";同步0库存");
+                    }
                 } finally {
                     // 使用完后清理
                     DynamicDataSourceContextHolder.poll();

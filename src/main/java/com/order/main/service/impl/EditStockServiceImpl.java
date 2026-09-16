@@ -121,6 +121,9 @@ public class EditStockServiceImpl implements IEditStockService {
         // 商品id
         map.put("itemId",itemId);
         // 库存数量
+        if (Long.parseLong(number) < 0){
+            number = "0";
+        }
         map.put("number",number);
         try{
             // 调用孔夫子接口
@@ -171,6 +174,57 @@ public class EditStockServiceImpl implements IEditStockService {
             // 获取skuId
             skuId = (String) successData.get("skuId");
         }
+        // skuId不为空
+        if(skuId != null){
+            try {
+                // 调用pdd接口
+                PopClient client = new PopHttpClient(PddUtil.CLIENT_ID, PddUtil.CLIENT_SECRET);
+                PddGoodsQuantityUpdateRequest request = new PddGoodsQuantityUpdateRequest();
+                // 商品id
+                request.setGoodsId(Long.parseLong(goodsId));
+                // skuId
+                request.setSkuId(Long.parseLong(skuId));
+                // 	库存更新方式，可选。1为全量更新，2为增量更新。如果不填，默认为全量更新
+                request.setUpdateType(updateType);
+                // 库存数量
+                request.setQuantity(Long.parseLong(quantity));
+                // 调用修改库存接口
+                PddGoodsQuantityUpdateResponse response = client.syncInvoke(request, shop.getToken());
+                String msg = "";
+                if(response.getErrorResponse() != null){
+                    msg = response.getErrorResponse().getErrorMsg();
+                    resultMap.put("code","500");
+                }else if(!response.getGoodsQuantityUpdateResponse().getIsSuccess()){
+                    resultMap.put("code","500");
+                    msg = "更新库存失败";
+                }else{
+                    resultMap.put("code","200");
+                    msg = "更新库存成功";
+                }
+                resultMap.put("msg",msg);
+            } catch (Exception e) {
+                resultMap.put("code","500");
+                resultMap.put("msg","更新库存失败："+e.getMessage());
+            }
+        }else{
+            resultMap.put("code","500");
+            resultMap.put("msg","未获取到商品skuId,请重新执行店铺商品拉取任务");
+        }
+        return resultMap;
+    }
+
+
+    /**
+     * 拼多多修改库存
+     * @param shop      店铺信息
+     * @param goodsId   商品id
+     * @param quantity  库存数量
+     */
+    @Override
+    public Map pddEditStockNew(Shop shop,String goodsId,String quantity,int updateType,String skuId) {
+        // 返回参数
+        Map resultMap = new HashMap();
+
         // skuId不为空
         if(skuId != null){
             try {

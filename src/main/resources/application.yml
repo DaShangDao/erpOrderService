@@ -95,6 +95,10 @@ scheduler:
     erpOrder: false
     # 拼多多发货网络超时重试定时器
     orderCompanyRetry: false
+    # 拼多多订单/备注消息消费定时器
+    pddOrderMessage: false
+    # 拼多多商品消息消费定时器
+    pddGoodsMessage: false
   daily:
     kfzOrder: "0 0/1 * * * ?"
     erpOrder: "* * * * * ?"

@@ -149,6 +149,8 @@ public interface IErpGoodsOrderService {
     List<ErpGoodsOrder> selectOrderList(ErpGoodsOrder order);
 
 
+    List<ErpGoodsOrder> selectErpOrderList(ErpGoodsOrder order);
+
     /**
      * 根据ID列表查询订单
      * @param ids ID列表

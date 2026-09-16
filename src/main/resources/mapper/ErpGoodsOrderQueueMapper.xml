@@ -30,6 +30,7 @@
         <include refid="Base_Column_List"/>
         FROM t_erp_goods_order_queue
         WHERE erp_goods_order_id = #{erpGoodsOrderId}
+        limit 1
     </select>
 
     <select id="selectByStatus" resultType="com.order.main.entity.ErpGoodsOrder">

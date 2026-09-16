@@ -278,6 +278,19 @@ public class DllInitializer {
                 shippingComName, orderId, shippingId, shippingCom, shipmentNum, userDefined, moreShipmentNum);
     }
 
+    public static String executeKongfzOrderRedeliver(int appId, String appSecret, String accessToken,
+                                                           String shippingComName, int orderId, String shippingId,
+                                                           String companyCode, String shipmentNum,
+                                                           String userDefined, String moreShipmentNum) {
+        if (!kfzInitialized) {
+            throw new IllegalStateException("孔夫子 DLL库未初始化");
+        }
+        return KfzSimpleDllLoader.executeKongfzOrderRedeliver(appId, appSecret, accessToken,
+                shippingComName, orderId, shippingId, companyCode, shipmentNum, userDefined, moreShipmentNum);
+    }
+
+
+
     /**
      * 执行闲鱼订单同步
      */
@@ -293,6 +306,22 @@ public class DllInitializer {
 
         return XySimpleDllLoader.executeXyOrderSynchronization(jsonData, xyConfigPath);
     }
+
+
+    public static String executeXyModifyWaybillNo(String jsonData) {
+        if (!xyInitialized) throw new IllegalStateException("闲鱼 DLL库未初始化");
+
+        if (xyConfigPath != null) {
+            xyConfigPath = cleanFilePath(xyConfigPath);
+            System.out.println("使用配置文件路径: " + xyConfigPath);
+        } else {
+            System.out.println("警告：配置文件路径为空，将使用默认配置");
+        }
+
+        return XySimpleDllLoader.executeXyModifyWaybillNo(jsonData, xyConfigPath);
+    }
+
+
 
     /**
      * 拉取订单

@@ -46,13 +46,12 @@ public class ErpGoodsOrderController  {
     private final IUserSettingsAttributeService userSettingsAttributeService;
     private final IShopGoodsPublishedService shopGoodsPublishedService;
     private final IOrderExternalGoodsService orderExternalGoodsService;
-    private final IStockChangeLogService stockChangeLogService;
     private final IRunningTaskService runningTaskService;
     private final ICourierLogService courierLogService;
     private final TShopGoodsPublishedService tShopGoodsPublishedService;
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
-    private final IErpGoodsOrderQueueService erpGoodsOrderQueueService;
     private final IOrderCompanyRetryService orderCompanyRetryService;
+    private final IUserRoleService userRoleService;
 
 
 
@@ -379,7 +378,8 @@ public class ErpGoodsOrderController  {
         // 获取订单信息
         ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpOrderId));
 
-        if(erpGoodsOrder.getOrderStatus() == 2L && erpGoodsOrder.getAfterSalesStatus() == 0L){
+        if((erpGoodsOrder.getOrderStatus() == 2L || erpGoodsOrder.getOrderStatus() == 3L)
+                && erpGoodsOrder.getAfterSalesStatus() == 0L){
             String companyName = "";
             if(StringUtils.isEmpty(code)){
                 ExpressDeliveryOrder expressDeliveryOrder = expressDeliveryOrderService.getByErpOrderId(erpOrderId);
@@ -412,6 +412,9 @@ public class ErpGoodsOrderController  {
                 JSONObject jsonObject = new JSONObject();
                 jsonObject.put("order_sn",erpGoodsOrder.getOrderSn());
                 jsonObject.put("tracking_number",orderNo);
+                if (StringUtils.isNotEmpty(erpGoodsOrder.getTrackingNumber()) && erpGoodsOrder.getOrderStatus() != 2L){
+                    jsonObject.put("redelivery_type","2");
+                }
                 String json = jsonObject.toString();
                 result = DllInitializer.executePddOrderSynchronization(PddUtil.CLIENT_ID,PddUtil.CLIENT_SECRET,shop.getToken(),companyName,json);
                 // 网络超时异常：记录到重试表，由定时器后续重试
@@ -439,9 +442,32 @@ public class ErpGoodsOrderController  {
                 }else if (companyName.contains("邮政")){
                     companyName = "中国邮政";
                 }
-                // 孔夫子 同步订单快递单号
-                result = DllInitializer.executeKongfzOrderSynchronization(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
-                        companyName,Integer.parseInt(erpGoodsOrder.getOrderSn()),"","",orderNo,"","");
+                if (StringUtils.isNotEmpty(erpGoodsOrder.getTrackingNumber()) && erpGoodsOrder.getOrderStatus() != 2L){
+                    result = DllInitializer.executeKongfzOrderRedeliver(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
+                            companyName,Integer.parseInt(erpGoodsOrder.getOrderSn()),"","",orderNo,"","");
+                }else{
+                    // 孔夫子 同步订单快递单号
+                    result = DllInitializer.executeKongfzOrderSynchronization(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
+                            companyName,Integer.parseInt(erpGoodsOrder.getOrderSn()),"","",orderNo,"","");
+                }
+
+                if (!result.contains("订单发货成功")){
+                    try {
+                        OrderCompanyRetry retry = new OrderCompanyRetry();
+                        retry.setShopId(shop.getId());
+                        retry.setErpOrderId(Long.parseLong(erpOrderId));
+                        retry.setOrderSn(erpGoodsOrder.getOrderSn());
+                        retry.setTrackingNumber(orderNo);
+                        retry.setCompanyName(companyName);
+                        retry.setRetryCount(1);
+                        retry.setStatus(1);
+                        retry.setLastResult("孔夫子"+result);
+                        orderCompanyRetryService.save(retry);
+                    } catch (Exception e) {
+                        System.err.println("记录拼多多发货重试失败: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
             } else if(shop.getShopType().equals("5")){
                 // 闲鱼 同步订单快递单号
                 // 创建传参对象
@@ -459,8 +485,13 @@ public class ErpGoodsOrderController  {
                 xyGoodsMap.put("waybill_no",orderNo);
                 // 快递公司名称
                 xyGoodsMap.put("express_name",companyName);
-                // 调用接口
-                result = DllInitializer.executeXyOrderSynchronization(JsonUtil.transferToJson(xyGoodsMap));
+                if (StringUtils.isNotEmpty(erpGoodsOrder.getTrackingNumber()) && erpGoodsOrder.getOrderStatus() != 2L){
+                    // 调用接口
+                    result = DllInitializer.executeXyModifyWaybillNo(JsonUtil.transferToJson(xyGoodsMap));
+                }else{
+                    // 调用接口
+                    result = DllInitializer.executeXyOrderSynchronization(JsonUtil.transferToJson(xyGoodsMap));
+                }
             }
             System.out.println("调用接口返回值："+result);
         }else{
@@ -772,12 +803,15 @@ public class ErpGoodsOrderController  {
 
 
     @GetMapping("/test")
-    public void test(String erpId){
+    public void test(String erpId,String queueId,String orderType){
         // 获取未下发的订单
         ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpId));
-        erpGoodsOrder.setOrderType("0");
-        erpGoodsOrder.setQueueId("39128");
+        erpGoodsOrder.setOrderType(orderType);
+        erpGoodsOrder.setQueueId(queueId);
 
+        int count = userRoleService.selecUserRole(erpGoodsOrder.getCreatedBy());
+
+        System.out.println(count);
 
         if (erpGoodsOrder != null){
             if (erpGoodsOrder.getOrderType() == null || erpGoodsOrder.getOrderType().equals("0")){
@@ -806,5 +840,20 @@ public class ErpGoodsOrderController  {
             }
 
         }
+    }
+
+
+    @GetMapping("/test2")
+    public void test2(String productId,Long userId,String erpId){
+        ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpId));
+        tShopGoodsPublishedService.synchronizeStockNew(productId,userId,0,0,erpGoodsOrder);
+    }
+
+    @GetMapping("/test3")
+    public void test3(Long mallId,String content){
+        Message message = new Message();
+        message.setMallID(mallId);
+        message.setContent(content);
+        erpGoodsOrderService.pddOrderPush(message, false);
     }
 }

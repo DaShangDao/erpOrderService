@@ -95,7 +95,9 @@ public class EmsPrintServiceImpl implements IEmsPrintService {
         List<JSONObject> cargos = new ArrayList<>();
         for (Item item : items){
             JSONObject cargo = new JSONObject();
-            cargo.put("cargoName",item.getName());
+            String name = item.getName();
+            String truncatedName = name.length() > 50 ? name.substring(0, 50) : name;
+            cargo.put("cargoName",truncatedName);
             cargo.put("cargoQuantity",item.getNum());
             cargos.add(cargo);
         }

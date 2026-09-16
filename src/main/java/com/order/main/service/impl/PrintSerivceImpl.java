@@ -6,6 +6,7 @@ import com.order.main.dll.PddSimpleDllLoader;
 import com.order.main.dto.GoodsDto;
 import com.order.main.entity.*;
 import com.order.main.service.*;
+import com.order.main.util.InterfaceUtils;
 import com.order.main.util.PddUtil;
 import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.pdd.pop.sdk.common.util.StringUtils;
@@ -30,6 +31,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
     private final IYtoPrintService ytoPrintService;
     private final IStoPrintService stoPrintService;
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
+    private final IShopService shopService;
 
 
     /**
@@ -87,6 +89,11 @@ public class PrintSerivceImpl implements IPrintSerivce {
         if (erpGoodsOrder.getOrderStatus() != 2L || erpGoodsOrder.getAfterSalesStatus() != 0L){
             result.put("code","500");
             result.put("msg","创建快递订单失败：订单未处于待发货状态");
+            return result;
+        }
+        if (StringUtils.isEmpty(erpGoodsOrder.getReceiverName())){
+            result.put("code","500");
+            result.put("msg","拼多多额度不足，请前往https://fuwu.pinduoduo.com/service-market/decrypt申请额度或使用拼多多电子面单进行打单");
             return result;
         }
         // 联系人/发货人
@@ -257,7 +264,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
             // 订单单独商品打印
             erpGoodsOrder.setId(Long.parseLong(orderId));
         }
-        List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectOrderList(erpGoodsOrder);
+        List<ErpGoodsOrder> erpGoodsOrderList = erpGoodsOrderService.selectErpOrderList(erpGoodsOrder);
         if (erpGoodsOrderList.isEmpty()){
             result.put("code","500");
             result.put("msg","订单未处于待发货状态");
@@ -292,6 +299,12 @@ public class PrintSerivceImpl implements IPrintSerivce {
         if (erpGoodsOrder.getOrderStatus() != 2L || erpGoodsOrder.getAfterSalesStatus() != 0L){
             result.put("code","500");
             result.put("msg","创建快递订单失败：订单未处于待发货状态");
+            return result;
+        }
+
+        if (StringUtils.isEmpty(erpGoodsOrder.getReceiverName())){
+            result.put("code","500");
+            result.put("msg","拼多多额度不足，请前往https://fuwu.pinduoduo.com/service-market/decrypt申请额度或使用拼多多电子面单进行打单");
             return result;
         }
 
@@ -366,17 +379,17 @@ public class PrintSerivceImpl implements IPrintSerivce {
             // 商品数量
             item.setNum(goodsDto.getGoodsCount());
 
-            // 获取货号信息
-            OrderExternalGoods orderExternalGoods = orderExternalGoodsService.selectByOrderId(ego.getId());
-            if (orderExternalGoods != null){
-                // 查询商品信息
-                ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectById(Long.parseLong(orderExternalGoods.getGoodsId().toString()));
-                if (zhishuShopGoods != null){
-                    item.setIsbn(zhishuShopGoods.getIsbn());
-                    item.setArtNo(zhishuShopGoods.getArtNo());
-                    item.setOriginalArtNo(zhishuShopGoods.getOriginalArtNo());
-                }
-            }
+//            // 获取货号信息
+//            OrderExternalGoods orderExternalGoods = orderExternalGoodsService.selectByOrderId(ego.getId());
+//            if (orderExternalGoods != null){
+//                // 查询商品信息
+//                ZhishuShopGoods zhishuShopGoods = zhishuShopGoodsService.selectById(Long.parseLong(orderExternalGoods.getGoodsId().toString()));
+//                if (zhishuShopGoods != null){
+//                    item.setIsbn(zhishuShopGoods.getIsbn());
+//                    item.setArtNo(zhishuShopGoods.getArtNo());
+//                    item.setOriginalArtNo(zhishuShopGoods.getOriginalArtNo());
+//                }
+//            }
             itemList.add(item);
         }
         // 订单对象信息
@@ -579,6 +592,13 @@ public class PrintSerivceImpl implements IPrintSerivce {
 
         erpGoodsOrder = erpGoodsOrderList.get(0);
 
+        if (erpGoodsOrder.getAfterSalesStatus() == 10L){
+            result.put("code","500");
+            result.put("msg","订单已经退款成功，无法创建快递单");
+            return result;
+        }
+
+
         // 联系人/发货人
         String senderName = logisticsMap.get("contact").toString();
         // 联系电话
@@ -614,8 +634,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
         tradeOrderInfoDto.put("object_id",orderSn);
         // 订单信息
         JSONObject orderInfo = new JSONObject();
-        // 订单渠道平台编码
-        orderInfo.put("order_channels_type","OTHERS");
+
         // 订单号 数量限制100
         List<String> tradeOrderList = new ArrayList<>();
         // 订单号
@@ -648,33 +667,69 @@ public class PrintSerivceImpl implements IPrintSerivce {
         JSONObject recipient = new JSONObject();
         // 收件人地址
         JSONObject recipientAddress = new JSONObject();
-        // 省
 
-        String province = erpGoodsOrder.getProvince();
-        String county = erpGoodsOrder.getCountry();
-        // 判断是否为直辖市（北京、上海、天津、重庆）
-        if (province.contains("北京") || province.contains("上海") || province.contains("天津") || province.contains("重庆") || StringUtils.isEmpty(county)) {
-            recipientAddress.put("province",province);
+
+        // 如果是拼多多面单，则查询订单详情，获取收件人密文
+        if (erpGoodsOrder.getShopType() == 1L){
+            // 订单渠道平台编码
+            orderInfo.put("order_channels_type","PDD");
+            Shop shop = shopService.queryById(erpGoodsOrder.getShopErpId());
+            String resultStr = InterfaceUtils.getInterface("http://pdd.buzhiyushu.cn","/api/pdd/auth/getOrderDetail?accessToken="+shop.getToken()+"&orderSn="+orderSn);
+            if (resultStr.contains("access_token已过期")){
+                Map errorMap = new HashMap();
+                errorMap.put("code","500");
+                errorMap.put("msg","access_token已过期,请重新授权");
+                return errorMap;
+            }
+            Map resultMap = JsonUtil.transferToObj(resultStr,Map.class);
+            Map orderInfoGetResponse  = (Map) resultMap.get("order_info_get_response");
+            Map orderInfoPdd = (Map) orderInfoGetResponse.get("order_info");
+            // 省
+            recipientAddress.put("province",orderInfoPdd.get("province").toString());
             // 市
-            recipientAddress.put("city",province);
+            recipientAddress.put("city",orderInfoPdd.get("city").toString());
             // 区
-            recipientAddress.put("district",erpGoodsOrder.getCity());
-        } else {
-            recipientAddress.put("province",erpGoodsOrder.getProvince());
-            // 市
-            recipientAddress.put("city",erpGoodsOrder.getCity());
-            // 区
-            recipientAddress.put("district",erpGoodsOrder.getCountry());
+            recipientAddress.put("district",orderInfoPdd.get("town").toString());
+
+            recipientAddress.put("detail",orderInfoPdd.get("address").toString());
+
+            recipient.put("address",recipientAddress);
+            // 手机号
+            recipient.put("mobile",orderInfoPdd.get("receiver_phone").toString());
+            // 收件人姓名
+            recipient.put("name",orderInfoPdd.get("receiver_name").toString());
+
+            System.out.println(resultStr);
+        }else{
+            // 订单渠道平台编码
+            orderInfo.put("order_channels_type","OTHERS");
+            // 省
+            String province = erpGoodsOrder.getProvince();
+            String county = erpGoodsOrder.getCountry();
+            // 判断是否为直辖市（北京、上海、天津、重庆）
+            if (province.contains("北京") || province.contains("上海") || province.contains("天津") || province.contains("重庆") || StringUtils.isEmpty(county)) {
+                recipientAddress.put("province",province);
+                // 市
+                recipientAddress.put("city",province);
+                // 区
+                recipientAddress.put("district",erpGoodsOrder.getCity());
+            } else {
+                recipientAddress.put("province",erpGoodsOrder.getProvince());
+                // 市
+                recipientAddress.put("city",erpGoodsOrder.getCity());
+                // 区
+                recipientAddress.put("district",erpGoodsOrder.getCountry());
+            }
+
+            // 详细地址
+            recipientAddress.put("detail",erpGoodsOrder.getTown());
+
+            recipient.put("address",recipientAddress);
+            // 手机号
+            recipient.put("mobile",erpGoodsOrder.getMobile());
+            // 收件人姓名
+            recipient.put("name",erpGoodsOrder.getReceiverName());
         }
-
-        // 详细地址
-        recipientAddress.put("detail",erpGoodsOrder.getTown());
-
-        recipient.put("address",recipientAddress);
-        // 手机号
-        recipient.put("mobile",erpGoodsOrder.getMobile());
-        // 收件人姓名
-        recipient.put("name",erpGoodsOrder.getReceiverName());
 
         tradeOrderInfoDto.put("recipient",recipient);
         // 标准模板模板URL
@@ -691,42 +746,50 @@ public class PrintSerivceImpl implements IPrintSerivce {
 
         String res = PddSimpleDllLoader.executePddApi("PddWaybillGet", PddUtil.CLIENT_ID,PddUtil.CLIENT_SECRET,remarkData.get("token").toString(), json);
 
-        Map resMap = JsonUtil.transferToObj(res,Map.class);
+        try{
+            Map resMap = JsonUtil.transferToObj(res,Map.class);
 
-        Map pddWaybillGetResponse = (Map)resMap.get("pdd_waybill_get_response");
+            Map pddWaybillGetResponse = (Map)resMap.get("pdd_waybill_get_response");
 
-        List modules = (List)pddWaybillGetResponse.get("modules");
+            List modules = (List)pddWaybillGetResponse.get("modules");
 
-        Map module = (Map)modules.get(0);
-        // 运单号
-        String waybillCode = module.get("waybill_code").toString();
+            Map module = (Map)modules.get(0);
+            // 运单号
+            String waybillCode = module.get("waybill_code").toString();
 
-        for (ErpGoodsOrder ego : erpGoodsOrderList){
-            // 日志对象定义
-            CourierLog courierLog = new CourierLog();
-            courierLog.setErpOrderId(ego.getId());
-            courierLog.setOrderSn(ego.getOrderSn());
-            courierLog.setMailNo(waybillCode);
-            courierLog.setPartnerId(fastMailVo.get("partnerId").toString());
-            courierLog.setSecret("");
-            courierLog.setOrderSerialNo(orderSn);
-            courierLog.setSender(sender.toString());
-            courierLog.setReceiver(recipient.toString());
-            courierLog.setItems(JsonUtil.transferToJson(items));
-            courierLog.setType(operationType);
-            courierLog.setCreateBy(ego.getCreatedBy());
-            long currentTime = System.currentTimeMillis() / 1000;
-            courierLog.setCreateAt(currentTime);
-            courierLog.setRemark(map.get("fastMailVo").toString());
-            courierLog.setMailType(wpCode);
-            courierLogService.save(courierLog);
+            for (ErpGoodsOrder ego : erpGoodsOrderList){
+                // 日志对象定义
+                CourierLog courierLog = new CourierLog();
+                courierLog.setErpOrderId(ego.getId());
+                courierLog.setOrderSn(ego.getOrderSn());
+                courierLog.setMailNo(waybillCode);
+                courierLog.setPartnerId(fastMailVo.get("partnerId").toString());
+                courierLog.setSecret("");
+                courierLog.setOrderSerialNo(orderSn);
+                courierLog.setSender(sender.toString());
+                courierLog.setReceiver(recipient.toString());
+                courierLog.setItems(JsonUtil.transferToJson(items));
+                courierLog.setType(operationType);
+                courierLog.setCreateBy(ego.getCreatedBy());
+                long currentTime = System.currentTimeMillis() / 1000;
+                courierLog.setCreateAt(currentTime);
+                courierLog.setRemark(map.get("fastMailVo").toString());
+                courierLog.setMailType(wpCode);
+                courierLogService.save(courierLog);
 
-            ego.setTrackingNumber(waybillCode);
-            erpGoodsOrderService.update(ego);
+                ego.setTrackingNumber(waybillCode);
+                erpGoodsOrderService.update(ego);
+            }
+            module.put("erpGoodsOrderList",erpGoodsOrderList);
+            module.put("dataList",returnItems);
+            return module;
+        }catch (Exception e){
+            Map errorMap = new HashMap();
+            errorMap.put("code","500");
+            errorMap.put("msg",res);
+            return errorMap;
         }
-        module.put("erpGoodsOrderList",erpGoodsOrderList);
-        module.put("dataList",returnItems);
-        return module;
+
     }
 
     // 回填快递单号

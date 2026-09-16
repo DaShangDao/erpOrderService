@@ -32,7 +32,11 @@ public class ErpGoodsOrderQueueServiceImpl implements IErpGoodsOrderQueueService
     @Override
     @DS("master")
     public ErpGoodsOrderQueue selectByErpGoodsOrderId(Long erpGoodsOrderId){
-        return baseMapper.selectByErpGoodsOrderId(erpGoodsOrderId);
+        try{
+            return baseMapper.selectByErpGoodsOrderId(erpGoodsOrderId);
+        } catch (RuntimeException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

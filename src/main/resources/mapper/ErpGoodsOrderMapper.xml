@@ -63,6 +63,17 @@
         left join order_external_goods o on o.order_id = e.id
     </sql>
 
+    <sql id="selectErpGoodsOrderVo2">
+        select e.id, e.order_sn, e.shop_id, e.shop_erp_id, e.shop_erp_name, e.shop_type, e.cat_id_1, e.cat_id_2, e.cat_id_3, e.cat_id_4,
+               e.item_list, e.order_total, e.goods_amount, e.order_change_amount, e.pay_amount, e.created_by, e.created_at,
+               e.confirm_status, e.confirm_at, e.pay_no, e.pay_at, e.pay_type, e.platform_discount, e.buyer_memo,
+               e.order_status, e.shipping_id, e.shipping_at, e.city, e.city_id, e.province, e.province_id, e.country,
+               e.country_id, e.town, e.town_id, e.tracking_number, e.remark, e.remark_tag, e.remark_tag_name,
+               e.receive_at, e.after_sales_status, e.updated_at, e.is_show, e.shop_md5_prefix, e.is_issue, e.erp_after_sales_status,
+               e.erp_ass_create_at, e.erp_ass_reason, e.erp_ass_remark, e.erp_ass_address, e.receiver_name, e.mobile
+        from erp_goods_order e
+    </sql>
+
     <!-- 动态条件SQL片段 -->
     <sql id="dynamicWhere">
         <where>
@@ -183,6 +194,16 @@
     <!-- 查询列表 -->
     <select id="selectOrderList" resultMap="ErpGoodsOrderResult">
         <include refid="selectErpGoodsOrderVo"/>
+        <include refid="dynamicWhere"/>
+        order by
+        CASE
+        WHEN LENGTH(e.created_at) = 10 THEN e.created_at * 1000
+        ELSE e.created_at
+        END DESC
+    </select>
+
+    <select id="selectErpOrderList" resultMap="ErpGoodsOrderResult">
+        <include refid="selectErpGoodsOrderVo2"/>
         <include refid="dynamicWhere"/>
         order by
         CASE

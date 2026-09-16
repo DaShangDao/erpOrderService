@@ -1,6 +1,7 @@
 package com.order.main.dll;
 
 import com.order.main.config.NativeLibConfig;
+import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.sun.jna.Function;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
@@ -28,6 +29,8 @@ public class KfzSimpleDllLoader {
     private static Function kongfzOrderGetFunc;
     // 同步订单的快递单号
     private static Function kongfzOrderSynchronizationFunc;
+    // 修改订单的快递单号
+    private static Function kongfzOrderRedeliverFunc;
     // 获取店铺商品详情
     private static Function kongfzKongfzShopItemDetailFunc;
     // 获取店铺商品列表
@@ -68,6 +71,8 @@ public class KfzSimpleDllLoader {
         kongfzOrderGetFunc = nativeLibrary.getFunction("KongfzOrderGet");
         // 同步订单的快递单号
         kongfzOrderSynchronizationFunc = nativeLibrary.getFunction("KongfzOrderSynchronization");
+        // 修改订单的快递单号
+        kongfzOrderRedeliverFunc = nativeLibrary.getFunction("KongfzOrderRedeliver");
         // 获取店铺商品详情
         kongfzKongfzShopItemDetailFunc = nativeLibrary.getFunction("KongfzShopItemDetail");
         // 获取店铺商品列表
@@ -78,6 +83,7 @@ public class KfzSimpleDllLoader {
         if (kongfzOrderListFunc == null) throw new Exception("无法找到 KongfzOrderList 函数");
         if (kongfzOrderGetFunc == null) throw new Exception("无法找到 KongfzOrderGet 函数");
         if (kongfzOrderSynchronizationFunc == null) throw new Exception("无法找到 KongfzOrderSynchronization 函数");
+        if (kongfzOrderRedeliverFunc == null) throw new Exception("无法找到 KongfzOrderRedeliver 函数");
         if (kongfzKongfzShopItemDetailFunc == null) throw new Exception("KongfzShopItemDetail");
         if (kongfzShopItemListFunc == null) throw  new Exception("KongfzShopItemList");
         if (freeCStringFunc == null) throw new Exception("无法找到 FreeCString 函数");
@@ -286,6 +292,43 @@ public class KfzSimpleDllLoader {
                             cleanedShippingComName, orderId, cleanedShippingId,
                             cleanedShippingCom, cleanedShipmentNum,
                             cleanedUserDefined, cleanedMoreShipmentNum});
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 孔网订单同步（修改）
+     * @param appId 开放平台分配给应用的AppId
+     * @param appSecret App密钥
+     * @param accessToken 用户登录授权成功后，开放平台颁发给应用的授权信息
+     * @param shippingComName 快递名称
+     * @param orderId 订单编号
+     * @param shippingId 配送方式
+     * @param companyCode 快递公司。当shippingId!=noLogistics时，此参数为必填
+     * @param shipmentNum 快递单号。当shippingId!=noLogistics时，此参数为必填
+     * @param userDefined 用户自定义物流公司。当shippingCom=other时，此参数为必填
+     * @param moreShipmentNum 填写更多的快递单号，以逗号分隔
+     * @return 同步结果字符串
+     */
+    public static String executeKongfzOrderRedeliver(int appId, String appSecret, String accessToken,
+                                                           String shippingComName, int orderId, String shippingId,
+                                                           String companyCode, String shipmentNum,
+                                                           String userDefined, String moreShipmentNum) {
+        try {
+            String cleanedAppSecret = ensureUtf8(appSecret);
+            String cleanedAccessToken = ensureUtf8(accessToken);
+            String cleanedShippingComName = ensureUtf8(shippingComName);
+            String cleanedShippingId = ensureUtf8(shippingId);
+            String cleanedShipmentNum = ensureUtf8(shipmentNum);
+            String cleanedUserDefined = ensureUtf8(userDefined);
+            String cleanedMoreShipmentNum = ensureUtf8(moreShipmentNum);
+
+            Object result = kongfzOrderRedeliverFunc.invoke(Pointer.class,
+                    new Object[]{appId, cleanedAppSecret, cleanedAccessToken,
+                            cleanedShippingComName, orderId, cleanedShippingId
+                            , cleanedShipmentNum,cleanedUserDefined, cleanedMoreShipmentNum});
             return ptrToString((Pointer) result);
         } catch (Exception e) {
             return "Error: " + e.getMessage();

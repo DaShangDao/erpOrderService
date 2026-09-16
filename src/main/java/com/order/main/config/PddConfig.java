@@ -1,6 +1,7 @@
 package com.order.main.config;
 
 import com.order.main.service.IErpGoodsOrderService;
+import com.order.main.service.IPddMessageService;
 import com.pdd.pop.sdk.http.PopHttpClient;
 import com.pdd.pop.sdk.message.MessageHandler;
 import com.pdd.pop.sdk.message.WsClient;
@@ -32,6 +33,9 @@ public class PddConfig {
 
     @Autowired
     private IErpGoodsOrderService erpGoodsOrderService;
+
+    @Autowired
+    private IPddMessageService pddMessageService;
 
     // 日志记录器缓存（按 mallID）
     private static final ConcurrentHashMap<Long, Logger> MESSAGE_LOGGER_CACHE = new ConcurrentHashMap<>();
@@ -84,31 +88,10 @@ public class PddConfig {
                         // 订单类型
                         String orderType = message.getType();
 
-                        if(orderType.equals("pdd_trade_TradeConfirmed")                                 // 交易确认消息
-                                        || orderType.equals("pdd_trade_TradeSellerShip")                // 卖家发货消息
-                                        || orderType.equals("pdd_trade_TradeSuccess")                   // 交易成功消息
-                                        || orderType.equals("pdd_refund_RefundCreated")                 // 退款创建消息
-                                        || orderType.equals("pdd_refund_RefundAgreeAgreement")          // 同意退款协议消息
-                                        || orderType.equals("pdd_refund_RefundClosed")                  // 售后单关闭消息
-                                        || orderType.equals("pdd_trade_TradeRiskChanged")               // 订单审核状态变更
-                                        || orderType.equals("pdd_trade_TradeLogisticsAddressChanged")   //修改交易收货地址消息
-                        ){
-                            // 获取订单详情信息
-                            erpGoodsOrderService.pddOrderPush(message,false);
-                        }else if(orderType.equals("pdd_trade_TradeMemoModified")                // 交易备注修改消息
-                                || orderType.equals("pdd_trade_BuyerMemoModified")              // 买家备注修改消息
-                                || orderType.equals("pdd_refund_RefundBuyerModifyAgreement")    // 买家修改退款协议消息
-                                || orderType.equals("pdd_refund_RefundBuyerReturnGoods")        // 买家退货给卖家消息
-                                || orderType.equals("pdd_refund_RefundCreateMessage")){         // 发表退款留言消息
-                            erpGoodsOrderService.pddOtherMessage(message);
-                        } else if(
-                                orderType.equals("pdd_goods_GoodsOffShelf")                     // 商品下架消息
-                                || orderType.equals("pdd_goods_GoodsOnShelf")                   // 商品上架消息
-                                || orderType.equals("pdd_goods_GoodsAdd")                       // 商品新建消息
-                                || orderType.equals("pdd_goods_GoodsUpdate")                    // 商品更新消息
-                                || orderType.equals("pdd_goods_GoodsDelete")                    // 商品删除消息
-                                || orderType.equals("pdd_goods_GoodsCheckReject")               // 商品审核驳回消息
-                        ){
+                        if(isOrderMessage(orderType)){
+                            // 订单类 + 备注/留言类消息 → 入库（毫秒级），由定时器异步处理
+                            pddMessageService.saveOrderMessage(message);
+                        }else if(isGoodsMessage(orderType)){
                             // 商品审核驳回消息需要进行额外操作
                             if(orderType.equals("pdd_goods_GoodsCheckReject")){
                                 // 删除店铺商品
@@ -121,5 +104,36 @@ public class PddConfig {
                         }
                     }
                 });
+    }
+
+    /**
+     * 判断是否为订单类/备注留言类消息（8种订单 + 5种备注）
+     */
+    private boolean isOrderMessage(String orderType) {
+        return orderType.equals("pdd_trade_TradeConfirmed")                                 // 交易确认消息
+                || orderType.equals("pdd_trade_TradeSellerShip")                // 卖家发货消息
+                || orderType.equals("pdd_trade_TradeSuccess")                   // 交易成功消息
+                || orderType.equals("pdd_refund_RefundCreated")                 // 退款创建消息
+                || orderType.equals("pdd_refund_RefundAgreeAgreement")          // 同意退款协议消息
+                || orderType.equals("pdd_refund_RefundClosed")                  // 售后单关闭消息
+                || orderType.equals("pdd_trade_TradeRiskChanged")               // 订单审核状态变更
+                || orderType.equals("pdd_trade_TradeLogisticsAddressChanged")   // 修改交易收货地址消息
+                || orderType.equals("pdd_trade_TradeMemoModified")              // 交易备注修改消息
+                || orderType.equals("pdd_trade_BuyerMemoModified")              // 买家备注修改消息
+                || orderType.equals("pdd_refund_RefundBuyerModifyAgreement")    // 买家修改退款协议消息
+                || orderType.equals("pdd_refund_RefundBuyerReturnGoods")        // 买家退货给卖家消息
+                || orderType.equals("pdd_refund_RefundCreateMessage");          // 发表退款留言消息
+    }
+
+    /**
+     * 判断是否为商品类消息（6种）
+     */
+    private boolean isGoodsMessage(String orderType) {
+        return orderType.equals("pdd_goods_GoodsOffShelf")                     // 商品下架消息
+                || orderType.equals("pdd_goods_GoodsOnShelf")                   // 商品上架消息
+                || orderType.equals("pdd_goods_GoodsAdd")                       // 商品新建消息
+                || orderType.equals("pdd_goods_GoodsUpdate")                    // 商品更新消息
+                || orderType.equals("pdd_goods_GoodsDelete")                    // 商品删除消息
+                || orderType.equals("pdd_goods_GoodsCheckReject");              // 商品审核驳回消息
     }
 }

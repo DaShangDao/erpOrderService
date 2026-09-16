@@ -32,6 +32,9 @@ public class XySimpleDllLoader {
     private static Function executeGoodsFlashFunc;
     //订单快递单号同步
     private static Function executeXyOrderSynchronizationFunc; // 新增
+    // 修改快递单号
+    private static Function executeModifyWaybillNoFunc;
+
     //查询订单列表
     private static Function executeGetOrderListFunc;
 
@@ -89,6 +92,8 @@ public class XySimpleDllLoader {
         executeGetGoodsDetailFunc = nativeLibrary.getFunction("ExecuteGetGoodsDetail");
         //订单快递单号同步
         executeXyOrderSynchronizationFunc = nativeLibrary.getFunction("ExecuteXyOrderSynchronization"); // 新增
+        //修改快递单号
+        executeModifyWaybillNoFunc = nativeLibrary.getFunction("ExecuteModifyWaybillNo"); // 新增
         //查询订单列表
         executeGetOrderListFunc = nativeLibrary.getFunction("ExecuteGetOrderList");
         //释放c串内存
@@ -102,6 +107,7 @@ public class XySimpleDllLoader {
         if (executeSelectGoodsListPriceFunc == null) throw new Exception("无法找到 ExecuteSelectGoodsListPrice 函数");
         if (executeGoodsFlashFunc == null) throw new Exception("无法找到 ExecuteGoodsFlash 函数");
         if (executeXyOrderSynchronizationFunc == null) throw new Exception("无法找到 ExecuteXyOrderSynchronization 函数");
+        if (executeModifyWaybillNoFunc == null) throw new Exception("无法找到 ExecuteModifyWaybillNo 函数");
         if (freeCStringFunc == null) throw new Exception("无法找到 FreeCString 函数");
         if (executeGetOrderListFunc == null) throw new Exception("无法找到 ExecuteGetOrderList 函数");
         if (executeGetGoodsDetailFunc == null) throw new Exception("无法找到 ExecuteGetGoodsDetail 函数");
@@ -263,6 +269,22 @@ public class XySimpleDllLoader {
             String cleanedConfigPath = ensureUtf8(configPath);
 
             Object result = executeXyOrderSynchronizationFunc.invoke(Pointer.class,
+                    new Object[]{cleanedJson, cleanedConfigPath});
+            return ptrToString((Pointer) result);
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 修改快递单号
+     */
+    public static String executeXyModifyWaybillNo(String jsonData, String configPath) {
+        try {
+            String cleanedJson = ensureUtf8(jsonData);
+            String cleanedConfigPath = ensureUtf8(configPath);
+
+            Object result = executeModifyWaybillNoFunc.invoke(Pointer.class,
                     new Object[]{cleanedJson, cleanedConfigPath});
             return ptrToString((Pointer) result);
         } catch (Exception e) {

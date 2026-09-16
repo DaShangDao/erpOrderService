@@ -119,6 +119,9 @@ public class PrintController {
             map.put("fastMailVo",JsonUtil.transferToJson(fastMailMap));
 
             Map pddMap = printSerivce.createOrderPdd(map);
+            if (pddMap.get("code") != null && pddMap.get("code").toString().equals("500")){
+                return pddMap;
+            }
             Map resMap = new HashMap();
             resMap.put("code","200");
             resMap.put("data",pddMap);

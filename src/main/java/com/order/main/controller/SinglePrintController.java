@@ -118,7 +118,7 @@ public class SinglePrintController {
         // 状态
         singlePrint.setStatus("1");
 
-        if (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO") || type.equals("STO")){
+        if (fastMailType.equals("1") && (type.equals("YZXB") || type.equals("JTSD") || type.equals("YTO") || type.equals("STO"))){
             // 寄件人信息
             Sender sender = new Sender();
             // 名称
