@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.PddGoodsMessageMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.PddGoodsMessage">
+        <id column="id" property="id"/>
+        <result column="msg_type" property="msgType"/>
+        <result column="mall_id" property="mallId"/>
+        <result column="shop_id" property="shopId"/>
+        <result column="content" property="content"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, msg_type, mall_id, shop_id, content, create_time
+    </sql>
+
+    <insert id="insert" parameterType="com.order.main.entity.PddGoodsMessage" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO pdd_goods_message (msg_type, mall_id, shop_id, content)
+        VALUES (#{msgType}, #{mallId}, #{shopId}, #{content})
+    </insert>
+
+    <select id="selectPending" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM pdd_goods_message
+        ORDER BY create_time ASC
+        LIMIT #{limit}
+    </select>
+
+    <delete id="deleteById">
+        DELETE FROM pdd_goods_message WHERE id = #{id}
+    </delete>
+
+</mapper>
