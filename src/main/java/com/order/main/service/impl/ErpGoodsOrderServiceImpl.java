@@ -53,6 +53,8 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     //咸鱼订单手续费
     private int xyPercentageInt = 0;
 
+    private final IPddMessageService pddMessageServicel;
+
 
     // 在类中定义缓存（需要引入 Caffeine 依赖）
     private final Cache<String, Long> stockRollbackCache = Caffeine.newBuilder()
@@ -867,16 +869,7 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 判断消息文本内容是否为空
         if (ObjectUtil.isEmpty(message.getContent())) return;
         // 解析消息文本内容
-        GoodsCheckRejectVo goodsCheckRejectVo = JSONObject.parseObject(message.getContent(), GoodsCheckRejectVo.class);
-        Assert.isTrue(!ObjectUtil.isEmpty(message.getContent()), "消息内容解析失败" + JSONObject.toJSONString(message));
-        if (goodsCheckRejectVo.getRejectComment().contains("类目")){
-            shopGoodsPublishedClient.uodateCatId("https://api.buzhiyushu.cn", "1", goodsCheckRejectVo.getMallId(), goodsCheckRejectVo.getGoodsId().toString());
-        }
-//        try {
-//            shopGoodsPublishedClient.delShopGoodsPublished("https://api.buzhiyushu.cn", "1", goodsCheckRejectVo.getMallId(), goodsCheckRejectVo.getGoodsId().toString(),goodsCheckRejectVo.getRejectComment());
-//        } catch (Exception e) {
-//            throw new RuntimeException("接收到pdd商品审核驳回消息删除发布商品失败:" + e);
-//        }
+        pddMessageServicel.saveGoodsMessage(message);
     }
 
     /**
