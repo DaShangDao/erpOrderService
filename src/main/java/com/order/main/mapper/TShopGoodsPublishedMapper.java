@@ -34,7 +34,7 @@ public interface TShopGoodsPublishedMapper {
      * @param productId
      * @return
      */
-    List<TShopGoodsPublishedDto> selectByProductId(Long productId,Long userId);
+    List<TShopGoodsPublishedDto> selectByProductId(Long productId,Long userId,String isDistribution);
 
     /**
      * 查询一条已被删除的数据

@@ -3,6 +3,7 @@ package com.order.main.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.order.main.dll.DllInitializer;
+import com.order.main.dll.KfzSimpleDllLoader;
 import com.order.main.dll.PddSimpleDllLoader;
 import com.order.main.dll.PrintSimpleDllLoader;
 import com.order.main.dto.XyOrderDto;
@@ -441,6 +442,8 @@ public class ErpGoodsOrderController  {
                     companyName = "韵达速递";
                 }else if (companyName.contains("邮政")){
                     companyName = "中国邮政";
+                }else if (companyName.contains("圆通快递")){
+                    companyName = "圆通速递";
                 }
                 if (StringUtils.isNotEmpty(erpGoodsOrder.getTrackingNumber()) && erpGoodsOrder.getOrderStatus() != 2L){
                     result = DllInitializer.executeKongfzOrderRedeliver(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
@@ -850,10 +853,10 @@ public class ErpGoodsOrderController  {
     }
 
     @GetMapping("/test3")
-    public void test3(Long mallId,String content){
-        Message message = new Message();
-        message.setMallID(mallId);
-        message.setContent(content);
-        erpGoodsOrderService.pddOrderPush(message, false);
+    public void test3(String accessToken,String itemId){
+        net.minidev.json.JSONObject jsonObject = new net.minidev.json.JSONObject();
+        jsonObject.put("itemId",itemId);
+        String res = KfzSimpleDllLoader.executeKongfzShopItemListFunc(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,accessToken,jsonObject.toString());
+        System.out.println(res);
     }
 }

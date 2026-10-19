@@ -85,6 +85,13 @@ public class ErpGoodsOrderQueueServiceImpl implements IErpGoodsOrderQueueService
     public boolean update(ErpGoodsOrderQueue queue) {
         // 自动添加使用时间（当前时间戳，单位：秒）
         queue.setUseTime(System.currentTimeMillis() / 1000);
+
+        // 限制 msg 长度不超过 255
+        String msg = queue.getMsg();
+        if (msg != null && msg.length() > 255) {
+            queue.setMsg(msg.substring(0, 255));
+        }
+
         return baseMapper.update(queue) > 0;
     }
 

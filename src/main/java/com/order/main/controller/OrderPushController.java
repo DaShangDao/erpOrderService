@@ -277,7 +277,12 @@ public class OrderPushController {
                         }
                     }
                 } else {
-                    // 默认配置
+
+                    psiEmployees = new PsiEmployees();
+                    // 默认模板id
+                    psiEmployees.setSplitAccountConfigId(1L);
+                    psiEmployees.setRuleName("默认规则");
+                    // 未查询到则执行 默认配置 双向都收    3% + 0.1
                     configWarehouse.setProductType("仓库方");
                     configWarehouse.setRatio(new BigDecimal("0.03"));
                     configWarehouse.setAddAmount(new BigDecimal("0.1").multiply(new BigDecimal(100)));
@@ -327,18 +332,9 @@ public class OrderPushController {
                 createSplitAccountDeductionLog.put("config_name", configNameStr);
                 createSplitAccountDeductionLog.put("status", "0");
 
-                // 创建PSI库存同步日志
-                String logIdDispatch = tShopGoodsPublishedService.savePsiSyncLog(
-                        String.valueOf(productId),
-                        String.valueOf(aboutId),
-                        JsonUtil.transferToJson(order),
-                        order.getItemList(),
-                        "扣减库存",
-                        String.valueOf(aboutId)
-                );
 
                 // 创建销售订单
-                tShopGoodsPublishedService.createSalesOrder(
+                Map createMap = tShopGoodsPublishedService.createSalesOrder(
                         String.valueOf(order.getId()),
                         order.getOrderSn(),
                         String.valueOf(productId),
@@ -346,12 +342,27 @@ public class OrderPushController {
                         "1",
                         order.getShopErpName(),
                         String.valueOf(order.getShopErpId()),
-                        String.valueOf(order.getCreatedBy()),
+                        aboutId,
                         String.valueOf(order.getShopType()),
                         order.getReceiverName(),
                         order.getMobile(),
                         order.getProvince() + "-" + order.getCity() + "-" + order.getCountry() + "-" + order.getTown()
                 );
+
+                if(createMap.get("code").toString().equals("500")){
+                    return createMap;
+                }
+
+                // 创建PSI库存同步日志
+                String logIdDispatch = tShopGoodsPublishedService.savePsiSyncLog(
+                        String.valueOf(productId),
+                        aboutId,
+                        JsonUtil.transferToJson(order),
+                        order.getItemList(),
+                        "扣减库存",
+                        aboutId
+                );
+
 
                 // 同步库存
                 String log = tShopGoodsPublishedService.synchronizeStockNew(
@@ -505,16 +516,7 @@ public class OrderPushController {
 
             } else {
                 // 非分销：直接下发，不需要分账
-                String logIdDispatch2 = tShopGoodsPublishedService.savePsiSyncLog(
-                        String.valueOf(productId),
-                        String.valueOf(aboutId),
-                        JsonUtil.transferToJson(order),
-                        order.getItemList(),
-                        "扣减库存",
-                        String.valueOf(aboutId)
-                );
-
-                tShopGoodsPublishedService.createSalesOrder(
+                Map createMap = tShopGoodsPublishedService.createSalesOrder(
                         String.valueOf(order.getId()),
                         order.getOrderSn(),
                         String.valueOf(productId),
@@ -528,6 +530,22 @@ public class OrderPushController {
                         order.getMobile(),
                         order.getProvince() + "-" + order.getCity() + "-" + order.getCountry() + "-" + order.getTown()
                 );
+
+                if(createMap.get("code").toString().equals("500")){
+                    return createMap;
+                }
+
+                String logIdDispatch2 = tShopGoodsPublishedService.savePsiSyncLog(
+                        String.valueOf(productId),
+                        String.valueOf(aboutId),
+                        JsonUtil.transferToJson(order),
+                        order.getItemList(),
+                        "扣减库存",
+                        String.valueOf(aboutId)
+                );
+
+
+
 
                 tShopGoodsPublishedService.updatePsiSyncLog(logIdDispatch2, String.valueOf(aboutId), "1",
                         String.valueOf(quantity - 1), String.valueOf(quantity),

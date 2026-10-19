@@ -1,8 +1,10 @@
 package com.order.main.scheduler;
 
 import com.order.main.entity.PddGoodsMessage;
+import com.order.main.entity.Shop;
 import com.order.main.service.IErpGoodsOrderService;
 import com.order.main.service.IPddMessageService;
+import com.order.main.service.impl.ShopCacheService;
 import com.pdd.pop.sdk.message.model.Message;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -31,6 +33,7 @@ public class PddGoodsMessageScheduler {
 
     private final IPddMessageService pddMessageService;
     private final IErpGoodsOrderService erpGoodsOrderService;
+    private final ShopCacheService shopCacheService;
 
     /** 防重入标志 */
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
@@ -61,10 +64,52 @@ public class PddGoodsMessageScheduler {
                             record.getMsgType(), record.getMallId(), record.getContent());
                     // 商品审核驳回消息需要额外删除店铺商品操作
                     if ("pdd_goods_GoodsCheckReject".equals(record.getMsgType())) {
-                        erpGoodsOrderService.pddReviewRejected(message);
+
+                        Shop shop = shopCacheService.getShop(message.getMallID());
+
+                        /**
+                         * 分类和图片错误调用接口
+                         */
+                        String content = message.getContent();
+                        if (content.contains("您发布商品的分类与商品信息不匹配")
+                                || content.contains("商品分类错误")
+                                || content.contains("商品分类有误")
+                                || content.contains("商品图片")
+                                || content.contains("商品轮播图")
+                                || content.contains("图片不清晰、失真、未展示商品主体")
+                                || content.contains("您发布的商品中存在SKU的文字、图片等描述不规范的行为")
+                                || content.contains("文字、图片、SKU等")
+                                || content.contains("文字或图片")
+                                || content.contains("标题、图片、sku、详情等区域")
+                                || content.contains("请删除商品")
+                                || content.contains("请在商品")
+                                || content.contains("请将商品发布至正确类目")
+                                || content.contains("请重新上传")
+                        ){
+                            // 调用外部接口
+
+                        }else if (
+                                content.contains("您发布的商品/信息涉嫌违法")
+                                || content.contains("您发布的商品涉嫌违规")
+                                || content.contains("无查询结果或查询信息不一致")
+                                || content.contains("涉嫌发布")
+                                || content.contains("禁止发布")
+                                || content.contains("禁止商家发布")
+                        ){
+                            // 加入违规词
+
+                        }else if(
+                                content.contains("请如实填写")
+                                || content.contains("请您准确填写")
+                                || content.contains("请您如实填写")
+                                || content.contains("请规范商品信息")
+                        ){
+                            // 根据ISBN在拼多多获取商品信息
+
+                        }
+
                     }
-                    // 所有商品类消息存入 Redis
-                    erpGoodsOrderService.messageSetRedis(message);
+
                 } catch (Exception e) {
                     // 不重试，只打日志（中转性质，丢一条可接受）
                     System.err.println("处理拼多多商品消息异常, id=" + record.getId()

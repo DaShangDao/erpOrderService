@@ -80,8 +80,8 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
      */
     @Override
     @DS("taskDb")
-    public List<TShopGoodsPublishedDto> selectByProductId(Long productId,Long userId){
-        return tShopGoodsPublishedMapper.selectByProductId(productId,userId);
+    public List<TShopGoodsPublishedDto> selectByProductId(Long productId,Long userId,String isDistribution){
+        return tShopGoodsPublishedMapper.selectByProductId(productId,userId,isDistribution);
     }
 
 
@@ -134,71 +134,82 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
     public void createSalesOrder(ErpGoodsOrder erpGoodsOrder,WarehouseSettings warehouseSettings) {
         try{
             System.out.println("【开始执行推送销售订单操作】-----------------------："+JsonUtil.transferToJson(erpGoodsOrder));
-            GoodsDto goodsDto = null;
-            if(erpGoodsOrder.getGoodsDto() == null){
-                // 解析erp订单中商品信息
-                goodsDto = JsonUtil.transferToObj(erpGoodsOrder.getItemList(),GoodsDto.class);
+
+            Long autoIssue = warehouseSettings.getAutoIssue() == null ? 1 : warehouseSettings.getAutoIssue();
+            if (autoIssue == 0){
+                ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                erpGoodsOrderQueue.setStatus("3");
+                erpGoodsOrderQueue.setMsg("未开启自动下发，需要手动下发");
+                erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
             }else{
-                goodsDto = erpGoodsOrder.getGoodsDto();
-            }
-            if (goodsDto != null){
-                String goodsId = goodsDto.getGoodsId();
-
-                List<TShopGoodsPublishedDto> tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
-                if (tShopGoodsPublishedDtoList.isEmpty() && goodsDto.getOuterId() != null){
-                    goodsId = goodsDto.getOuterId();
-                    try{
-                        tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
-                    }catch (NumberFormatException e){
-                        System.out.println("非进销存商品");
-                    }
-                }
-                if (!tShopGoodsPublishedDtoList.isEmpty()){
-                    // 获取库存持有人
-                    TShopGoodsPublishedDto tShopGoodsPublishedDto = tShopGoodsPublishedDtoList.get(0);
-                    if(tShopGoodsPublishedDto.getUserId() == 0){
-                        tShopGoodsPublishedDto.setUserId(erpGoodsOrder.getCreatedBy());
-                    }
-                    distribution(warehouseSettings,erpGoodsOrder,tShopGoodsPublishedDto);
+                GoodsDto goodsDto = null;
+                if(erpGoodsOrder.getGoodsDto() == null){
+                    // 解析erp订单中商品信息
+                    goodsDto = JsonUtil.transferToObj(erpGoodsOrder.getItemList(),GoodsDto.class);
                 }else{
-                    try{
-                        // 查询是否
-                        String psiRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/shop-goods-published/by-trilateral?user_id="+erpGoodsOrder.getCreatedBy()+"&trilateral_id="+goodsDto.getGoodsId());
+                    goodsDto = erpGoodsOrder.getGoodsDto();
+                }
+                if (goodsDto != null){
+                    String goodsId = goodsDto.getGoodsId();
 
-                        Map psiResMap = JsonUtil.transferToObj(psiRes,Map.class);
-                        List psiData = (List) psiResMap.get("data");
-                        if (psiData.isEmpty()){
-                            psiRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/shop-goods-published/by-trilateral?user_id="+erpGoodsOrder.getCreatedBy()+"&trilateral_id="+goodsDto.getOuterId());
-                            psiResMap = JsonUtil.transferToObj(psiRes,Map.class);
-                            if (psiResMap.get("code").toString().equals("200")){
-                                psiData = (List) psiResMap.get("data");
-                            }
+                    List<TShopGoodsPublishedDto> tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
+                    if (tShopGoodsPublishedDtoList.isEmpty() && goodsDto.getOuterId() != null){
+                        goodsId = goodsDto.getOuterId();
+                        try{
+                            tShopGoodsPublishedDtoList = selectByTrilateralId(Long.parseLong(goodsId));
+                        }catch (NumberFormatException e){
+                            System.out.println("非进销存商品");
                         }
-
-                        if (!psiData.isEmpty()){
-                            Map data = (Map) psiData.get(0);
-                            TShopGoodsPublishedDto tShopGoodsPublishedDto = new TShopGoodsPublishedDto();
-                            tShopGoodsPublishedDto.setTrilateralId(Long.parseLong(data.get("trilateral_id").toString()));
+                    }
+                    if (!tShopGoodsPublishedDtoList.isEmpty()){
+                        // 获取库存持有人
+                        TShopGoodsPublishedDto tShopGoodsPublishedDto = tShopGoodsPublishedDtoList.get(0);
+                        if(tShopGoodsPublishedDto.getUserId() == 0){
                             tShopGoodsPublishedDto.setUserId(erpGoodsOrder.getCreatedBy());
-                            tShopGoodsPublishedDto.setProductId(Long.parseLong(data.get("product_id").toString()));
-                            tShopGoodsPublishedDto.setIsdistribution("0");
-                            distribution(warehouseSettings,erpGoodsOrder,tShopGoodsPublishedDto);
-                        }else{
+                        }
+                        distribution(warehouseSettings,erpGoodsOrder,tShopGoodsPublishedDto);
+                    }else{
+                        try{
+                            // 查询是否
+                            String psiRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/shop-goods-published/by-trilateral?user_id="+erpGoodsOrder.getCreatedBy()+"&trilateral_id="+goodsDto.getGoodsId());
+
+                            Map psiResMap = JsonUtil.transferToObj(psiRes,Map.class);
+                            List psiData = (List) psiResMap.get("data");
+                            if (psiData.isEmpty()){
+                                psiRes = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),"/api/shop-goods-published/by-trilateral?user_id="+erpGoodsOrder.getCreatedBy()+"&trilateral_id="+goodsDto.getOuterId());
+                                psiResMap = JsonUtil.transferToObj(psiRes,Map.class);
+                                if (psiResMap.get("code").toString().equals("200")){
+                                    psiData = (List) psiResMap.get("data");
+                                }
+                            }
+
+                            if (!psiData.isEmpty()){
+                                Map data = (Map) psiData.get(0);
+                                TShopGoodsPublishedDto tShopGoodsPublishedDto = new TShopGoodsPublishedDto();
+                                tShopGoodsPublishedDto.setTrilateralId(Long.parseLong(data.get("trilateral_id").toString()));
+                                tShopGoodsPublishedDto.setUserId(erpGoodsOrder.getCreatedBy());
+                                tShopGoodsPublishedDto.setProductId(Long.parseLong(data.get("product_id").toString()));
+                                tShopGoodsPublishedDto.setIsdistribution("0");
+                                distribution(warehouseSettings,erpGoodsOrder,tShopGoodsPublishedDto);
+                            }else{
+                                ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                                erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                                erpGoodsOrderQueue.setStatus("3");
+                                erpGoodsOrderQueue.setMsg("异常:未找到发布记录");
+                                erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+                            }
+                        }catch (Exception e){
                             ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
                             erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
                             erpGoodsOrderQueue.setStatus("3");
-                            erpGoodsOrderQueue.setMsg("异常:未找到发布记录");
+                            erpGoodsOrderQueue.setMsg("异常:系统异常请联系管理员");
                             erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
                         }
-                    }catch (Exception e){
-                        ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
-                        erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
-                        erpGoodsOrderQueue.setStatus("3");
-                        erpGoodsOrderQueue.setMsg("异常:系统异常请联系管理员");
-                        erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
                     }
                 }
             }
+
         }catch (Exception e){
             System.out.println("订单推送销售订单异常");
             e.printStackTrace();
@@ -225,6 +236,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
         Map psiResMap = JsonUtil.transferToObj(psiRes,Map.class);
         List psiData = (List) psiResMap.get("data");
 
+
         if (!psiData.isEmpty()){
             for (int i=0;i<psiData.size();i++){
                 Map data = (Map) psiData.get(i);
@@ -239,9 +251,13 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
         }
 
         if (shopGoodsPublishedDtoList.isEmpty()){
-            shopGoodsPublishedDtoList = selectByProductId(Long.parseLong(productId),userId);
+            shopGoodsPublishedDtoList = selectByProductId(Long.parseLong(productId),userId,"0");
         }
-
+        // 补齐分销数据
+        List<TShopGoodsPublishedDto> shopGoodsPublishedFenXiaoList = selectByProductId(Long.parseLong(productId),userId,"1");
+        if (!shopGoodsPublishedFenXiaoList.isEmpty()){
+            shopGoodsPublishedDtoList.addAll(shopGoodsPublishedFenXiaoList);
+        }
 
         // 如果已发布记录不存在
         if(shopGoodsPublishedDtoList.isEmpty()){
@@ -529,7 +545,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
 
 
     @Override
-    public void createSalesOrder(String orderId,String orderSn,String productId,String unitPrice,
+    public Map createSalesOrder(String orderId,String orderSn,String productId,String unitPrice,
                                  String quantity,String sales_person,
                                  String sales_person_id,String about_id,String shopType,String receiverName,String receiverPhone,String receiverAddress) {
 
@@ -577,7 +593,7 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                 "md5"
         );
         Map resultMap = JsonUtil.transferToObj(result, Map.class);
-        System.out.println(resultMap);
+        return resultMap;
     }
 
 
@@ -1580,27 +1596,69 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
             Long trilateralId = Long.parseLong(trilateralIds[i].trim());
             int stock = Integer.parseInt(stocks[i].trim());
 
-            // 1. 先删除旧记录
-            int deleted = tShopGoodsPublishedMapper.batchDeleteByShopProductTrilateral(shopErpId, productId, trilateralId);
-            log.info("publishGoods 删除 erp_shop_id={}, product_id={}, trilateral_id={}, 影响行数={}",
-                    shopErpId, productId, trilateralId, deleted);
+            // 1. 查询该平台商品已存在的对应关系（复用现有查询，不新增/改动 SQL）
+            //    现有 SQL: WHERE trilateral_id = ? AND del_flag = 0 ORDER BY id ASC
+            List<TShopGoodsPublishedDto> allExistList = tShopGoodsPublishedMapper.selectByTrilateralId(trilateralId);
+            List<TShopGoodsPublishedDto> existList = new ArrayList<>();
+            if (allExistList != null) {
+                for (TShopGoodsPublishedDto existDto : allExistList) {
+                    if (existDto.getErpShopId() != null && existDto.getErpShopId().equals(shopErpId)) {
+                        existList.add(existDto);
+                    }
+                }
+            }
+            int existCount = existList.size();
 
+            // 2. stock <= 0：与原来一致，不做任何操作
             if (stock <= 0) {
-                log.info("publishGoods stock={}, 跳过插入 product_id={}", stock, productId);
+                log.info("publishGoods stock={}, 跳过处理 erp_shop_id={}, product_id={}, trilateral_id={}",
+                        stock, shopErpId, productId, trilateralId);
                 continue;
             }
 
-            // 2. 按 stock 数量插入多条
-            List<TShopGoodsPublishedDto> insertList = new ArrayList<>(stock);
-            for (int j = 0; j < stock; j++) {
-                TShopGoodsPublishedDto dto = new TShopGoodsPublishedDto();
-                dto.setErpShopId(shopErpId);
-                dto.setProductId(productId);
-                dto.setTrilateralId(trilateralId);
-                dto.setUserId(userId);
-                dto.setIsdistribution("0");
-                dto.setCreateTime(now);
-                insertList.add(dto);
+            // 3. 已存在条数 >= stock：只增不减，不做操作
+            if (existCount >= stock) {
+                log.info("publishGoods 已存在{}条 >= stock={}, 不需要补齐 erp_shop_id={}, product_id={}, trilateral_id={}",
+                        existCount, stock, shopErpId, productId, trilateralId);
+                continue;
+            }
+
+            // 4. 查不到记录：与原来一致，按库存数量插入；有记录：复制第一条（除 id 外一致）补齐到 stock 条
+            List<TShopGoodsPublishedDto> insertList = new ArrayList<>(stock - existCount);
+            if (existCount == 0) {
+                for (int j = 0; j < stock; j++) {
+                    TShopGoodsPublishedDto dto = new TShopGoodsPublishedDto();
+                    dto.setErpShopId(shopErpId);
+                    dto.setProductId(productId);
+                    dto.setTrilateralId(trilateralId);
+                    dto.setUserId(userId);
+                    dto.setIsdistribution("0");
+                    dto.setCreateTime(now);
+                    insertList.add(dto);
+                }
+                log.info("publishGoods 未查询到记录, 按库存插入 erp_shop_id={}, product_id={}, trilateral_id={}, 插入{}条",
+                        shopErpId, productId, trilateralId, insertList.size());
+            } else {
+                TShopGoodsPublishedDto tpl = existList.get(0);
+                int need = stock - existCount;
+                for (int j = 0; j < need; j++) {
+                    TShopGoodsPublishedDto dto = new TShopGoodsPublishedDto();
+                    dto.setErpShopId(tpl.getErpShopId());
+                    dto.setShopName(tpl.getShopName());
+                    dto.setErpShopName(tpl.getErpShopName());
+                    dto.setProductId(tpl.getProductId());
+                    dto.setWarehouseId(tpl.getWarehouseId());
+                    dto.setShopId(tpl.getShopId());
+                    dto.setTrilateralId(tpl.getTrilateralId());
+                    dto.setUserId(tpl.getUserId());
+                    dto.setIsdistribution(tpl.getIsdistribution());
+                    dto.setDelFlag(tpl.getDelFlag());
+                    dto.setCreateTime(now);
+                    dto.setUpdateTime(tpl.getUpdateTime());
+                    insertList.add(dto);
+                }
+                log.info("publishGoods 已存在{}条, 复制补齐{}条 erp_shop_id={}, product_id={}, trilateral_id={}",
+                        existCount, need, shopErpId, productId, trilateralId);
             }
 
             int inserted = tShopGoodsPublishedMapper.batchInsert(insertList);

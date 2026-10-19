@@ -43,6 +43,9 @@
         SELECT <include refid="Base_Column_List"/>
         FROM t_shop_goods_published
         WHERE product_id = #{productId} and user_id = #{userId}
+          <if test="isDistribution != null">
+              and is_distribution = #{isDistribution}
+          </if>
         GROUP BY erp_shop_id
         order by id desc
     </select>

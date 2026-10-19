@@ -111,4 +111,5 @@ public class SysUser {
 
     private String shopName;
 
+    private String isDistributor;
 }

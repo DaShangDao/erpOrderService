@@ -55,7 +55,6 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
 
     private final IPddMessageService pddMessageServicel;
 
-
     // 在类中定义缓存（需要引入 Caffeine 依赖）
     private final Cache<String, Long> stockRollbackCache = Caffeine.newBuilder()
             .expireAfterWrite(5, TimeUnit.MINUTES)
@@ -397,7 +396,18 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                             "&page=" + page +
                             "&pageSize=" + pageSize);
 
-            System.out.println("查询日期：" + new Date(dayStartTime * 1000) + " 到 " + new Date(dayEndTime * 1000));
+
+            if(result.equals("null")){
+                // 增加一天
+                calendar.add(Calendar.DAY_OF_MONTH, 1);
+                calendar.set(Calendar.HOUR_OF_DAY, 0);
+                calendar.set(Calendar.MINUTE, 0);
+                calendar.set(Calendar.SECOND, 0);
+                calendar.set(Calendar.MILLISECOND, 0);
+                page = 1;
+                continue;
+            }
+
             Map resultMap = JsonUtil.transferToObj(result, Map.class);
             Boolean hasNext = (Boolean) resultMap.get("has_next");
             List orderList = (List) resultMap.get("order_list");
@@ -406,9 +416,6 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
                 Map orderMap = (Map) orderList.get(i);
                 String orderSn = orderMap.get("order_sn").toString();
 
-                if(orderSn.equals("260908-556689058100898")){
-                    System.out.println("1111");
-                }
                 // 定义日志数据
                 RunningTask runningTask = new RunningTask();
                 runningTask.setTaskId(Long.parseLong(taskId));
@@ -941,24 +948,29 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
             if (Integer.parseInt(goodsDto.getGoodsCount()) != 0){
                 // 执行推送订单
                 try{
-                    // 先 根据 订单id 查询是否已经存在已下发商品记录，如果不存在，则执行下发
-                    ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
-                    // 订单id
-                    erpGoodsOrderQueue.setErpGoodsOrderId(erpGoodsOrder.getId());
-                    // 订单类型
-                    erpGoodsOrderQueue.setOrderType("0");
-                    List<ErpGoodsOrderQueue> erpGoodsOrderQueueList = erpGoodsOrderQueueService.getList(erpGoodsOrderQueue);
-                    // 查询用户是否是非分销商
-                    int count = 1;
-                    try{
-                        count = userRoleService.selecUserRole(erpGoodsOrder.getCreatedBy());
-                    }catch (Exception e){
-                        System.out.println("查询角色失败");
-                    }
-                    if (count == 1 && (erpGoodsOrderQueueList == null || erpGoodsOrderQueueList.isEmpty())){
-                        // 订单状态
-                        erpGoodsOrderQueue.setStatus("0");
-                        erpGoodsOrderQueueService.save(erpGoodsOrderQueue);
+                    // 校验用户状态，如果是分销用户则不需要下发psi
+                    SysUser sysUser = userService.selectUserOne(erpGoodsOrder.getCreatedBy());
+                    // 非分销用户下发psi订单
+                    if (sysUser.getIsDistributor() != null && sysUser.getIsDistributor().equals("0")){
+                        // 先 根据 订单id 查询是否已经存在已下发商品记录，如果不存在，则执行下发
+                        ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                        // 订单id
+                        erpGoodsOrderQueue.setErpGoodsOrderId(erpGoodsOrder.getId());
+                        // 订单类型
+                        erpGoodsOrderQueue.setOrderType("0");
+                        List<ErpGoodsOrderQueue> erpGoodsOrderQueueList = erpGoodsOrderQueueService.getList(erpGoodsOrderQueue);
+                        // 查询用户是否是非分销商
+                        int count = 1;
+                        try{
+                            count = userRoleService.selecUserRole(erpGoodsOrder.getCreatedBy());
+                        }catch (Exception e){
+                            System.out.println("查询角色失败");
+                        }
+                        if (count == 1 && (erpGoodsOrderQueueList == null || erpGoodsOrderQueueList.isEmpty())){
+                            // 订单状态
+                            erpGoodsOrderQueue.setStatus("0");
+                            erpGoodsOrderQueueService.save(erpGoodsOrderQueue);
+                        }
                     }
                 }catch (Exception e){
                     System.out.println("推送销售订单失败");

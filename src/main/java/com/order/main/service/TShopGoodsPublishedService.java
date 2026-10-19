@@ -37,7 +37,7 @@ public interface TShopGoodsPublishedService {
      * @param productId
      * @return
      */
-    List<TShopGoodsPublishedDto> selectByProductId(Long productId,Long userId);
+    List<TShopGoodsPublishedDto> selectByProductId(Long productId,Long userId,String isDistribution);
 
     /**
      * 查询一条已被删除的数据
@@ -106,7 +106,7 @@ public interface TShopGoodsPublishedService {
      * @param receiverPhone
      * @param receiverAddress
      */
-    void createSalesOrder(String orderId,String orderSn,String productId,String unitPrice,
+    Map createSalesOrder(String orderId,String orderSn,String productId,String unitPrice,
                           String quantity,String sales_person,
                           String sales_person_id,String about_id,String shopType,String receiverName,String receiverPhone,String receiverAddress);
 
