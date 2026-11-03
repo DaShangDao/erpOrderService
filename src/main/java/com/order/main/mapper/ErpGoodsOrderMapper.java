@@ -106,6 +106,17 @@ public interface ErpGoodsOrderMapper {
     int update(ErpGoodsOrder erpGoodsOrder);
 
     /**
+     * 按平台订单号回写售后状态（只更新真实发生变化的行）
+     * 用于订单同步时把平台最新售后状态刷回库，解决「平台已退款、ERP 仍无售后」的问题
+     *
+     * @param orderNo         平台订单号
+     * @param afterSalesStatus 平台售后状态
+     * @return 影响行数
+     */
+    int updateAfterSalesStatusByOrderNo(@Param("orderNo") String orderNo,
+                                        @Param("afterSalesStatus") Long afterSalesStatus);
+
+    /**
      * 删除平台订单
      *
      * @param id 平台订单ID

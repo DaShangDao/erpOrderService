@@ -95,10 +95,10 @@ public class PddConfig {
                             // 商品审核驳回消息需要进行额外操作
                             if(orderType.equals("pdd_goods_GoodsCheckReject")){
                                 // 删除店铺商品
-                                erpGoodsOrderService.pddReviewRejected(message);
+//                                erpGoodsOrderService.pddReviewRejected(message);
                             }
                             // 将消息存入redis    key：shopId  value :list<Map>  type   erpShopId  shopId  goodsId
-                            erpGoodsOrderService.messageSetRedis(message);
+//                            erpGoodsOrderService.messageSetRedis(message);
                         }else{
                             System.out.println("未知类型："+orderType);
                         }

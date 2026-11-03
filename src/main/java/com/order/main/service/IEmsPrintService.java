@@ -29,7 +29,7 @@ public interface IEmsPrintService {
      * @param senderNo     协议客户号
      * @return
      */
-    String createOrder(ErpGoodsOrder erpGoodsOrder, Receiver receiver, Sender sender, List<Item> items,String senderNo,String authorization,String secretKey);
+    String createOrder(ErpGoodsOrder erpGoodsOrder, Receiver receiver, Sender sender, List<Item> items,String senderNo,String authorization,String secretKey,String productNo);
 
 
     /**

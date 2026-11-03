@@ -397,6 +397,14 @@
         where id = #{id}
     </update>
 
+    <!-- 订单同步时回写平台售后状态：只更新值确实变化的行 -->
+    <update id="updateAfterSalesStatusByOrderNo">
+        update erp_goods_order
+        set after_sales_status = #{afterSalesStatus}
+        where order_sn = #{orderNo}
+          and (after_sales_status is null or after_sales_status != #{afterSalesStatus})
+    </update>
+
     <delete id="deleteById">
         delete from erp_goods_order where id = #{id}
     </delete>

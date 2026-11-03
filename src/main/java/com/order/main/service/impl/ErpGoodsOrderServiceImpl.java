@@ -350,6 +350,27 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         }
     }
 
+    /**
+     * 把平台最新的售后状态回写到 erp_goods_order。
+     * 背景：售后状态只在首次建单时写入，订单已存在时同步流程（含「待发货+退款完成」跳过分支）
+     * 都不会刷新，导致平台已退款、ERP 仍显示无售后，出库前的售后预检形同虚设。
+     * 只更新 after_sales_status，且仅在值不同时执行 UPDATE，避免每分钟全表刷新。
+     */
+    private void syncPddOrderStatus(String orderSn, Long afterSalesStatus) {
+        try {
+            if (StringUtils.isEmpty(orderSn) || afterSalesStatus == null) {
+                return;
+            }
+            int rows = baseMapper.updateAfterSalesStatusByOrderNo(orderSn, afterSalesStatus);
+            if (rows > 0) {
+                System.out.println("[PDD售后回写] 订单号=" + orderSn + " 售后状态=" + afterSalesStatus + " 更新行数=" + rows);
+            }
+        } catch (Exception e) {
+            // 回写失败不能影响订单同步主流程
+            System.out.println("[PDD售后回写] 失败 订单号=" + orderSn + " 原因=" + e.getMessage());
+        }
+    }
+
     @Override
     public void pddManualOrder(Shop shop,String taskId,String startUpdateTime,String endUpdateTime,Boolean manua){
         long startTime = DateUtils.parseDateTimeToTimestamp(startUpdateTime) / 1000;
@@ -431,6 +452,9 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
 
                 Long orderStatus = OrderUtils.pddGetOrderStatus(Integer.parseInt(orderMap.get("order_status").toString()));
                 Long afterSalesStatus = Long.parseLong(orderMap.get("after_sales_status").toString());
+                // 平台最新售后状态先回写库：售后状态原来只在首次建单时写入，
+                // 订单已存在时下面的同步流程会跳过，ERP 会一直显示「无售后」，出库预检拦不住。
+                syncPddOrderStatus(orderSn, afterSalesStatus);
 
                 if (orderStatus == 1 ){
                     callBackData = "订单号："+orderSn+";订单状态：待付款;跳过";
@@ -938,6 +962,23 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
         // 如果是孔夫子订单并且首次获得孔夫子订单是买家已取消状态，则不执行下发操作
         if(shop.getShopType().equals("2") && erpGoodsOrder.getAfterSalesStatus() == 11L && manua){
             manua = false;
+        }
+        // 闲鱼订单：未付款（待付款/未付款就取消）只同步进 ERP，不下发 PSI，
+        // 避免未付款就建销售单、占库存；付款后下一轮同步会正常下发。
+        if ("5".equals(shop.getShopType())) {
+            Long xyPayAt = erpGoodsOrder.getPayAt();
+            boolean xyUnpaid = (xyPayAt == null || xyPayAt == 0L)
+                    || (erpGoodsOrder.getOrderStatus() != null && erpGoodsOrder.getOrderStatus() == 1L);
+            if (xyUnpaid) {
+                System.out.println("[闲鱼未付款] 订单号=" + erpGoodsOrder.getOrderSn()
+                        + " 订单状态=" + erpGoodsOrder.getOrderStatus()
+                        + " payAt=" + xyPayAt + " 只同步ERP，不下发PSI");
+                if (erpGoodsOrder.getIsIssue() == null || erpGoodsOrder.getIsIssue() != 0L) {
+                    erpGoodsOrder.setIsIssue(0L);
+                    update(erpGoodsOrder);
+                }
+                return;
+            }
         }
         // 如果设置表为空，或者库存同步形式是 支付减库存，则 ifOrderStatus = 2
         Long ifOrderStatus = warehouseSettingsVo == null || warehouseSettingsVo.getStockSynchronizeType() == 1 ? 2L : 1L;

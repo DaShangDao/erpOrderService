@@ -274,7 +274,7 @@ public class KfzSimpleDllLoader {
      * @return 同步结果字符串
      */
     public static String executeKongfzOrderSynchronization(int appId, String appSecret, String accessToken,
-                                                           String shippingComName, int orderId, String shippingId,
+                                                           String shippingComName, Long orderId, String shippingId,
                                                            String shippingCom, String shipmentNum,
                                                            String userDefined, String moreShipmentNum) {
         try {
@@ -313,7 +313,7 @@ public class KfzSimpleDllLoader {
      * @return 同步结果字符串
      */
     public static String executeKongfzOrderRedeliver(int appId, String appSecret, String accessToken,
-                                                           String shippingComName, int orderId, String shippingId,
+                                                           String shippingComName, Long orderId, String shippingId,
                                                            String companyCode, String shipmentNum,
                                                            String userDefined, String moreShipmentNum) {
         try {

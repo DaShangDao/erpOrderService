@@ -173,7 +173,9 @@ public class SinglePrintController {
             expressDeliveryOrder.setType(type);
             expressDeliveryOrder.setFastMailStr(map.get("fastMailVo").toString());
             if (type.equals("YZXB")){
-                String resData = emsPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,fastMailVo.get("partnerId").toString(),fastMailVo.get("secret").toString(),fastMailVo.get("remark").toString());
+                // 邮政产品：1 特快专递 2 快递包裹（账号里有则用账号的，否则默认快递包裹）
+                String productNo = fastMailVo.get("productNo") == null ? "2" : fastMailVo.get("productNo").toString();
+                String resData = emsPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,fastMailVo.get("partnerId").toString(),fastMailVo.get("secret").toString(),fastMailVo.get("remark").toString(),productNo);
                 // 转义
                 Map resDataMap = JsonUtil.transferToObj(resData,Map.class);
                 if (resDataMap.get("retCode").toString().equals("00000")){

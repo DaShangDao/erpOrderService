@@ -21,18 +21,45 @@ import java.util.*;
 
 public class InterfaceUtils {
 
-    private static RestTemplate createRestTemplate() {
+    /**
+     * 【性能优化 2026-10-19】共享 RestTemplate 实例，避免每次 HTTP 调用都新建一个。
+     * 原因：
+     *   1) 原实现每次调用都 new RestTemplate + new SimpleClientHttpRequestFactory，
+     *      大量短命对象加剧 GC，连接也无法稳定复用；
+     *   2) 共享实例后，底层 HttpURLConnection 的全局 KeepAliveCache 可稳定复用连接，
+     *      减少重复建连开销；
+     *   3) RestTemplate 初始化完成后是线程安全的，可安全共享。
+     */
+    private static final RestTemplate REST_TEMPLATE = buildRestTemplate(30000, 30000, false);
+    private static final RestTemplate REST_TEMPLATE_KFZ = buildRestTemplate(5000, 30000, false);
+    private static final RestTemplate REST_TEMPLATE_UTF8 = buildRestTemplate(30000, 30000, true);
+
+    private static RestTemplate buildRestTemplate(int connectTimeout, int readTimeout, boolean utf8) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(30000); // 连接超时时间
-        factory.setReadTimeout(30000);    // 读取超时时间
-        return new RestTemplate(factory);
+        factory.setConnectTimeout(connectTimeout); // 连接超时时间
+        factory.setReadTimeout(readTimeout);       // 读取超时时间
+        RestTemplate restTemplate = new RestTemplate(factory);
+        if (utf8) {
+            // 获取原有的消息转换器
+            List<HttpMessageConverter<?>> converters = restTemplate.getMessageConverters();
+            // 移除原有的 StringHttpMessageConverter
+            converters.removeIf(converter -> converter instanceof StringHttpMessageConverter);
+            // 添加支持 UTF-8 的 StringHttpMessageConverter
+            StringHttpMessageConverter stringConverter = new StringHttpMessageConverter(StandardCharsets.UTF_8);
+            stringConverter.setWriteAcceptCharset(false); // 重要：防止在请求头中添加 charset
+            // 将 UTF-8 转换器添加到列表开头，优先使用
+            converters.add(0, stringConverter);
+            restTemplate.setMessageConverters(converters);
+        }
+        return restTemplate;
+    }
+
+    private static RestTemplate createRestTemplate() {
+        return REST_TEMPLATE;
     }
 
     private static RestTemplate createRestTemplateKfz() {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(5000); // 连接超时时间
-        factory.setReadTimeout(30000);    // 读取超时时间
-        return new RestTemplate(factory);
+        return REST_TEMPLATE_KFZ;
     }
 
 
@@ -137,25 +164,9 @@ public class InterfaceUtils {
     }
 
 
-    // 创建支持 UTF-8 的 RestTemplate
+    // 创建支持 UTF-8 的 RestTemplate（返回共享实例，见类头部说明）
     private static RestTemplate createRestTemplateWithUtf8() {
-        RestTemplate restTemplate = new RestTemplate();
-
-        // 获取原有的消息转换器
-        List<HttpMessageConverter<?>> converters = restTemplate.getMessageConverters();
-
-        // 移除原有的 StringHttpMessageConverter
-        converters.removeIf(converter -> converter instanceof StringHttpMessageConverter);
-
-        // 添加支持 UTF-8 的 StringHttpMessageConverter
-        StringHttpMessageConverter stringConverter = new StringHttpMessageConverter(StandardCharsets.UTF_8);
-        stringConverter.setWriteAcceptCharset(false); // 重要：防止在请求头中添加 charset
-
-        // 将 UTF-8 转换器添加到列表开头，优先使用
-        converters.add(0, stringConverter);
-
-        restTemplate.setMessageConverters(converters);
-        return restTemplate;
+        return REST_TEMPLATE_UTF8;
     }
 
     public static String getInterfacePost(String ip, String url, Map params) {

@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -36,6 +37,7 @@ public class ErpOrderScheduler {
     private final IErpGoodsOrderService erpGoodsOrderService;
     private final IErpGoodsOrderQueueService erpGoodsOrderQueueService;
     private final TShopGoodsPublishedService tShopGoodsPublishedService;
+    private final IShopService shopService;
     // 添加一个标志位，表示是否有任务正在执行
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     /**
@@ -51,37 +53,53 @@ public class ErpOrderScheduler {
         try {
             // 获取未下发的订单
             ErpGoodsOrder erpGoodsOrder = erpGoodsOrderQueueService.selectByStatus();
-            if (erpGoodsOrder != null){
-                if (erpGoodsOrder.getOrderType() == null || erpGoodsOrder.getOrderType().equals("0")){
-                    WarehouseSettings warehouseSettings = erpGoodsOrderService.getWarehouseSettings(erpGoodsOrder.getCreatedBy());
 
-                    if (warehouseSettings == null){
-                        // 设置默认配置
-                        warehouseSettings = new WarehouseSettings();
-                        // 库存同步形式  0 下单减库存   1  支付减库存
-                        warehouseSettings.setStockSynchronizeType(1L);
-                        // 是否自动下发  0 否  1 是
-                        warehouseSettings.setAutoIssue(1L);
-                        // 是否开启亏损保护 0 否 1 是
-                        warehouseSettings.setLossProtection(1L);
-                        // 利润下限  默认利润1块钱
-                        warehouseSettings.setProfitFloor(new BigDecimal(100));
+            Shop shop = shopService.queryById(erpGoodsOrder.getShopErpId());
+
+            Date now = new Date();
+            boolean expired = (shop.getExpirationTime() != null && shop.getExpirationTime().before(now))
+                    || (shop.getShopExpirationTime() != null && shop.getShopExpirationTime().before(now));
+
+            if (expired) {
+                // 处理过期逻辑，比如抛异常或返回提示
+                ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                erpGoodsOrderQueue.setId(Long.parseLong(erpGoodsOrder.getQueueId()));
+                erpGoodsOrderQueue.setStatus("3");
+                erpGoodsOrderQueue.setMsg("店铺授权/订阅已过期");
+                erpGoodsOrderQueueService.update(erpGoodsOrderQueue);
+            }else{
+                if (erpGoodsOrder != null){
+                    if (erpGoodsOrder.getOrderType() == null || erpGoodsOrder.getOrderType().equals("0")){
+                        WarehouseSettings warehouseSettings = erpGoodsOrderService.getWarehouseSettings(erpGoodsOrder.getCreatedBy());
+
+                        if (warehouseSettings == null){
+                            // 设置默认配置
+                            warehouseSettings = new WarehouseSettings();
+                            // 库存同步形式  0 下单减库存   1  支付减库存
+                            warehouseSettings.setStockSynchronizeType(1L);
+                            // 是否自动下发  0 否  1 是
+                            warehouseSettings.setAutoIssue(1L);
+                            // 是否开启亏损保护 0 否 1 是
+                            warehouseSettings.setLossProtection(1L);
+                            // 利润下限  默认利润1块钱
+                            warehouseSettings.setProfitFloor(new BigDecimal(100));
+                        }
+                        // 下发
+                        tShopGoodsPublishedService.createSalesOrder(erpGoodsOrder,warehouseSettings);
+                    }else if(erpGoodsOrder.getOrderType().equals("1")){
+                        // 订单完成的操作
+                        tShopGoodsPublishedService.orderFinish(erpGoodsOrder);
+                    }else if (erpGoodsOrder.getOrderType().equals("2")){
+                        // 孔夫子订单
+                        if (erpGoodsOrder.getShopType().toString().equals("2")){
+                            tShopGoodsPublishedService.orderReturnhKfz(erpGoodsOrder);
+                        }else{
+                            // 订单退款
+                            tShopGoodsPublishedService.orderReturnh(erpGoodsOrder);
+                        }
                     }
-                    // 下发
-                    tShopGoodsPublishedService.createSalesOrder(erpGoodsOrder,warehouseSettings);
-                }else if(erpGoodsOrder.getOrderType().equals("1")){
-                    // 订单完成的操作
-                    tShopGoodsPublishedService.orderFinish(erpGoodsOrder);
-                }else if (erpGoodsOrder.getOrderType().equals("2")){
-                    // 孔夫子订单
-                    if (erpGoodsOrder.getShopType().toString().equals("2")){
-                        tShopGoodsPublishedService.orderReturnhKfz(erpGoodsOrder);
-                    }else{
-                        // 订单退款
-                        tShopGoodsPublishedService.orderReturnh(erpGoodsOrder);
-                    }
+
                 }
-
             }
         }finally {
             // 任务执行完毕，重置标志位

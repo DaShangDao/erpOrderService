@@ -268,7 +268,7 @@ public class DllInitializer {
      * 执行孔夫子订单同步
      */
     public static String executeKongfzOrderSynchronization(int appId, String appSecret, String accessToken,
-                                                           String shippingComName, int orderId, String shippingId,
+                                                           String shippingComName, Long orderId, String shippingId,
                                                            String shippingCom, String shipmentNum,
                                                            String userDefined, String moreShipmentNum) {
         if (!kfzInitialized) {
@@ -279,7 +279,7 @@ public class DllInitializer {
     }
 
     public static String executeKongfzOrderRedeliver(int appId, String appSecret, String accessToken,
-                                                           String shippingComName, int orderId, String shippingId,
+                                                           String shippingComName, Long orderId, String shippingId,
                                                            String companyCode, String shipmentNum,
                                                            String userDefined, String moreShipmentNum) {
         if (!kfzInitialized) {

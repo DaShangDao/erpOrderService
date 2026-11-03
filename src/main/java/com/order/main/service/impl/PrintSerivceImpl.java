@@ -86,6 +86,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
             }
         }
         erpGoodsOrder = erpGoodsOrderList.get(0);
+
         if (erpGoodsOrder.getOrderStatus() != 2L || erpGoodsOrder.getAfterSalesStatus() != 0L){
             result.put("code","500");
             result.put("msg","创建快递订单失败：订单未处于待发货状态");
@@ -96,6 +97,10 @@ public class PrintSerivceImpl implements IPrintSerivce {
             result.put("msg","拼多多额度不足，请前往https://fuwu.pinduoduo.com/service-market/decrypt申请额度或使用拼多多电子面单进行打单");
             return result;
         }
+        // 拼接订单号（仅用于韵达 order_serial_no / khddh）
+        // 不能直接改 erpGoodsOrder.orderSn，否则下面回填 update() 会把带后缀的单号写回 erp_goods_order，
+        // 导致真实订单号被污染（按 order_sn 查不到订单）。
+        String orderSerialNo = erpGoodsOrder.getOrderSn() + logisticsMap.get("orderMark");
         // 联系人/发货人
         String senderName = logisticsMap.get("contact").toString();
         // 联系电话
@@ -118,9 +123,9 @@ public class PrintSerivceImpl implements IPrintSerivce {
             List<Object> orders = new ArrayList<>();
             JSONObject order = new JSONObject();
             // 订单唯一序列号 由字母、数字、下划线组成，必须保证唯一，请对特殊符号进行过滤
-            order.put("order_serial_no",erpGoodsOrder.getOrderSn());
+            order.put("order_serial_no",orderSerialNo);
             // 大客户系统订单的订单号可与订单唯一序列号相同
-            order.put("khddh",erpGoodsOrder.getOrderSn());
+            order.put("khddh",orderSerialNo);
             // 发件人对象
             JSONObject sender = new JSONObject();
             // 发件人姓名
@@ -308,6 +313,12 @@ public class PrintSerivceImpl implements IPrintSerivce {
             return result;
         }
 
+        // 取号序列号 = 平台单号 + orderMark（多包裹靠它区分，1/2/3...）
+        // 注意：orderMark 只能用于向承运商取号，绝不能写回实体 order_sn。
+        // 否则 backfill() 落库会把平台单号污染成 xxx1，之后回填平台会报“订单信息不存在”。
+        String originOrderSn = erpGoodsOrder.getOrderSn();
+        String orderSerialNo = originOrderSn + logisticsMap.get("orderMark");
+        erpGoodsOrder.setOrderSn(orderSerialNo);
         // 获取快递账号信息
         Map fastMailMap = JsonUtil.transferToObj(map.get("fastMailMap").toString(),Map.class);
         // 账号/编码
@@ -316,6 +327,8 @@ public class PrintSerivceImpl implements IPrintSerivce {
         String secret = fastMailMap.get("secret") == null ? "" : fastMailMap.get("secret").toString();
         // 备注
         String remark = fastMailMap.get("remark") == null ? "" : fastMailMap.get("remark").toString();
+        // 邮政产品 1 特快专递 2 快递包裹
+        String productNo = fastMailMap.get("productNo") == null ? "2" : fastMailMap.get("productNo").toString();
 
         // 寄件人信息
         Sender sender = new Sender();
@@ -403,7 +416,7 @@ public class PrintSerivceImpl implements IPrintSerivce {
         expressDeliveryOrder.setFastMailStr(map.get("fastMailMap").toString());
         if (type.equals("YZXB")){
             // 邮政
-            String resData = emsPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,partnerId,secret,remark);
+            String resData = emsPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,partnerId,secret,remark,productNo);
             // 转义
             Map resDataMap = JsonUtil.transferToObj(resData,Map.class);
             if (resDataMap.get("retCode").toString().equals("00000")){
@@ -480,13 +493,11 @@ public class PrintSerivceImpl implements IPrintSerivce {
                 // 订单信息
                 resultMap.put("expressDeliveryOrder",expressDeliveryOrder);
             }else{
-                try{
-                    resultMap.put("code","500");
-                    resultMap.put("msg","创建失败："+resDataMap.get("reaspm"));
-                }catch (Exception e){
-                    resultMap.put("code","500");
-                    resultMap.put("msg","创建失败："+resDataMap);
-                }
+                // 圆通失败返回里没有 reaspm 字段（历史拼写错误），之前会拼出"创建失败：null"，
+                // 这里直接透出原始返回，便于定位真实原因
+                System.out.println("[YTO createOrder] 原始返回："+resData);
+                resultMap.put("code","500");
+                resultMap.put("msg","创建失败："+resDataMap);
             }
         }else if(type.equals("STO")){
             String resData = stoPrintService.createOrder(erpGoodsOrder,receiver,sender,itemList,remark,partnerId,secret);
@@ -508,18 +519,18 @@ public class PrintSerivceImpl implements IPrintSerivce {
                 // 订单信息
                 resultMap.put("expressDeliveryOrder",expressDeliveryOrder);
             }else{
-                try{
-                    resultMap.put("code","500");
-                    resultMap.put("msg","创建失败："+resDataMap.get("reaspm"));
-                }catch (Exception e){
-                    resultMap.put("code","500");
-                    resultMap.put("msg","创建失败："+resDataMap);
-                }
+                // 申通失败同样没有 reaspm 字段，透出原始返回
+                System.out.println("[STO createOrder] 原始返回："+resData);
+                resultMap.put("code","500");
+                resultMap.put("msg","创建失败："+resDataMap);
             }
         } else{
             resultMap.put("code","500");
             resultMap.put("msg","异常快递类型"+type);
         }
+        // 回填前还原平台原始单号：orderMark 只用于取号，落库/回填必须用真实平台单号
+        erpGoodsOrder.setOrderSn(originOrderSn);
+
         // 如果快递号不为空 则代表创建成功
         if (!StringUtils.isEmpty(expressDeliveryOrder.getWaybillNo()) && (type.equals("YTO") || resultMap.get("code").equals("200"))){
             // 回填快递单号

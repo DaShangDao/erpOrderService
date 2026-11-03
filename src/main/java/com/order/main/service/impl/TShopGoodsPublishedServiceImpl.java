@@ -13,6 +13,7 @@ import com.order.main.util.ClientConstantUtils;
 import com.order.main.util.InterfaceUtils;
 import com.order.main.util.MaskUtils;
 import com.order.main.util.UrlUtil;
+import com.order.main.util.DateUtils;
 import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.pdd.pop.sdk.common.util.StringUtils;
 import com.sun.jna.platform.mac.SystemB;
@@ -46,6 +47,9 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
     private final ISysUserService userService;
     private final IPsiEmployeesService psiEmployeesService;
     private final RedisService redisService;
+
+    /** 旧订单推送拦截：下单时间超过该天数不再下发 PSI */
+    private static final long PUSH_MAX_AGE_DAYS = 15L;
 
 
     @Override
@@ -134,6 +138,35 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
     public void createSalesOrder(ErpGoodsOrder erpGoodsOrder,WarehouseSettings warehouseSettings) {
         try{
             System.out.println("【开始执行推送销售订单操作】-----------------------："+JsonUtil.transferToJson(erpGoodsOrder));
+
+            // ===== 旧订单推送拦截：下单时间超过 15 天不再下发 PSI =====
+            Long orderCreatedAt = erpGoodsOrder.getCreatedAt();
+            if (orderCreatedAt != null && orderCreatedAt > 0) {
+                // created_at 库里 10位(秒)/13位(毫秒) 混存，先统一成毫秒
+                long createdAtMs = String.valueOf(orderCreatedAt).length() == 13 ? orderCreatedAt : orderCreatedAt * 1000;
+                long ageMs = System.currentTimeMillis() - createdAtMs;
+                if (ageMs > PUSH_MAX_AGE_DAYS * 24L * 3600 * 1000) {
+                    long days = ageMs / (24L * 3600 * 1000);
+                    String msg = "旧订单推送：" + days + "天订单（下单时间 "
+                            + DateUtils.formatTimestampToGMT8(createdAtMs) + "），不再推送";
+                    try {
+                        String queueIdStr = erpGoodsOrder.getQueueId();
+                        if (queueIdStr != null && !queueIdStr.trim().isEmpty()
+                                && !"0".equals(queueIdStr.trim())) {
+                            ErpGoodsOrderQueue queue = new ErpGoodsOrderQueue();
+                            queue.setId(Long.parseLong(queueIdStr.trim()));
+                            queue.setStatus("4");   // 4=跳过，前端显示「跳过」且隐藏手动下发按钮
+                            queue.setMsg(msg);
+                            erpGoodsOrderQueueService.update(queue);
+                        }
+                    } catch (Exception e) {
+                        System.out.println("[旧订单推送] 更新队列失败 queueId="
+                                + erpGoodsOrder.getQueueId() + "，" + e.getMessage());
+                    }
+                    System.out.println("[旧订单推送] 订单号=" + erpGoodsOrder.getOrderSn() + "，" + msg);
+                    return;   // 不下发、不锁库存、不建销售单
+                }
+            }
 
             Long autoIssue = warehouseSettings.getAutoIssue() == null ? 1 : warehouseSettings.getAutoIssue();
             if (autoIssue == 0){
@@ -705,21 +738,20 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                     psiSplitAccountConfigPlatform.setRatio(new BigDecimal("0.03"));
                     psiSplitAccountConfigPlatform.setAddAmount(new BigDecimal("0.1").multiply(new BigDecimal(100)));
                 }
+                // 防重复执行校验：根据订单ID+平台商品ID缓存判断
+                // 【优化 2026-10-19】原实现把校验放在 goodsCount 循环体内，TTL 只有 100ms，
+                // 必须靠 Thread.sleep(100) 让 key 过期才能继续处理多本订单（既慢又不可靠）。
+                // 现改为整个订单处理前只校验一次，TTL 提到 30 秒，并去掉 sleep。
+                String dedupKey = erpGoodsOrder.getId() + ":" + goodsId;
+                if (redisService.get(dedupKey) != null) {
+                    updateQueueStatus(erpGoodsOrder, "2", "失败：重复异常执行");
+                    return;
+                }
+                redisService.set(dedupKey, "1", 30, TimeUnit.SECONDS);
+
                 // 循环库存数量
                 for (int i=0;i<goodsCount;i++){
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
 
-                    // 防重复执行校验：根据订单ID+平台商品ID缓存判断
-                    String dedupKey = erpGoodsOrder.getId() + ":" + goodsId;
-                    if (redisService.get(dedupKey) != null) {
-                        updateQueueStatus(erpGoodsOrder, "2", "失败：重复异常执行");
-                        break;
-                    }
-                    redisService.set(dedupKey, "1", 100, TimeUnit.MILLISECONDS);
 
                     // 是否重新匹配
                     if (matchMark){
@@ -793,7 +825,9 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
                     BigDecimal orderPrice = new BigDecimal(erpGoodsOrder.getOrderTotal());
                     // 差价
                     BigDecimal differencePrice = orderPrice.subtract(totalPrice);
-                    if (differencePrice.compareTo(warehouseSettings.getProfitFloor()) >= 0 || psiProduct.get("about_id").equals(erpGoodsOrder.getCreatedBy().toString())){
+                    if (differencePrice.compareTo(warehouseSettings.getProfitFloor()) >= 0
+                            || psiProduct.get("about_id").equals(erpGoodsOrder.getCreatedBy().toString())
+                            || warehouseSettings.getLossProtection() == 0){
                         if (quantity.compareTo(BigDecimal.ZERO) > 0){
                             // 商品价格
                             BigDecimal salePrice = new BigDecimal(psiProduct.get("sale_price").toString());
@@ -1049,12 +1083,28 @@ public class TShopGoodsPublishedServiceImpl implements TShopGoodsPublishedServic
         }
         // 商品id
         requestParams.put("items[0][product_id]",psiProduct.get("id").toString());
-        // 单价
-        if (erpGoodsOrder.getShopType() == 2){
-            requestParams.put("items[0][unit_price]", erpGoodsOrder.getOrderTotal() +"");
-        }else{
-            requestParams.put("items[0][unit_price]", new BigDecimal(goodsDto.getGoodsPrice()).longValue() +"");
+        // 单价：统一取本行商品价（单位：分）。
+        // 注意：孔网(shop_type=2) 抓单时会把整单金额复制到该订单拆出来的每一行 erp_goods_order，
+        // 旧逻辑这里直接拿 orderTotal 当单价，导致"一单 N 件"在 PSI 里被记成 N 份整单金额
+        // （实测一单 48 本 → 48 张销售单 × 整单额，销售额虚增 48 倍）。
+        // 商品价缺失时才退回整单金额，并打日志便于排查。
+        String unitPriceStr = goodsDto.getGoodsPrice();
+        long unitPriceVal = 0L;
+        if (unitPriceStr != null && !unitPriceStr.trim().isEmpty()) {
+            try {
+                unitPriceVal = new BigDecimal(unitPriceStr.trim()).longValue();
+            } catch (Exception e) {
+                System.out.println("[下发PSI] 商品价解析失败 goodsPrice=" + unitPriceStr
+                        + " 订单号=" + erpGoodsOrder.getOrderSn());
+            }
         }
+        if (unitPriceVal <= 0) {
+            Long orderTotalVal = erpGoodsOrder.getOrderTotal();
+            unitPriceVal = orderTotalVal == null ? 0L : orderTotalVal.longValue();
+            System.out.println("[下发PSI] 商品价为空，退回整单金额 orderSn=" + erpGoodsOrder.getOrderSn()
+                    + " orderTotal=" + unitPriceVal);
+        }
+        requestParams.put("items[0][unit_price]", String.valueOf(unitPriceVal));
         // 数量
         requestParams.put("items[0][quantity]","1");
         // 店铺名

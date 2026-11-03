@@ -124,4 +124,8 @@ public class Shop {
      */
     private String createBy;
 
+    /**
+     * 订阅到期时间
+     */
+    private Date shopExpirationTime;
 }
