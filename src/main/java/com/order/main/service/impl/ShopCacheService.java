@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 店铺信息缓存服务（mallId -> Shop，缓存1天）
+ * 店铺信息缓存服务（mallId -> Shop，缓存10分钟）
  * t_shop 表在 slave 数据源（zhishu库），查询必须走 @DS("slave")
  * 独立Bean：保证 @DS 注解在跨Bean调用时生效（同类内部调用AOP不生效）
  *
@@ -25,11 +25,15 @@ public class ShopCacheService {
     private final IShopService shopService;
 
     /**
-     * mallId -> Shop 缓存，1天过期
+     * mallId -> Shop 缓存，10分钟过期
      * 缓存存在直接用，不存在则查库并写入缓存
+     * 说明：店铺重新授权后 token 会变，缓存过期前订单服务仍会用旧 token 建单导致失败，
+     *      因此这里不能设太长（原为 1 天），10 分钟为“最长自愈时间”。
      */
+    private static final long CACHE_EXPIRE_MINUTES = 10;
+
     private final Cache<Long, Shop> shopCache = Caffeine.newBuilder()
-            .expireAfterWrite(1, TimeUnit.DAYS)
+            .expireAfterWrite(CACHE_EXPIRE_MINUTES, TimeUnit.MINUTES)
             .build();
 
     /**

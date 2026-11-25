@@ -32,6 +32,26 @@ public class PrintSerivceImpl implements IPrintSerivce {
     private final IStoPrintService stoPrintService;
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
     private final IShopService shopService;
+    private final IErpDistributionOrderService erpDistributionOrderService;
+
+    /**
+     * 分销订单在 PSI 侧用的是 ERP 分销单号（FX 开头），
+     * 打单/取号必须用平台订单号，这里做一次转换。
+     */
+    private String resolvePlatformOrderSn(String orderSn) {
+        if (StringUtils.isEmpty(orderSn)) {
+            return orderSn;
+        }
+        try {
+            ErpDistributionOrder dist = erpDistributionOrderService.getByOrderNo(orderSn);
+            if (dist != null && !StringUtils.isEmpty(dist.getSourceOrderSn())) {
+                return dist.getSourceOrderSn();
+            }
+        } catch (Exception e) {
+            System.out.println("[打单]解析分销单号失败 orderSn=" + orderSn + " err=" + e.getMessage());
+        }
+        return orderSn;
+    }
 
 
     /**
@@ -52,8 +72,8 @@ public class PrintSerivceImpl implements IPrintSerivce {
         ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
         erpGoodsOrder.setOrderStatus(2L);
         if (deliveryMode.equals("1")){
-            // 订单全部商品打印
-            erpGoodsOrder.setOrderSn(orderSn);
+            // 订单全部商品打印（分销单号转平台订单号）
+            erpGoodsOrder.setOrderSn(resolvePlatformOrderSn(orderSn));
         }else {
             // 订单单独商品打印
             erpGoodsOrder.setId(Long.parseLong(orderId));
@@ -261,8 +281,8 @@ public class PrintSerivceImpl implements IPrintSerivce {
         if (deliveryMode.equals("1")){
             // 订单号
             String orderSn = map.get("orderSn") == null ? "" : map.get("orderSn").toString();
-            // 订单全部商品打印
-            erpGoodsOrder.setOrderSn(orderSn);
+            // 订单全部商品打印（分销单号转平台订单号）
+            erpGoodsOrder.setOrderSn(resolvePlatformOrderSn(orderSn));
         }else {
             // 订单id
             String orderId = map.get("orderId") == null ? "" : map.get("orderId").toString();
@@ -564,8 +584,8 @@ public class PrintSerivceImpl implements IPrintSerivce {
         ErpGoodsOrder erpGoodsOrder = new ErpGoodsOrder();
         erpGoodsOrder.setOrderStatus(2L);
 
-        // 订单全部商品打印
-        erpGoodsOrder.setOrderSn(orderSn);
+        // 订单全部商品打印（分销单号转平台订单号）
+        erpGoodsOrder.setOrderSn(resolvePlatformOrderSn(orderSn));
 
         List<ErpGoodsOrder>  erpGoodsOrderList = erpGoodsOrderService.selectOrderList(erpGoodsOrder);
 

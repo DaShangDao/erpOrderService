@@ -59,4 +59,14 @@ public interface IErpGoodsOrderQueueService {
      * 批量删除队列记录
      */
     boolean deleteBatch(List<Long> ids);
+
+    /**
+     * 批量重试：按队列ID批量查询（联表订单）
+     */
+    List<ErpGoodsOrder> selectForRetry(List<Long> ids);
+
+    /**
+     * 批量重试：重置为待推送，返回影响行数（1=成功，0=状态已变化）
+     */
+    int resetToPending(Long id, String msg);
 }

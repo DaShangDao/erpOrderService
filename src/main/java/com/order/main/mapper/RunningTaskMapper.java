@@ -2,6 +2,8 @@ package com.order.main.mapper;
 
 import com.order.main.entity.RunningTask;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -13,6 +15,10 @@ import java.util.List;
  */
 @Mapper
 public interface RunningTaskMapper {
+
+
+    RunningTask selectVoByTrilateralId(@Param("tableName") String tableName, @Param("trilateralId") String trilateralId);
+
 
     int insert(RunningTask runningTask);
 

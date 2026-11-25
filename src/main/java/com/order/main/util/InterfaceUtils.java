@@ -146,7 +146,7 @@ public class InterfaceUtils {
 
                 retryCount++;
                 if (retryCount > maxRetries) {
-                    throw new RuntimeException("连接超时,请稍后重试");
+                    throw new RuntimeException("接口调用失败[" + url + "]：" + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
                 }
                 // 指数退避：0.4s, 0.8s, 1.6s...
                 long backoffTime = (long) Math.pow(2, retryCount) * 200; // 单位：毫秒
@@ -194,6 +194,7 @@ public class InterfaceUtils {
         HttpEntity<String> requestEntity = new HttpEntity<>(jsonBody, headers);
 
         restTemplate.postForEntity(url, requestEntity, String.class);
+
     }
 
     public static String postForm(String ip, String url, Map<String, Object> formData) {
@@ -237,7 +238,7 @@ public class InterfaceUtils {
             } catch (Exception e) {
                 retryCount++;
                 if (retryCount > maxRetries) {
-                    throw new RuntimeException("连接超时,请稍后重试");
+                    throw new RuntimeException("接口调用失败[" + url + "]：" + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
                 }
                 // 指数退避：500ms, 1s, 2s...
                 long backoffTime = (long) Math.pow(2, retryCount) * 500; // 单位：毫秒
@@ -297,7 +298,7 @@ public class InterfaceUtils {
                 e.printStackTrace();
                 retryCount++;
                 if (retryCount > maxRetries) {
-                    throw new RuntimeException("连接超时,请稍后重试");
+                    throw new RuntimeException("接口调用失败[" + url + "]：" + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
                 }
                 // 指数退避：500ms, 1s, 2s...
                 long backoffTime = (long) Math.pow(2, retryCount) * 500; // 单位：毫秒

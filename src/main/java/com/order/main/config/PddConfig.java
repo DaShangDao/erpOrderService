@@ -2,6 +2,8 @@ package com.order.main.config;
 
 import com.order.main.service.IErpGoodsOrderService;
 import com.order.main.service.IPddMessageService;
+import com.order.main.util.InterfaceUtils;
+import com.pdd.pop.sdk.common.util.JsonUtil;
 import com.pdd.pop.sdk.http.PopHttpClient;
 import com.pdd.pop.sdk.message.MessageHandler;
 import com.pdd.pop.sdk.message.WsClient;
@@ -94,9 +96,11 @@ public class PddConfig {
                         }else if(isGoodsMessage(orderType)){
                             // 商品审核驳回消息需要进行额外操作
                             if(orderType.equals("pdd_goods_GoodsCheckReject")){
-                                // 删除店铺商品
-//                                erpGoodsOrderService.pddReviewRejected(message);
+                                // 审核原因
+                                erpGoodsOrderService.pddReviewRejected(message);
                             }
+
+                            InterfaceUtils.getInterfacePostWithJson("http://36.212.12.92:8055","/pdd/callback", JsonUtil.transferToJson(message));
                             // 将消息存入redis    key：shopId  value :list<Map>  type   erpShopId  shopId  goodsId
 //                            erpGoodsOrderService.messageSetRedis(message);
                         }else{

@@ -66,6 +66,7 @@ public interface TShopGoodsPublishedService {
      * @return
      */
     String synchronizeStockNew(String productId,Long userId,int inventory,int oldInventory,ErpGoodsOrder erpGoodsOrder);
+    String synchronizeStockNew(String productId, Long userId, int inventory, int oldInventory, ErpGoodsOrder erpGoodsOrder, Long skipShopErpId);
 
 
     /**
@@ -125,8 +126,27 @@ public interface TShopGoodsPublishedService {
                           String code, String msg);
 
     /**
+     * 手动重新下发 ERP 分销订单
+     *
+     * @param id         ERP 分销订单ID
+     * @param operatorId 操作人
+     */
+    Map retryDistributionOrder(Long id, Long operatorId);
+
+    /** 分销订单手动下发：查询可选商品 */
+    Map listDistributionProducts(Long distOrderId, String keyword);
+
+    /** 分销订单手动下发：选商品后重新算钱、分账、下发 PSI */
+    Map dispatchDistributionOrder(Long distOrderId, Long productId, Long aboutId, Long operatorId);
+
+    /**
      * 发布商品到 t_shop_goods_published（先删后插，按库存数量插入多条）
      */
     void publishGoods(Long userId, String productIdStr, String trilateralIdStr,
                       String stockStr, Long shopErpId);
+    /** 写 PSI 分账流水（金额单位：分） */
+    void createSplitAccountDeductionLog(Map createSplitAccountDeductionLog, java.math.BigDecimal totalAmount,
+                                       String deductionAmount, java.math.BigDecimal remainingAmount,
+                                       Long createdBy, net.minidev.json.JSONObject deductionDetails);
+
 }

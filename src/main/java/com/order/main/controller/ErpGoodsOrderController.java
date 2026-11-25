@@ -53,6 +53,7 @@ public class ErpGoodsOrderController  {
     private final IExpressDeliveryOrderService expressDeliveryOrderService;
     private final IOrderCompanyRetryService orderCompanyRetryService;
     private final IUserRoleService userRoleService;
+    private final IPddMessageService pddMessageService;
 
 
 
@@ -458,182 +459,281 @@ public class ErpGoodsOrderController  {
 
 
     @PostMapping("/orderCompanyOrder")
-    public void orderCompanyOrder(String sysDictDataVoListStr,String orderNo,String erpOrderId,String code){
+    public Map<String,Object> orderCompanyOrder(String sysDictDataVoListStr,String orderNo,String erpOrderId,String code){
+        Map<String,Object> resp = new HashMap<>();
         // 兼容全角逗号：多包裹单号分隔符统一按英文逗号处理
         if (orderNo != null) {
-            orderNo = orderNo.replace('\uff0c', ',');
+            orderNo = orderNo.replace('，', ',');
         }
+        String originOrderNo = orderNo;
 
         System.out.println("接口入参：orderNo:"+orderNo+";;erpOrderId:"+erpOrderId+";;code:"+code);
 
-        // 获取订单信息
-        ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpOrderId));
-
-        if((erpGoodsOrder.getOrderStatus() == 2L || erpGoodsOrder.getOrderStatus() == 3L)
-                && erpGoodsOrder.getAfterSalesStatus() == 0L){
-            String companyName = "";
-            if(StringUtils.isEmpty(code)){
-                ExpressDeliveryOrder expressDeliveryOrder = expressDeliveryOrderService.getByErpOrderId(erpOrderId);
-                if (expressDeliveryOrder != null){
-                    code = expressDeliveryOrder.getType();
-                }else{
-                    List<CourierLog> courierLogList =  courierLogService.getListByErpOrderId(Long.parseLong(erpOrderId));
-                    code = courierLogList.get(0).getMailType();
-                }
-
-            }else{
-                code = code.equals("yunda") ? "YUNDA" : code;
-            }
-            List sysDictDataVoList = JsonUtil.transferToObj(sysDictDataVoListStr,List.class);
-            for (Object sysDictDataVo : sysDictDataVoList){
-                Map sysDictDataVoMap = (Map) sysDictDataVo;
-                if(code.equals(sysDictDataVoMap.get("dictValue"))){
-                    companyName = sysDictDataVoMap.get("dictLabel").toString();
-                    break;
-                }
+        ErpGoodsOrder erpGoodsOrder = null;
+        Shop shop = null;
+        String companyName = "";
+        String result = "";
+        try {
+            // 获取订单信息
+            erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpOrderId));
+            if (erpGoodsOrder == null) {
+                recordOrderCompanyResult(null, erpOrderId, "", orderNo, "", "未知店铺",
+                        "订单不存在：erpOrderId=" + erpOrderId, 2);
+                resp.put("code", "500");
+                resp.put("msg", "订单不存在：erpOrderId=" + erpOrderId);
+                return resp;
             }
 
-
-            // 获取店铺信息
-            Shop shop = shopService.queryById(erpGoodsOrder.getShopErpId());
-            // 定义返回对象
-            String result = "";
-            if(shop.getShopType().equals("1")){
-                // 拼多多 同步订单快递单号
-                JSONObject jsonObject = new JSONObject();
-                jsonObject.put("order_sn",erpGoodsOrder.getOrderSn());
-                jsonObject.put("tracking_number",orderNo);
-                if (StringUtils.isNotEmpty(erpGoodsOrder.getTrackingNumber()) && erpGoodsOrder.getOrderStatus() != 2L){
-                    jsonObject.put("redelivery_type","2");
-                }
-                String json = jsonObject.toString();
-                result = DllInitializer.executePddOrderSynchronization(PddUtil.CLIENT_ID,PddUtil.CLIENT_SECRET,shop.getToken(),companyName,json);
-                // 网络超时异常：记录到重试表，由定时器后续重试
-                if (result != null && (result.contains("网络超时异常") || result.contains("暂时无法识别该运单号"))){
-                    try {
-                        OrderCompanyRetry retry = new OrderCompanyRetry();
-                        retry.setShopId(shop.getId());
-                        retry.setErpOrderId(Long.parseLong(erpOrderId));
-                        retry.setOrderSn(erpGoodsOrder.getOrderSn());
-                        retry.setTrackingNumber(orderNo);
-                        retry.setCompanyName(companyName);
-                        retry.setRetryCount(0);
-                        retry.setStatus(0);
-                        retry.setLastResult(result);
-                        orderCompanyRetryService.save(retry);
-                        System.out.println("拼多多发货网络超时，已记录重试: shopId=" + shop.getId() + ", orderSn=" + erpGoodsOrder.getOrderSn());
-                    } catch (Exception e) {
-                        System.err.println("记录拼多多发货重试失败: " + e.getMessage());
-                        e.printStackTrace();
-                    }
-                }
-            } else if(shop.getShopType().equals("2")){
-                if (companyName.equals("韵达快递")){
-                    companyName = "韵达速递";
-                }else if (companyName.contains("邮政")){
-                    companyName = "中国邮政";
-                }else if (companyName.contains("圆通快递")){
-                    companyName = "圆通速递";
-                }
-
-                // 补发快递
-                String moreShipmentNum = "";
-                int index = orderNo.indexOf(',');
-                if (index != -1) {
-                    String first = orderNo.substring(0, index);
-                    moreShipmentNum = orderNo.substring(index + 1);
-                    orderNo = first;
-                }
-
-
-                // 孔网回填快递单号：平台偶发 3003 Service error / Order Deliver Error
-                // （curl error 7 Failed connect to pc-gateway.kongfz.com:80 Connection refused），
-                // 这类抖动重试往往就过了，所以退避重试 3 次（1s/2s/4s），仍失败才落库待人工处理。
-                boolean kfzOk = false;
-                String lastResult = "";
-                for (int attempt = 1; attempt <= KFZ_RETRY_TIMES; attempt++) {
-                    if (StringUtils.isNotEmpty(erpGoodsOrder.getTrackingNumber()) && erpGoodsOrder.getOrderStatus() != 2L) {
-                        lastResult = DllInitializer.executeKongfzOrderRedeliver(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
-                                companyName,Long.parseLong(erpGoodsOrder.getOrderSn()),"","",orderNo,"",moreShipmentNum);
+            if((erpGoodsOrder.getOrderStatus() == 2L || erpGoodsOrder.getOrderStatus() == 3L)
+                    && erpGoodsOrder.getAfterSalesStatus() == 0L){
+                if(StringUtils.isEmpty(code)){
+                    ExpressDeliveryOrder expressDeliveryOrder = expressDeliveryOrderService.getByErpOrderId(erpOrderId);
+                    if (expressDeliveryOrder != null){
+                        code = expressDeliveryOrder.getType();
                     }else{
-                        // 孔夫子 同步订单快递单号
-                        lastResult = DllInitializer.executeKongfzOrderSynchronization(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
-                                companyName,Long.parseLong(erpGoodsOrder.getOrderSn()),"","",orderNo,"",moreShipmentNum);
+                        List<CourierLog> courierLogList =  courierLogService.getListByErpOrderId(Long.parseLong(erpOrderId));
+                        code = courierLogList.get(0).getMailType();
                     }
-                    result = lastResult;
-                    if (isKfzDeliverSuccess(lastResult)) {
-                        kfzOk = true;
-                        System.out.println("[孔网回填] 成功 orderSn=" + erpGoodsOrder.getOrderSn() + " 尝试次数=" + attempt);
-                        break;
-                    }
-                    if (!isKfzTransientError(lastResult) || attempt == KFZ_RETRY_TIMES) {
-                        break;
-                    }
-                    long waitMs = KFZ_RETRY_BACKOFF[Math.min(attempt - 1, KFZ_RETRY_BACKOFF.length - 1)];
-                    System.out.println("[孔网回填] 第" + attempt + "次失败（平台临时故障），" + waitMs + "ms 后重试 orderSn="
-                            + erpGoodsOrder.getOrderSn() + " 返回=" + StringUtils.substring(lastResult, 0, 300));
-                    try {
-                        Thread.sleep(waitMs);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
 
-                if (!kfzOk) {
-                    try {
-                        OrderCompanyRetry retry = new OrderCompanyRetry();
-                        retry.setShopId(shop.getId());
-                        retry.setErpOrderId(Long.parseLong(erpOrderId));
-                        retry.setOrderSn(erpGoodsOrder.getOrderSn());
-                        retry.setTrackingNumber(orderNo);
-                        retry.setCompanyName(companyName);
-                        retry.setRetryCount(1);
-                        retry.setStatus(1);
-                        retry.setLastResult("孔夫子" + lastResult);
-                        orderCompanyRetryService.save(retry);
-                        System.out.println("[孔网回填] 重试" + KFZ_RETRY_TIMES + "次仍失败，已落库 order_company_retry orderSn="
-                                + erpGoodsOrder.getOrderSn());
-                    } catch (Exception e) {
-                        System.err.println("记录孔网发货重试失败: " + e.getMessage());
-                        e.printStackTrace();
-                    }
-                }
-            } else if(shop.getShopType().equals("5")){
-
-                if (companyName.contains("圆通快递")){
-                    companyName = "圆通速递";
-                }
-
-                // 闲鱼 同步订单快递单号
-                // 创建传参对象
-                Map xyGoodsMap = new HashMap();
-                // appId
-                xyGoodsMap.put("appId",shop.getMallId());
-                // appSecret
-                xyGoodsMap.put("appSecret",shop.getToken());
-                // user_name
-                String[] userNames = new String[]{shop.getShopKey()};
-                xyGoodsMap.put("user_name",userNames);
-                // 订单号
-                xyGoodsMap.put("order_no",erpGoodsOrder.getOrderSn());
-                // 快递单号
-                xyGoodsMap.put("waybill_no",orderNo);
-                // 快递公司名称
-                xyGoodsMap.put("express_name",companyName);
-                if (StringUtils.isNotEmpty(erpGoodsOrder.getTrackingNumber()) && erpGoodsOrder.getOrderStatus() != 2L){
-                    // 调用接口
-                    result = DllInitializer.executeXyModifyWaybillNo(JsonUtil.transferToJson(xyGoodsMap));
                 }else{
-                    // 调用接口
-                    result = DllInitializer.executeXyOrderSynchronization(JsonUtil.transferToJson(xyGoodsMap));
+                    code = code.equals("yunda") ? "YUNDA" : code;
                 }
-            }
-            System.out.println("调用接口返回值："+result);
-        }else{
-            // 订单未处于待发货状态，无法回填快递
-        }
+                List sysDictDataVoList = JsonUtil.transferToObj(sysDictDataVoListStr,List.class);
+                for (Object sysDictDataVo : sysDictDataVoList){
+                    Map sysDictDataVoMap = (Map) sysDictDataVo;
+                    if(code.equals(sysDictDataVoMap.get("dictValue"))){
+                        companyName = sysDictDataVoMap.get("dictLabel").toString();
+                        break;
+                    }
+                }
 
+                // 获取店铺信息
+                shop = shopService.queryById(erpGoodsOrder.getShopErpId());
+                if (shop == null) {
+                    recordOrderCompanyResult(null, erpOrderId, erpGoodsOrder.getOrderSn(), originOrderNo, companyName,
+                            "未知店铺", "店铺不存在：shopErpId=" + erpGoodsOrder.getShopErpId(), 2);
+                    resp.put("code", "500");
+                    resp.put("msg", "店铺不存在：shopErpId=" + erpGoodsOrder.getShopErpId());
+                    return resp;
+                }
+                if(shop.getShopType().equals("1")){
+                    // 拼多多 同步订单快递单号
+                    JSONObject jsonObject = new JSONObject();
+                    jsonObject.put("order_sn",erpGoodsOrder.getOrderSn());
+                    jsonObject.put("tracking_number",orderNo);
+                    if (StringUtils.isNotEmpty(erpGoodsOrder.getTrackingNumber()) && erpGoodsOrder.getOrderStatus() != 2L){
+                        jsonObject.put("redelivery_type","2");
+                    }
+                    String json = jsonObject.toString();
+                    result = DllInitializer.executePddOrderSynchronization(PddUtil.CLIENT_ID,PddUtil.CLIENT_SECRET,shop.getToken(),companyName,json);
+                } else if(shop.getShopType().equals("2")){
+                    if (companyName.equals("韵达快递")){
+                        companyName = "韵达速递";
+                    }else if (companyName.contains("邮政")){
+                        companyName = "中国邮政";
+                    }else if (companyName.contains("圆通快递")){
+                        companyName = "圆通速递";
+                    }
+
+                    // 补发快递
+                    String moreShipmentNum = "";
+                    int index = orderNo.indexOf(',');
+                    if (index != -1) {
+                        String first = orderNo.substring(0, index);
+                        moreShipmentNum = orderNo.substring(index + 1);
+                        orderNo = first;
+                    }
+
+
+                    // 孔网回填快递单号：平台偶发 3003 Service error / Order Deliver Error
+                    // （curl error 7 Failed connect to pc-gateway.kongfz.com:80 Connection refused），
+                    // 这类抖动重试往往就过了，所以退避重试 3 次（1s/2s/4s），仍失败才落库待人工处理。
+                    boolean kfzOk = false;
+                    String lastResult = "";
+                    for (int attempt = 1; attempt <= KFZ_RETRY_TIMES; attempt++) {
+                        if (StringUtils.isNotEmpty(erpGoodsOrder.getTrackingNumber()) && erpGoodsOrder.getOrderStatus() != 2L) {
+                            lastResult = DllInitializer.executeKongfzOrderRedeliver(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
+                                    companyName,Long.parseLong(erpGoodsOrder.getOrderSn()),"","",orderNo,"",moreShipmentNum);
+                        }else{
+                            // 孔夫子 同步订单快递单号
+                            lastResult = DllInitializer.executeKongfzOrderSynchronization(ClientConstantUtils.KFZ_APP_ID, ClientConstantUtils.KFZ_APP_SECRET,shop.getToken(),
+                                    companyName,Long.parseLong(erpGoodsOrder.getOrderSn()),"","",orderNo,"",moreShipmentNum);
+                        }
+                        result = lastResult;
+                        if (isKfzDeliverSuccess(lastResult)) {
+                            kfzOk = true;
+                            System.out.println("[孔网回填] 成功 orderSn=" + erpGoodsOrder.getOrderSn() + " 尝试次数=" + attempt);
+                            break;
+                        }
+                        if (!isKfzTransientError(lastResult) || attempt == KFZ_RETRY_TIMES) {
+                            break;
+                        }
+                        long waitMs = KFZ_RETRY_BACKOFF[Math.min(attempt - 1, KFZ_RETRY_BACKOFF.length - 1)];
+                        System.out.println("[孔网回填] 第" + attempt + "次失败（平台临时故障），" + waitMs + "ms 后重试 orderSn="
+                                + erpGoodsOrder.getOrderSn() + " 返回=" + StringUtils.substring(lastResult, 0, 300));
+                        try {
+                            Thread.sleep(waitMs);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            break;
+                        }
+                    }
+
+                } else if(shop.getShopType().equals("5")){
+
+                    if (companyName.contains("圆通快递")){
+                        companyName = "圆通速递";
+                    }
+
+                    // 闲鱼 同步订单快递单号
+                    // 创建传参对象
+                    Map xyGoodsMap = new HashMap();
+                    // appId
+                    xyGoodsMap.put("appId",shop.getMallId());
+                    // appSecret
+                    xyGoodsMap.put("appSecret",shop.getToken());
+                    // user_name
+                    String[] userNames = new String[]{shop.getShopKey()};
+                    xyGoodsMap.put("user_name",userNames);
+                    // 订单号
+                    xyGoodsMap.put("order_no",erpGoodsOrder.getOrderSn());
+                    // 快递单号
+                    xyGoodsMap.put("waybill_no",orderNo);
+                    // 快递公司名称
+                    xyGoodsMap.put("express_name",companyName);
+                    if (StringUtils.isNotEmpty(erpGoodsOrder.getTrackingNumber()) && erpGoodsOrder.getOrderStatus() != 2L){
+                        // 调用接口
+                        result = DllInitializer.executeXyModifyWaybillNo(JsonUtil.transferToJson(xyGoodsMap));
+                    }else{
+                        // 调用接口
+                        result = DllInitializer.executeXyOrderSynchronization(JsonUtil.transferToJson(xyGoodsMap));
+                    }
+                }
+                // 无论哪个平台、成功还是失败，统一落库到 order_company_retry
+                int recordStatus;
+                if (isDeliverSuccess(shop.getShopType(), result)) {
+                    recordStatus = 1;
+                } else if (isRetryableDeliverError(result) && "1".equals(shop.getShopType())) {
+                    recordStatus = 0;
+                } else {
+                    recordStatus = 2;
+                }
+                recordOrderCompanyResult(shop, erpOrderId, erpGoodsOrder.getOrderSn(), originOrderNo, companyName,
+                        platformName(shop), result, recordStatus);
+                System.out.println("调用接口返回值："+result);
+                resp.put("code", recordStatus == 1 ? "200" : "500");
+                resp.put("msg", recordStatus == 1 ? "回传成功"
+                        : StringUtils.substring(String.valueOf(result), 0, 200));
+                resp.put("recordStatus", recordStatus);
+                return resp;
+            }else{
+                // 订单未处于待发货状态，同样落库记录，便于排查「PSI 已发货但平台未回填」
+                shop = shopService.queryById(erpGoodsOrder.getShopErpId());
+                recordOrderCompanyResult(shop, erpOrderId, erpGoodsOrder.getOrderSn(), originOrderNo, "",
+                        platformName(shop), "未回填：订单状态不符（orderStatus=" + erpGoodsOrder.getOrderStatus()
+                                + "，afterSalesStatus=" + erpGoodsOrder.getAfterSalesStatus() + "）", 2);
+                resp.put("code", "500");
+                resp.put("msg", "未回填：订单状态不符（orderStatus=" + erpGoodsOrder.getOrderStatus()
+                        + "，afterSalesStatus=" + erpGoodsOrder.getAfterSalesStatus() + "）");
+                return resp;
+            }
+        } catch (Exception e) {
+            // 任何异常都要落库，避免「PSI 显示已发货、实际没回填」时无痕迹可查
+            System.err.println("回填快递单号异常: " + e.getMessage());
+            e.printStackTrace();
+            recordOrderCompanyResult(shop, erpOrderId,
+                    erpGoodsOrder == null ? "" : erpGoodsOrder.getOrderSn(), originOrderNo, companyName,
+                    platformName(shop), "调用异常：" + e.getClass().getSimpleName() + "：" + e.getMessage(), 2);
+            resp.put("code", "500");
+            resp.put("msg", "调用异常：" + e.getClass().getSimpleName() + "：" + e.getMessage());
+            return resp;
+        }
+    }
+
+    /**
+     * 回填快递单号结果统一落库：所有平台、成功与失败都记录到 order_company_retry
+     * status: 0 待重试（仅拼多多网络超时）1 成功 2 失败/未处理
+     */
+    private void recordOrderCompanyResult(Shop shop, String erpOrderId, String orderSn, String orderNo,
+                                          String companyName, String platform, String result, int status) {
+        try {
+            OrderCompanyRetry retry = new OrderCompanyRetry();
+            retry.setShopId(shop == null || shop.getId() == null ? 0L : shop.getId());
+            try {
+                retry.setErpOrderId(Long.parseLong(erpOrderId));
+            } catch (Exception ignore) {
+                // erpOrderId 非法也要留痕，用 0 占位
+                retry.setErpOrderId(0L);
+            }
+            retry.setOrderSn(orderSn == null ? "" : orderSn);
+            retry.setTrackingNumber(orderNo == null ? "" : orderNo);
+            retry.setCompanyName(companyName == null ? "" : companyName);
+            retry.setRetryCount(0);
+            retry.setStatus(status);
+            String tag = status == 1 ? "成功" : (status == 0 ? "待重试" : "失败");
+            String body = result == null ? "" : result;
+            if (body.length() > 60000) {
+                body = body.substring(0, 60000);
+            }
+            retry.setLastResult("[" + platform + "][" + tag + "]" + body);
+            orderCompanyRetryService.save(retry);
+        } catch (Exception e) {
+            System.err.println("记录回填结果失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 平台回填是否成功
+     */
+    private boolean isDeliverSuccess(String shopType, String result) {
+        if (StringUtils.isEmpty(result)) {
+            return false;
+        }
+        String r = result.trim();
+        if (r.startsWith("Error:")) {
+            return false;
+        }
+        if ("2".equals(shopType)) {
+            return isKfzDeliverSuccess(result);
+        }
+        if (r.contains("\"successResponse\":")) {
+            return true;
+        }
+        if (r.contains("\"errorResponse\":{")) {
+            return false;
+        }
+        String lower = r.toLowerCase();
+        return !lower.contains("error") && !r.contains("失败") && !r.contains("异常");
+    }
+
+    /**
+     * 是否属于平台临时故障（拼多多网络超时交给定时器重试）
+     */
+    private boolean isRetryableDeliverError(String result) {
+        return result != null && (result.contains("网络超时异常") || result.contains("暂时无法识别该运单号"));
+    }
+
+    /**
+     * 店铺类型中文名
+     */
+    private String platformName(Shop shop) {
+        if (shop == null) {
+            return "未知店铺";
+        }
+        String t = shop.getShopType();
+        if ("1".equals(t)) {
+            return "拼多多";
+        }
+        if ("2".equals(t)) {
+            return "孔夫子";
+        }
+        if ("5".equals(t)) {
+            return "闲鱼";
+        }
+        if ("6".equals(t)) {
+            return "淘宝";
+        }
+        return "其他(" + t + ")";
     }
 
     /**
@@ -988,9 +1088,22 @@ public class ErpGoodsOrderController  {
 
 
     @GetMapping("/test2")
-    public void test2(String productId,Long userId,String erpId){
-        ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpId));
-        tShopGoodsPublishedService.synchronizeStockNew(productId,userId,0,0,erpGoodsOrder);
+    public void test2(String content){
+
+        Message message = new Message();
+
+        message.setType("ceshi");
+        message.setMallID(1234567866L);
+        message.setContent(content);
+
+
+
+//        Message message = new Message();
+//        message.setContent(content);
+//        erpGoodsOrderService.pddReviewRejected(message);
+
+//        ErpGoodsOrder erpGoodsOrder = erpGoodsOrderService.selectById(Long.parseLong(erpId));
+//        tShopGoodsPublishedService.synchronizeStockNew(productId,userId,0,0,erpGoodsOrder);
     }
 
     @GetMapping("/test3")

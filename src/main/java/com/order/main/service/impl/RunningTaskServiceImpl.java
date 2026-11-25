@@ -22,6 +22,14 @@ public class RunningTaskServiceImpl implements IRunningTaskService {
 
     private final RunningTaskMapper baseMapper;
 
+
+    @Override
+    @DS("taskDb")
+    public RunningTask selectVoByTrilateralId(String tableName,String trilateralId){
+        return baseMapper.selectVoByTrilateralId(tableName,trilateralId);
+    }
+
+
     @Override
     @DS("taskDb")
     public Boolean insert(RunningTask runningTask) {
@@ -34,5 +42,7 @@ public class RunningTaskServiceImpl implements IRunningTaskService {
     public Boolean batchInsert(List<RunningTask> list){
         return baseMapper.batchInsert(list) > 0;
     }
+
+
 
 }

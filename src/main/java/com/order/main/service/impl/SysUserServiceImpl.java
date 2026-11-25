@@ -29,6 +29,18 @@ public class SysUserServiceImpl implements ISysUserService {
     }
 
     /**
+     * 查询卖家展示名：店铺名 > 昵称 > 账号
+     */
+    @Override
+    @DS("slave")
+    public String selectShopName(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return sysUserMapper.selectShopName(userId);
+    }
+
+    /**
      * 修改用户金额
      * @param sysUser
      * @return

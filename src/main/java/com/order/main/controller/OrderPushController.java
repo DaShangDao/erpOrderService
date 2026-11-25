@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -28,6 +29,7 @@ public class OrderPushController {
     private final TShopGoodsPublishedService tShopGoodsPublishedService;
     private final ISysUserService sysUserService;
     private final IPsiEmployeesService psiEmployeesService;
+    private final IErpDistributionOrderService erpDistributionOrderService;
 
     /**
      * 查询商品列表（按ISBN查询进销存，每一条附带运费的完整信息）
@@ -196,6 +198,14 @@ public class OrderPushController {
             if (order == null) {
                 result.put("code", "400");
                 result.put("msg", "订单不存在");
+                return result;
+            }
+
+            // 分销订单必须走 ERP 分销订单缓冲层，禁止从平台订单直接下发 PSI
+            List<ErpDistributionOrder> distOrders = erpDistributionOrderService.listBySourceOrderId(order.getId());
+            if (distOrders != null && !distOrders.isEmpty()) {
+                result.put("code", "400");
+                result.put("msg", "该订单为分销订单，请到【分销订单】页面重新下发");
                 return result;
             }
 
@@ -679,4 +689,243 @@ public class OrderPushController {
         }
     }
 
+
+    // ==================== 批量重试（失败/异常队列重新下发） ====================
+
+    /** 批量重试单次上限（条） */
+    private static final int BATCH_RETRY_MAX = 50;
+    /** 旧订单推送时限（天），与自动下发保持一致 */
+    private static final int BATCH_RETRY_MAX_AGE_DAYS = 15;
+
+    /**
+     * 批量重试预检：只做判断，不改库
+     */
+    @PostMapping("/batchRetry/preview")
+    @CrossOrigin(origins = "*")
+    public Map batchRetryPreview(@RequestParam(required = false) String aboutId,
+                                 @RequestParam(required = false) String queueIds) {
+        Map result = new HashMap();
+        try {
+            String paramError = checkRetryParams(aboutId, queueIds);
+            if (paramError != null) {
+                result.put("code", "400");
+                result.put("msg", paramError);
+                return result;
+            }
+            List<Long> ids = parseQueueIds(queueIds);
+            List<Map> items = evaluateRetry(aboutId, ids);
+            result.put("code", "200");
+            result.put("data", buildBatchData(ids.size(), items));
+            return result;
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("code", "500");
+            result.put("msg", "系统错误: " + e.getMessage());
+            return result;
+        }
+    }
+
+    /**
+     * 批量重试：把勾选的失败/异常队列重置为待推送，由定时器自动重新下发
+     */
+    @PostMapping("/batchRetry")
+    @CrossOrigin(origins = "*")
+    public Map batchRetry(@RequestParam(required = false) String aboutId,
+                          @RequestParam(required = false) String queueIds) {
+        Map result = new HashMap();
+        try {
+            String paramError = checkRetryParams(aboutId, queueIds);
+            if (paramError != null) {
+                result.put("code", "400");
+                result.put("msg", paramError);
+                return result;
+            }
+            List<Long> ids = parseQueueIds(queueIds);
+            List<Map> items = evaluateRetry(aboutId, ids);
+
+            String msg = "批量重试 " + new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date());
+            int resetCount = 0;
+            for (Map item : items) {
+                if (!Boolean.TRUE.equals(item.get("retryable"))) {
+                    continue;
+                }
+                Long queueId = (Long) item.get("queueId");
+                try {
+                    int rows = erpGoodsOrderQueueService.resetToPending(queueId, msg);
+                    if (rows > 0) {
+                        resetCount++;
+                        item.put("reason", "已重置，等待自动下发");
+                    } else {
+                        item.put("retryable", false);
+                        item.put("reason", "状态已变化，未重置");
+                    }
+                } catch (Exception ex) {
+                    item.put("retryable", false);
+                    item.put("reason", "重置失败：" + ex.getMessage());
+                    System.out.println("[批量重试] 重置失败 queueId=" + queueId + "，" + ex.getMessage());
+                }
+            }
+
+            Map data = buildBatchData(ids.size(), items);
+            data.put("resetCount", resetCount);
+            result.put("code", "200");
+            result.put("msg", "已重置" + resetCount + "条，系统将自动重新下发");
+            result.put("data", data);
+            return result;
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.put("code", "500");
+            result.put("msg", "系统错误: " + e.getMessage());
+            return result;
+        }
+    }
+
+    /**
+     * 批量重试参数校验，返回 null 表示通过
+     */
+    private String checkRetryParams(String aboutId, String queueIds) {
+        if (isBlank(aboutId)) {
+            return "缺少账号参数";
+        }
+        List<Long> ids = parseQueueIds(queueIds);
+        if (ids.isEmpty()) {
+            return "请选择要重试的订单";
+        }
+        if (ids.size() > BATCH_RETRY_MAX) {
+            return "单次最多重试" + BATCH_RETRY_MAX + "条，请分批操作";
+        }
+        return null;
+    }
+
+    private Map buildBatchData(int total, List<Map> items) {
+        int retryable = 0;
+        for (Map item : items) {
+            if (Boolean.TRUE.equals(item.get("retryable"))) {
+                retryable++;
+            }
+        }
+        Map data = new HashMap();
+        data.put("total", total);
+        data.put("retryable", retryable);
+        data.put("skipped", total - retryable);
+        data.put("items", items);
+        return data;
+    }
+
+    private List<Long> parseQueueIds(String queueIds) {
+        List<Long> ids = new ArrayList();
+        if (isBlank(queueIds)) {
+            return ids;
+        }
+        Set<Long> set = new LinkedHashSet();
+        for (String part : queueIds.split(",")) {
+            String t = part == null ? "" : part.trim();
+            if (t.isEmpty()) {
+                continue;
+            }
+            try {
+                long v = Long.parseLong(t);
+                if (v > 0) {
+                    set.add(v);
+                }
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        ids.addAll(set);
+        return ids;
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    /**
+     * 逐条判断是否可重试
+     */
+    private List<Map> evaluateRetry(String aboutId, List<Long> ids) {
+        List<ErpGoodsOrder> rows = erpGoodsOrderQueueService.selectForRetry(ids);
+        Map<Long, ErpGoodsOrder> rowMap = new HashMap();
+        if (rows != null) {
+            for (ErpGoodsOrder row : rows) {
+                if (row.getQueueId() == null) {
+                    continue;
+                }
+                try {
+                    rowMap.put(Long.parseLong(row.getQueueId()), row);
+                } catch (NumberFormatException ignore) {
+                }
+            }
+        }
+        long now = System.currentTimeMillis();
+        List<Map> items = new ArrayList();
+        for (Long id : ids) {
+            Map item = new HashMap();
+            item.put("queueId", id);
+            ErpGoodsOrder row = rowMap.get(id);
+            if (row == null) {
+                item.put("orderSn", "");
+                item.put("retryable", false);
+                item.put("reason", "订单已删除");
+                items.add(item);
+                continue;
+            }
+            item.put("orderSn", row.getOrderSn() == null ? "" : row.getOrderSn());
+            String reason = checkRetryable(row, aboutId, now);
+            item.put("retryable", reason == null);
+            item.put("reason", reason == null ? "可重试" : reason);
+            items.add(item);
+        }
+        return items;
+    }
+
+    /**
+     * 可重试判断：返回 null 表示可重试，否则返回跳过原因
+     */
+    private String checkRetryable(ErpGoodsOrder row, String aboutId, long now) {
+        if (row.getCreatedBy() == null || !String.valueOf(row.getCreatedBy()).equals(aboutId)) {
+            return "不属于当前账号";
+        }
+        if (!"0".equals(row.getOrderType())) {
+            return "非订单创建类型，不支持重试";
+        }
+        if (!"2".equals(row.getStatus()) && !"3".equals(row.getStatus())) {
+            return "当前状态不是失败/异常";
+        }
+        if (row.getOrderStatus() == null || row.getOrderStatus().longValue() != 2L) {
+            return "订单已发货/交易成功/已退款/已关闭";
+        }
+        if (row.getAfterSalesStatus() != null && row.getAfterSalesStatus().longValue() != 0L) {
+            return "订单存在售后";
+        }
+        Long createdAt = row.getCreatedAt();
+        if (createdAt != null && createdAt > 0) {
+            long ms = String.valueOf(createdAt).length() == 13 ? createdAt : createdAt * 1000;
+            if (now - ms > BATCH_RETRY_MAX_AGE_DAYS * 24L * 3600 * 1000) {
+                return "超过" + BATCH_RETRY_MAX_AGE_DAYS + "天，系统会直接跳过";
+            }
+        }
+        try {
+            List<ErpDistributionOrder> distOrders = erpDistributionOrderService.listBySourceOrderId(row.getId());
+            if (distOrders != null && !distOrders.isEmpty()) {
+                return "分销订单请到【分销订单】页处理";
+            }
+        } catch (Exception e) {
+            return "分销单校验失败，请稍后重试";
+        }
+        try {
+            String res = InterfaceUtils.getInterface(UrlUtil.getNewWarehouse(),
+                    "/api/sales-order/query-by-erp-id?user_id=" + row.getCreatedBy() + "&erp_id=" + row.getId());
+            Map resMap = JsonUtil.transferToObj(res, Map.class);
+            if (resMap == null || !"200".equals(String.valueOf(resMap.get("code")))) {
+                return "销售单校验失败，请稍后重试";
+            }
+            Object dataObj = resMap.get("data");
+            if (dataObj instanceof List && !((List) dataObj).isEmpty()) {
+                return "已存在销售单，需人工核对";
+            }
+        } catch (Exception e) {
+            return "销售单校验失败，请稍后重试";
+        }
+        return null;
+    }
 }

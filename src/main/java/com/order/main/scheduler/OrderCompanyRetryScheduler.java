@@ -94,12 +94,16 @@ public class OrderCompanyRetryScheduler {
                         update.setRetryCount(retry.getRetryCount() == null ? 1 : retry.getRetryCount() + 1);
                         update.setLastResult(result);
 
-                        if (result != null && result.contains("网络超时异常")) {
-                            // 还是网络超时：保持 status=0，下次继续重试
+                        if (result == null || result.contains("网络超时异常") || result.contains("暂时无法识别该运单号")) {
+                            // 仍是平台临时故障：保持 status=0，下次继续重试
                             update.setStatus(0);
-                            System.out.println("[OrderCompanyRetry] 仍超时，继续重试: id=" + retry.getId() + ", shopId=" + shopId + ", orderSn=" + retry.getOrderSn() + ", retryCount=" + update.getRetryCount());
+                            System.out.println("[OrderCompanyRetry] 仍失败，继续重试: id=" + retry.getId() + ", shopId=" + shopId + ", orderSn=" + retry.getOrderSn() + ", retryCount=" + update.getRetryCount());
+                        } else if (result.trim().startsWith("Error:") || result.contains("\"errorResponse\":{")) {
+                            // 平台明确报错：status=2 失败，不再自动重试（改由人工处理）
+                            update.setStatus(2);
+                            System.out.println("[OrderCompanyRetry] 重试仍失败: id=" + retry.getId() + ", shopId=" + shopId + ", orderSn=" + retry.getOrderSn() + ", retryCount=" + update.getRetryCount());
                         } else {
-                            // 其他情况都算成功：status=1，不再重试
+                            // 平台返回正常响应：status=1 成功，不再重试
                             update.setStatus(1);
                             System.out.println("[OrderCompanyRetry] 重试成功: id=" + retry.getId() + ", shopId=" + shopId + ", orderSn=" + retry.getOrderSn() + ", retryCount=" + update.getRetryCount());
                         }

@@ -62,4 +62,14 @@ public interface ErpGoodsOrderQueueMapper {
      * 批量删除
      */
     int deleteBatch(@Param("ids") List<Long> ids);
+
+    /**
+     * 批量重试：按队列ID批量查询（联表订单，订单不存在的不返回）
+     */
+    List<ErpGoodsOrder> selectForRetry(@Param("ids") List<Long> ids);
+
+    /**
+     * 批量重试：把队列重置为待推送（仅 order_type=0 且 状态为失败/异常）
+     */
+    int resetToPending(@Param("id") Long id, @Param("msg") String msg);
 }

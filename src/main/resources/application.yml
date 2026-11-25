@@ -102,3 +102,17 @@ scheduler:
   daily:
     kfzOrder: "0 0/1 * * * ?"
     erpOrder: "* * * * * ?"
+
+# ERP 分销订单数据保留（只保留最近 N 个月）
+erp:
+  distribution:
+    cleanup:
+      enabled: false
+      retention-months: 2
+      batch-size: 1000
+      max-batches: 200
+      sleep-ms: 200
+      cron: "0 10 3 * * ?"
+    # 售后退回分销商手续费（platform_fee）的时间窗：下发后 N 小时内申请售后才退
+    after-sales:
+      fee-refund-hours: 2

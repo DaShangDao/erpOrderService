@@ -208,4 +208,27 @@
         </foreach>
     </delete>
 
+    <!-- 批量重试：按队列ID查询（联表订单，订单不存在的不返回） -->
+    <select id="selectForRetry" resultType="com.order.main.entity.ErpGoodsOrder">
+        SELECT o.id, o.order_sn, o.created_by, o.order_status, o.after_sales_status, o.created_at,
+               q.id AS queue_id, q.status, q.order_type, q.msg
+        FROM t_erp_goods_order_queue q
+        INNER JOIN erp_goods_order o ON q.erp_goods_order_id = o.id
+        WHERE q.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 批量重试：把队列重置为待推送（乐观条件，避免覆盖刚被处理成功的行） -->
+    <update id="resetToPending">
+        UPDATE t_erp_goods_order_queue
+           SET status = '0',
+               msg = #{msg},
+               use_time = NULL
+         WHERE id = #{id}
+           AND order_type = '0'
+           AND status IN ('2','3')
+    </update>
+
 </mapper>

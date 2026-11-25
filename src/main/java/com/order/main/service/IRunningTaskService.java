@@ -13,6 +13,14 @@ public interface IRunningTaskService {
 
 
     /**
+     * 根据平台商品id查询商品信息
+     * @param tableName
+     * @param trilateralId
+     * @return
+     */
+    RunningTask selectVoByTrilateralId(String tableName, String trilateralId);
+
+    /**
      * 新增执行的任务
      *
      * @param runningTask 执行的任务

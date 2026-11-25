@@ -4,6 +4,10 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.order.main.mapper.RunningTaskMapper">
 
+    <select id="selectVoByTrilateralId" parameterType="String" resultType="com.order.main.entity.RunningTask">
+        select * from `${tableName}` where goods_id = #{trilateralId} limit 1
+    </select>
+
 
     <!-- 插入任务记录 -->
     <insert id="insert" parameterType="com.order.main.entity.RunningTask" useGeneratedKeys="true" keyProperty="id">

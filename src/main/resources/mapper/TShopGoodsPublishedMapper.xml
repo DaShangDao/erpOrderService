@@ -42,7 +42,7 @@
     <select id="selectByProductId" resultMap="TShopGoodsPublishedResult">
         SELECT <include refid="Base_Column_List"/>
         FROM t_shop_goods_published
-        WHERE product_id = #{productId} and user_id = #{userId}
+        WHERE product_id = #{productId} and user_id = #{userId} and del_flag = 0
           <if test="isDistribution != null">
               and is_distribution = #{isDistribution}
           </if>

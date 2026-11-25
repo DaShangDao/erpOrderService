@@ -108,4 +108,17 @@ public class ErpGoodsOrderQueueServiceImpl implements IErpGoodsOrderQueueService
     public boolean deleteBatch(List<Long> ids) {
         return baseMapper.deleteBatch(ids) > 0;
     }
+
+    @Override
+    @DS("master")
+    public List<ErpGoodsOrder> selectForRetry(List<Long> ids) {
+        return baseMapper.selectForRetry(ids);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @DS("master")
+    public int resetToPending(Long id, String msg) {
+        return baseMapper.resetToPending(id, msg);
+    }
 }

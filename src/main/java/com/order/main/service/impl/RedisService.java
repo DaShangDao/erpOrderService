@@ -75,6 +75,28 @@ public class RedisService {
             e.printStackTrace();
         }
     }
+    /**
+     * 分布式锁：key 不存在时才设置（带过期时间）
+     */
+    public Boolean setIfAbsent(String key, Object value, long timeout, TimeUnit unit) {
+        try {
+            return redisTemplate.opsForValue().setIfAbsent(key, value, timeout, unit);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 删除缓存
+     */
+    public Boolean delete(String key) {
+        try {
+            return redisTemplate.delete(key);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     // 异步设置缓存
     public void setAsync(String key, Object value, long timeout, TimeUnit unit) {
         asyncExecutor.submit(() -> {

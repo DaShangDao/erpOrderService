@@ -898,9 +898,85 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
     public void pddReviewRejected(Message message){
         // 处理商品审核驳回消息的具体逻辑
         // 判断消息文本内容是否为空
-        if (ObjectUtil.isEmpty(message.getContent())) return;
-        // 解析消息文本内容
-        pddMessageServicel.saveGoodsMessage(message);
+        if (ObjectUtil.isEmpty(message.getContent())
+                || message.getContent().contains("您或您的关联店铺经营风险较高，当前无法发布预售商品")
+                || message.getContent().contains("您发布商品的分类与商品信息不匹配")
+                || message.getContent().contains("商品主轮播图展示的商品实物过小，不易于被消费者清晰识别，请您放大商品实物图比例后再重新发布。")
+                || message.getContent().contains("商品主轮播图请使用商品图")
+                || message.getContent().contains("商品分类错误，请根据商品品类选择对应的正确类目。")
+                || message.getContent().contains("商品图片中不得恶意使用诱导点击类的图标或文案")
+                || message.getContent().contains("商品图片中存在恶心不雅内容")
+                || message.getContent().contains("商品详情或标题中描述“当日发货”，与商品配置的承诺发货时间不一致")
+                || message.getContent().contains("请重新上传")
+                || message.getContent().contains("请规范商品信息")
+                || message.getContent().contains("请检查店铺内商品的明星代言、明星同款类描述")
+                || message.getContent().contains("请删除商品")
+                || message.getContent().contains("您发布的商品信息中（文字或图片）含有“赠品”相关信息")
+                || message.getContent().contains("请您准确填写")
+                || message.getContent().contains("请将商品发布至")
+                || message.getContent().contains("您发布的商品标题中存在违规营销敏感词")
+                || message.getContent().contains("商品未处于资源位")
+                || message.getContent().contains("上传相关凭证")
+                || message.getContent().contains("您填写的ISBN编号")
+                || message.getContent().contains("请如实填写商品对应的ISBN编号")
+                || message.getContent().contains("请您如实填写商品对应的isbn编号")
+                || message.getContent().contains("请规范")
+                || message.getContent().contains("疑似发布违禁商品")
+                || message.getContent().contains("图片不清晰")
+                || message.getContent().contains("请规范发布商品图片信息")
+                || message.getContent().contains("请删除【商品轮播图】")
+                ) return;
+
+        if (message.getContent().contains("发布违禁品") ||
+                message.getContent().contains("涉嫌发布") ||
+                message.getContent().contains("禁止商家发布") ||
+                message.getContent().contains("禁止发布") ||
+                message.getContent().contains("您发布的商品涉嫌违规") ||
+                message.getContent().contains("您发布的商品/信息涉嫌违法") ||
+                message.getContent().contains("商品被加入到黑名单")
+        ){
+            Map content = JsonUtil.transferToObj(message.getContent(),Map.class);
+            // 商品id
+            String goodsId = content.get("goods_id").toString();
+            // 店铺id
+            String shopMallId = content.get("mall_id").toString();
+            // 查询店铺id
+            Shop shop = shopService.selectShopByMallId(shopMallId);
+            // 查询商品信息
+            RunningTask runningTask = runningTaskService.selectVoByTrilateralId("t_running_task_"+shop.getId(),goodsId);
+            if (runningTask != null){
+                Map successData = JsonUtil.transferToObj(runningTask.getSuccessData(), Map.class);
+                String isbn = successData.get("isbn") != null ? successData.get("isbn").toString() : "";
+                if (!isbn.isEmpty()){
+
+                    JSONObject jsonObject = new JSONObject();
+                    jsonObject.put("filterType","1");
+                    jsonObject.put("limitationType","0");
+                    jsonObject.put("addWay","0");
+                    jsonObject.put("addTxt",isbn);
+                    jsonObject.put("sort","0");
+                    jsonObject.put("reason",content.get("reject_comment"));
+                    jsonObject.put("createBy","1");
+                    InterfaceUtils.getInterfacePostWithJson("https://api.buzhiyushu.cn","/zhishu/filterSet",jsonObject.toJSONString());
+                }
+            }
+        }else{
+            if(
+                    message.getContent().contains("发布二手图书时") ||
+                            message.getContent().contains("您发布商品的") ||
+                            message.getContent().contains("您发布的商品") ||
+                            message.getContent().contains("处于二级") ||
+                            message.getContent().contains("处于三级") ||
+                            message.getContent().contains("请确认发货方式")
+
+
+            ){
+                return;
+            }else{
+                // 解析消息文本内容
+                pddMessageServicel.saveGoodsMessage(message);
+            }
+        }
     }
 
     /**
@@ -989,29 +1065,24 @@ public class ErpGoodsOrderServiceImpl implements IErpGoodsOrderService {
             if (Integer.parseInt(goodsDto.getGoodsCount()) != 0){
                 // 执行推送订单
                 try{
-                    // 校验用户状态，如果是分销用户则不需要下发psi
-                    SysUser sysUser = userService.selectUserOne(erpGoodsOrder.getCreatedBy());
-                    // 非分销用户下发psi订单
-                    if (sysUser.getIsDistributor() != null && sysUser.getIsDistributor().equals("0")){
-                        // 先 根据 订单id 查询是否已经存在已下发商品记录，如果不存在，则执行下发
-                        ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
-                        // 订单id
-                        erpGoodsOrderQueue.setErpGoodsOrderId(erpGoodsOrder.getId());
-                        // 订单类型
-                        erpGoodsOrderQueue.setOrderType("0");
-                        List<ErpGoodsOrderQueue> erpGoodsOrderQueueList = erpGoodsOrderQueueService.getList(erpGoodsOrderQueue);
-                        // 查询用户是否是非分销商
-                        int count = 1;
-                        try{
-                            count = userRoleService.selecUserRole(erpGoodsOrder.getCreatedBy());
-                        }catch (Exception e){
-                            System.out.println("查询角色失败");
-                        }
-                        if (count == 1 && (erpGoodsOrderQueueList == null || erpGoodsOrderQueueList.isEmpty())){
-                            // 订单状态
-                            erpGoodsOrderQueue.setStatus("0");
-                            erpGoodsOrderQueueService.save(erpGoodsOrderQueue);
-                        }
+                    // 先 根据 订单id 查询是否已经存在已下发商品记录，如果不存在，则执行下发
+                    ErpGoodsOrderQueue erpGoodsOrderQueue = new ErpGoodsOrderQueue();
+                    // 订单id
+                    erpGoodsOrderQueue.setErpGoodsOrderId(erpGoodsOrder.getId());
+                    // 订单类型
+                    erpGoodsOrderQueue.setOrderType("0");
+                    List<ErpGoodsOrderQueue> erpGoodsOrderQueueList = erpGoodsOrderQueueService.getList(erpGoodsOrderQueue);
+                    // 查询用户是否是非分销商
+                    int count = 1;
+                    try{
+                        count = userRoleService.selecUserRole(erpGoodsOrder.getCreatedBy());
+                    }catch (Exception e){
+                        System.out.println("查询角色失败");
+                    }
+                    if (count == 1 && (erpGoodsOrderQueueList == null || erpGoodsOrderQueueList.isEmpty())){
+                        // 订单状态
+                        erpGoodsOrderQueue.setStatus("0");
+                        erpGoodsOrderQueueService.save(erpGoodsOrderQueue);
                     }
                 }catch (Exception e){
                     System.out.println("推送销售订单失败");
