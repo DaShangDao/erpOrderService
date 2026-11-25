@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.ErpDistributionAfterSalesMapper">
+
+    <insert id="insert" parameterType="com.order.main.entity.ErpDistributionAfterSales"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_erp_distribution_after_sales
+        (dist_order_id, dist_order_no, source_order_id, source_order_sn, owner_id, seller_id,
+         product_id, product_name, reason, refund_amount, max_amount, status,
+         apply_time, warehouse_time, distributor_time, finish_time,
+         warehouse_remark, distributor_remark, reject_count, auto_flag, source_type)
+        VALUES
+        (#{distOrderId}, #{distOrderNo}, #{sourceOrderId}, #{sourceOrderSn}, #{ownerId}, #{sellerId},
+         #{productId}, #{productName}, #{reason}, #{refundAmount}, #{maxAmount}, #{status},
+         #{applyTime}, #{warehouseTime}, #{distributorTime}, #{finishTime},
+         #{warehouseRemark}, #{distributorRemark}, #{rejectCount}, #{autoFlag},
+         #{sourceType, jdbcType=INTEGER})
+    </insert>
+
+    <select id="selectById" resultType="com.order.main.entity.ErpDistributionAfterSales">
+        SELECT * FROM t_erp_distribution_after_sales WHERE id = #{id} AND del_flag = '0'
+    </select>
+
+    <select id="listByDistOrderId" resultType="com.order.main.entity.ErpDistributionAfterSales">
+        SELECT * FROM t_erp_distribution_after_sales
+        WHERE dist_order_id = #{distOrderId} AND del_flag = '0'
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectActiveByDistOrderId" resultType="com.order.main.entity.ErpDistributionAfterSales">
+        SELECT * FROM t_erp_distribution_after_sales
+        WHERE dist_order_id = #{distOrderId} AND status IN (0,1,2) AND del_flag = '0'
+        ORDER BY id DESC LIMIT 1
+    </select>
+
+    <update id="updateById" parameterType="com.order.main.entity.ErpDistributionAfterSales">
+        UPDATE t_erp_distribution_after_sales
+        <set>
+            <if test="refundAmount != null">refund_amount = #{refundAmount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="warehouseTime != null">warehouse_time = #{warehouseTime},</if>
+            <if test="distributorTime != null">distributor_time = #{distributorTime},</if>
+            <if test="finishTime != null">finish_time = #{finishTime},</if>
+            <if test="warehouseRemark != null">warehouse_remark = #{warehouseRemark},</if>
+            <if test="distributorRemark != null">distributor_remark = #{distributorRemark},</if>
+            <if test="rejectCount != null">reject_count = #{rejectCount},</if>
+            <if test="autoFlag != null">auto_flag = #{autoFlag},</if>
+            <if test="reason != null">reason = #{reason},</if>
+            update_time = NOW(),
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <select id="listPendingBySeller" resultType="com.order.main.entity.ErpDistributionAfterSales">
+        SELECT * FROM t_erp_distribution_after_sales
+        WHERE seller_id = #{sellerId} AND status = 0 AND del_flag = '0'
+        ORDER BY apply_time ASC, id ASC
+    </select>
+
+    <select id="listRefundedSellerIds" resultType="java.lang.Long">
+        SELECT DISTINCT seller_id FROM t_erp_distribution_after_sales
+        WHERE dist_order_id = #{distOrderId} AND status = 3 AND del_flag = '0'
+          AND seller_id IS NOT NULL
+    </select>
+
+    <select id="listTimeout" resultType="com.order.main.entity.ErpDistributionAfterSales">
+        SELECT * FROM t_erp_distribution_after_sales
+        WHERE status IN (0,1) AND del_flag = '0' AND update_time &lt; #{deadline}
+        ORDER BY id LIMIT 200
+    </select>
+</mapper>

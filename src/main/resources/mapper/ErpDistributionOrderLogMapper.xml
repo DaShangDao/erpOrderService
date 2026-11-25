@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.ErpDistributionOrderLogMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.ErpDistributionOrderLog">
+        <id property="id" column="id"/>
+        <result property="distOrderId" column="dist_order_id"/>
+        <result property="category" column="category"/>
+        <result property="action" column="action"/>
+        <result property="fromStatus" column="from_status"/>
+        <result property="toStatus" column="to_status"/>
+        <result property="sellerId" column="seller_id"/>
+        <result property="sellerName" column="seller_name"/>
+        <result property="accountId" column="account_id"/>
+        <result property="amount" column="amount"/>
+        <result property="settleStatus" column="settle_status"/>
+        <result property="afterSalesStatus" column="after_sales_status"/>
+        <result property="operatorType" column="operator_type"/>
+        <result property="operatorId" column="operator_id"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, dist_order_id, category, action, from_status, to_status,
+        seller_id, seller_name, account_id, amount, settle_status, after_sales_status,
+        operator_type, operator_id, remark, create_time
+    </sql>
+
+    <insert id="insert" parameterType="com.order.main.entity.ErpDistributionOrderLog"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_erp_distribution_order_log
+        (dist_order_id, category, action, from_status, to_status,
+         seller_id, seller_name, account_id, amount, settle_status, after_sales_status,
+         operator_type, operator_id, remark, create_time)
+        VALUES
+        (#{distOrderId}, #{category}, #{action}, #{fromStatus}, #{toStatus},
+         #{sellerId}, #{sellerName}, #{accountId}, #{amount}, #{settleStatus}, #{afterSalesStatus},
+         #{operatorType}, #{operatorId}, #{remark},
+         <choose><when test="createTime != null">#{createTime}</when><otherwise>NOW()</otherwise></choose>)
+    </insert>
+
+    <select id="selectByDistOrderId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_erp_distribution_order_log
+        WHERE dist_order_id = #{distOrderId}
+        ORDER BY id ASC
+    </select>
+
+    <delete id="deleteByDistOrderIds">
+        DELETE FROM t_erp_distribution_order_log
+        WHERE dist_order_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+    <delete id="deleteOrphanBefore">
+        DELETE l FROM t_erp_distribution_order_log l
+        LEFT JOIN t_erp_distribution_order o ON o.id = l.dist_order_id
+        WHERE l.create_time &lt; #{cutoff}
+          AND o.id IS NULL
+        LIMIT 5000
+    </delete>
+
+    <select id="selectLastDispatchTime" resultType="java.util.Date">
+        SELECT MAX(create_time)
+        FROM t_erp_distribution_order_log
+        WHERE dist_order_id = #{distOrderId}
+          AND action IN ('DISPATCH_AUTO', 'DISPATCH_MANUAL')
+        <if test="before != null">
+            AND create_time &lt;= #{before}
+        </if>
+    </select>
+
+</mapper>

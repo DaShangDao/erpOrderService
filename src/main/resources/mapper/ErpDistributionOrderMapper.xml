@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.order.main.mapper.ErpDistributionOrderMapper">
+
+    <resultMap id="BaseResultMap" type="com.order.main.entity.ErpDistributionOrder">
+        <id property="id" column="id"/>
+        <result property="orderNo" column="order_no"/>
+        <result property="sourceOrderId" column="source_order_id"/>
+        <result property="sourceOrderSn" column="source_order_sn"/>
+        <result property="queueId" column="queue_id"/>
+        <result property="ownerId" column="owner_id"/>
+        <result property="sellerId" column="seller_id"/>
+        <result property="buyerPhone" column="buyer_phone"/>
+        <result property="sellerPhone" column="seller_phone"/>
+        <result property="shopErpId" column="shop_erp_id"/>
+        <result property="shopErpName" column="shop_erp_name"/>
+        <result property="shopType" column="shop_type"/>
+        <result property="productId" column="product_id"/>
+        <result property="barcode" column="barcode"/>
+        <result property="productName" column="product_name"/>
+        <result property="appearance" column="appearance"/>
+        <result property="itemSeq" column="item_seq"/>
+        <result property="quantity" column="quantity"/>
+        <result property="unitPrice" column="unit_price"/>
+        <result property="freight" column="freight"/>
+        <result property="bookPrice" column="book_price"/>
+        <result property="platformFee" column="platform_fee"/>
+        <result property="warehouseFee" column="warehouse_fee"/>
+        <result property="totalAmount" column="total_amount"/>
+        <result property="splitConfigId" column="split_config_id"/>
+        <result property="splitConfigName" column="split_config_name"/>
+        <result property="splitRule" column="split_rule"/>
+        <result property="psiOrderId" column="psi_order_id"/>
+        <result property="psiOrderNo" column="psi_order_no"/>
+        <result property="failStep" column="fail_step"/>
+        <result property="retryCount" column="retry_count"/>
+        <result property="status" column="status"/>
+        <result property="msg" column="msg"/>
+        <result property="itemList" column="item_list"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="createDept" column="create_dept"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, order_no, source_order_id, source_order_sn, queue_id,
+        owner_id, seller_id, buyer_phone, seller_phone,
+        shop_erp_id, shop_erp_name, shop_type, product_id, barcode, product_name, appearance,
+        item_seq, quantity, unit_price, freight, book_price, platform_fee, warehouse_fee, total_amount,
+        split_config_id, split_config_name, split_rule,
+        psi_order_id, psi_order_no, fail_step, retry_count,
+        status, msg, item_list,
+        create_by, create_time, update_by, update_time, del_flag, tenant_id, create_dept
+    </sql>
+
+    <insert id="insert" parameterType="com.order.main.entity.ErpDistributionOrder">
+        INSERT INTO t_erp_distribution_order
+        (id, order_no, source_order_id, source_order_sn, queue_id,
+         owner_id, seller_id, buyer_phone, seller_phone,
+         shop_erp_id, shop_erp_name, shop_type, product_id, barcode, product_name, appearance,
+         item_seq, quantity, unit_price, freight, book_price, platform_fee, warehouse_fee, total_amount,
+         split_config_id, split_config_name, split_rule,
+         psi_order_id, psi_order_no, fail_step, retry_count,
+         status, msg, item_list,
+         create_by, create_time, update_by, update_time, del_flag, tenant_id, create_dept)
+        VALUES
+        (#{id}, #{orderNo}, #{sourceOrderId}, #{sourceOrderSn}, #{queueId},
+         #{ownerId}, #{sellerId}, #{buyerPhone}, #{sellerPhone},
+         #{shopErpId}, #{shopErpName}, #{shopType}, #{productId}, #{barcode}, #{productName}, #{appearance},
+         #{itemSeq}, #{quantity}, #{unitPrice}, #{freight}, #{bookPrice}, #{platformFee}, #{warehouseFee}, #{totalAmount},
+         #{splitConfigId}, #{splitConfigName},
+         <choose><when test="splitRule != null and splitRule != ''">#{splitRule}</when><otherwise>NULL</otherwise></choose>,
+         #{psiOrderId}, #{psiOrderNo}, #{failStep}, #{retryCount},
+         #{status}, #{msg},
+         <choose><when test="itemList != null and itemList != ''">#{itemList}</when><otherwise>NULL</otherwise></choose>,
+         #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{delFlag}, #{tenantId}, #{createDept})
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_erp_distribution_order
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="selectByOrderNo" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_erp_distribution_order
+        WHERE order_no = #{orderNo}
+        LIMIT 1
+    </select>
+
+    <select id="selectBySourceAndItem" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_erp_distribution_order
+        WHERE source_order_id = #{sourceOrderId}
+          AND product_id = #{productId}
+          AND item_seq = #{itemSeq}
+        LIMIT 1
+    </select>
+
+    <select id="selectBySourceOrderId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM t_erp_distribution_order
+        WHERE source_order_id = #{sourceOrderId}
+          AND del_flag = '0'
+        ORDER BY item_seq ASC
+    </select>
+
+    <update id="updateStatus">
+        UPDATE t_erp_distribution_order
+        <set>
+            update_time = NOW(),
+            <if test="status != null">status = #{status},</if>
+            <if test="msg != null">msg = #{msg},</if>
+            <if test="failStep != null">fail_step = #{failStep},</if>
+            <if test="psiOrderId != null">psi_order_id = #{psiOrderId},</if>
+            <if test="psiOrderNo != null">psi_order_no = #{psiOrderNo},</if>
+            <if test="retryCount != null">retry_count = #{retryCount},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatusBySourceOrder">
+        UPDATE t_erp_distribution_order
+        SET status = #{status},
+            msg = #{msg},
+            update_time = NOW()
+        WHERE source_order_id = #{sourceOrderId}
+          AND status IN
+          <foreach collection="fromStatusList" item="st" open="(" separator="," close=")">#{st}</foreach>
+          AND del_flag = '0'
+    </update>
+
+    <update id="updateDispatchInfo" parameterType="com.order.main.entity.ErpDistributionOrder">
+        UPDATE t_erp_distribution_order
+        <set>
+            update_time = NOW(),
+            <if test="sellerId != null">seller_id = #{sellerId},</if>
+            <if test="sellerPhone != null">seller_phone = #{sellerPhone},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="barcode != null">barcode = #{barcode},</if>
+            <if test="productName != null">product_name = #{productName},</if>
+            <if test="appearance != null">appearance = #{appearance},</if>
+            <if test="unitPrice != null">unit_price = #{unitPrice},</if>
+            <if test="freight != null">freight = #{freight},</if>
+            <if test="bookPrice != null">book_price = #{bookPrice},</if>
+            <if test="platformFee != null">platform_fee = #{platformFee},</if>
+            <if test="warehouseFee != null">warehouse_fee = #{warehouseFee},</if>
+            <if test="totalAmount != null">total_amount = #{totalAmount},</if>
+            <if test="splitConfigId != null">split_config_id = #{splitConfigId},</if>
+            <if test="splitConfigName != null">split_config_name = #{splitConfigName},</if>
+            <if test="splitRule != null">split_rule = #{splitRule},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectExpiredIds" resultType="java.lang.Long">
+        SELECT id
+        FROM t_erp_distribution_order
+        WHERE create_time &lt; #{cutoff}
+          AND status IN
+          <foreach collection="statusList" item="st" open="(" separator="," close=")">#{st}</foreach>
+        ORDER BY id
+        LIMIT #{limit}
+    </select>
+
+    <delete id="deleteByIds">
+        DELETE FROM t_erp_distribution_order
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+    <select id="countStuckBefore" resultType="java.lang.Long">
+        SELECT COUNT(1)
+        FROM t_erp_distribution_order
+        WHERE create_time &lt; #{cutoff}
+          AND status IN (0, 1)
+    </select>
+
+    <update id="incrementRetry">
+        UPDATE t_erp_distribution_order
+        SET retry_count = IFNULL(retry_count, 0) + 1,
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>
